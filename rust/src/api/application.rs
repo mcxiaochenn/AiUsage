@@ -3,8 +3,9 @@
 
 use crate::bridge;
 use crate::models::{
-    AccountInfo, DeviceCodeLoginComplete, DeviceCodeLoginPoll, DeviceCodeLoginStart, HistoryPoint,
-    SecureCredential, UsageResult,
+    AccountDetails, AccountInfo, DeviceCodeLoginComplete, DeviceCodeLoginPoll,
+    DeviceCodeLoginStart, HistoryPoint, ProfileUsage, SecureCredential, SyncLogEntry, SyncTrigger,
+    UsageResult,
 };
 
 pub fn initialize_core(database_path: String) -> Result<(), String> {
@@ -27,8 +28,36 @@ pub fn import_codex_auth_json(content: Vec<u8>) -> Result<DeviceCodeLoginComplet
     bridge::import_codex_auth_json(content)
 }
 
-pub async fn refresh_usage(credential: SecureCredential) -> UsageResult {
-    bridge::refresh_usage(credential).await
+pub async fn refresh_usage(credential: SecureCredential, trigger: SyncTrigger) -> UsageResult {
+    bridge::refresh_usage(credential, trigger).await
+}
+
+pub async fn fetch_profile_usage(
+    credential: SecureCredential,
+    trigger: SyncTrigger,
+) -> Result<ProfileUsage, String> {
+    bridge::fetch_profile_usage(credential, trigger).await
+}
+
+pub fn cached_profile_usage(account_identity_hash: String) -> Result<Option<ProfileUsage>, String> {
+    bridge::cached_profile_usage(account_identity_hash)
+}
+
+pub async fn fetch_account_details(
+    credential: SecureCredential,
+    trigger: SyncTrigger,
+) -> Result<AccountDetails, String> {
+    bridge::fetch_account_details(credential, trigger).await
+}
+
+pub fn cached_account_details(
+    account_identity_hash: String,
+) -> Result<Option<AccountDetails>, String> {
+    bridge::cached_account_details(account_identity_hash)
+}
+
+pub fn sync_logs() -> Result<Vec<SyncLogEntry>, String> {
+    bridge::sync_logs()
 }
 
 pub fn cached_usage(account: AccountInfo) -> Result<UsageResult, String> {

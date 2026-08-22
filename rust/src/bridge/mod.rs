@@ -6,14 +6,17 @@ use std::sync::{Mutex, OnceLock};
 use reqwest::Client;
 use uuid::Uuid;
 
-use crate::api::codex::{ApiFailure, CodexProvider};
+use crate::api::codex::{ApiFailure, CodexProvider, HttpObservation};
 use crate::auth::{self, AuthError, DeviceCodePoll, PendingDeviceCode};
 use crate::history::HistoryRepository;
 use crate::models::{
-    AccountInfo, DeviceCodeLoginComplete, DeviceCodeLoginPoll, DeviceCodeLoginStart, HistoryPoint,
-    SecureCredential, UsageResult, UsageState,
+    AccountDetails, AccountInfo, DeviceCodeLoginComplete, DeviceCodeLoginPoll,
+    DeviceCodeLoginStart, HistoryPoint, ProfileUsage, SecureCredential, SyncLogEntry, SyncTrigger,
+    UsageResult, UsageState,
 };
-use crate::normalize::{RawWhamUsage, parse_credit_details};
+use crate::normalize::{
+    RawWhamUsage, parse_account_details, parse_credit_details, parse_profile_usage,
+};
 
 static CORE: OnceLock<CoreService> = OnceLock::new();
 
@@ -122,7 +125,7 @@ pub fn import_codex_auth_json(content: Vec<u8>) -> Result<DeviceCodeLoginComplet
     })
 }
 
-pub async fn refresh_usage(credential: SecureCredential) -> UsageResult {
+pub async fn refresh_usage(credential: SecureCredential, trigger: SyncTrigger) -> UsageResult {
     let original_account = match auth::account_from_credential(&credential) {
         Ok(account) => account,
         Err(_) => {
@@ -163,69 +166,75 @@ pub async fn refresh_usage(credential: SecureCredential) -> UsageResult {
         account.last_successful_refresh = Some(auth::now_unix());
     }
 
-    let usage_json = match service
+    let mut observation = service
         .provider
         .usage_json(
             &effective_credential,
             account.workspace_id.as_deref(),
             account.is_fedramp,
         )
-        .await
-    {
-        Ok(body) => body,
-        Err(ApiFailure::Unauthorized) => {
-            match auth::refresh_credential(&service.oauth_client, &effective_credential).await {
-                Ok(refreshed) => {
-                    effective_credential = refreshed.clone();
-                    updated_credential = Some(refreshed);
-                    account =
-                        auth::account_from_credential(&effective_credential).unwrap_or(account);
-                    account.last_successful_refresh = Some(auth::now_unix());
-                    match service
-                        .provider
-                        .usage_json(
-                            &effective_credential,
-                            account.workspace_id.as_deref(),
-                            account.is_fedramp,
-                        )
-                        .await
-                    {
-                        Ok(body) => body,
-                        Err(failure) => {
-                            return cached_failure(
-                                service,
-                                account,
-                                api_failure_state(&failure),
-                                api_failure_message(&failure),
-                                updated_credential,
-                                retry_after(&failure),
-                            );
-                        }
-                    }
-                }
-                Err(error) => {
-                    return cached_failure(
-                        service,
-                        account,
-                        auth_error_state(&error),
-                        auth_error_message(error),
-                        None,
-                        None,
-                    );
-                }
+        .await;
+    record_observation(
+        service,
+        &account.identity_hash,
+        trigger,
+        &observation,
+        observation
+            .failure
+            .as_ref()
+            .map(api_failure_label)
+            .unwrap_or("fresh"),
+    );
+    if matches!(observation.failure, Some(ApiFailure::Unauthorized)) {
+        match auth::refresh_credential(&service.oauth_client, &effective_credential).await {
+            Ok(refreshed) => {
+                effective_credential = refreshed.clone();
+                updated_credential = Some(refreshed);
+                account = auth::account_from_credential(&effective_credential).unwrap_or(account);
+                account.last_successful_refresh = Some(auth::now_unix());
+                observation = service
+                    .provider
+                    .usage_json(
+                        &effective_credential,
+                        account.workspace_id.as_deref(),
+                        account.is_fedramp,
+                    )
+                    .await;
+                record_observation(
+                    service,
+                    &account.identity_hash,
+                    trigger,
+                    &observation,
+                    observation
+                        .failure
+                        .as_ref()
+                        .map(api_failure_label)
+                        .unwrap_or("fresh"),
+                );
+            }
+            Err(error) => {
+                return cached_failure(
+                    service,
+                    account,
+                    auth_error_state(&error),
+                    auth_error_message(error),
+                    None,
+                    None,
+                );
             }
         }
-        Err(failure) => {
-            return cached_failure(
-                service,
-                account,
-                api_failure_state(&failure),
-                api_failure_message(&failure),
-                updated_credential,
-                retry_after(&failure),
-            );
-        }
-    };
+    }
+    if let Some(failure) = observation.failure.as_ref() {
+        return cached_failure(
+            service,
+            account,
+            api_failure_state(failure),
+            api_failure_message(failure),
+            updated_credential,
+            retry_after(failure),
+        );
+    }
+    let usage_json = observation.body;
 
     let fetched_at = auth::now_unix();
     let raw = match RawWhamUsage::parse(&usage_json) {
@@ -246,15 +255,27 @@ pub async fn refresh_usage(credential: SecureCredential) -> UsageResult {
 
     // Details are optional. A failure here never discards `available_count`
     // already carried by the usage response.
-    if let Ok(details) = service
+    let credit_observation = service
         .provider
         .reset_credits_json(
             &effective_credential,
             account.workspace_id.as_deref(),
             account.is_fedramp,
         )
-        .await
-        .and_then(|body| parse_credit_details(&body).map_err(|_| ApiFailure::Other))
+        .await;
+    record_observation(
+        service,
+        &account.identity_hash,
+        trigger,
+        &credit_observation,
+        credit_observation
+            .failure
+            .as_ref()
+            .map(api_failure_label)
+            .unwrap_or("fresh"),
+    );
+    if credit_observation.failure.is_none()
+        && let Ok(details) = parse_credit_details(&credit_observation.body)
     {
         if details.0.is_some() {
             snapshot.reset_credits_available = details.0;
@@ -276,6 +297,99 @@ pub async fn refresh_usage(credential: SecureCredential) -> UsageResult {
         retry_after_seconds: None,
         updated_credential,
     }
+}
+
+pub async fn fetch_profile_usage(
+    credential: SecureCredential,
+    trigger: SyncTrigger,
+) -> Result<ProfileUsage, String> {
+    let service = core()?;
+    let account = auth::account_from_credential(&credential).map_err(auth_error_message)?;
+    let observation = service
+        .provider
+        .profile_json(
+            &credential,
+            account.workspace_id.as_deref(),
+            account.is_fedramp,
+        )
+        .await;
+    record_observation(
+        service,
+        &account.identity_hash,
+        trigger,
+        &observation,
+        observation
+            .failure
+            .as_ref()
+            .map(api_failure_label)
+            .unwrap_or("fresh"),
+    );
+    if let Some(failure) = observation.failure.as_ref() {
+        return Err(api_failure_message(failure));
+    }
+    let profile = parse_profile_usage(&observation.body, auth::now_unix())?;
+    service
+        .history
+        .lock()
+        .map_err(|_| "Profile cache is unavailable".to_string())?
+        .save_profile_usage(&account.identity_hash, &profile)?;
+    Ok(profile)
+}
+
+pub fn cached_profile_usage(account_identity_hash: String) -> Result<Option<ProfileUsage>, String> {
+    core()?
+        .history
+        .lock()
+        .map_err(|_| "Profile cache is unavailable".to_string())?
+        .profile_usage(&account_identity_hash)
+}
+
+pub async fn fetch_account_details(
+    credential: SecureCredential,
+    trigger: SyncTrigger,
+) -> Result<AccountDetails, String> {
+    let service = core()?;
+    let account = auth::account_from_credential(&credential).map_err(auth_error_message)?;
+    let observation = service.provider.account_details_json(&credential).await;
+    record_observation(
+        service,
+        &account.identity_hash,
+        trigger,
+        &observation,
+        observation
+            .failure
+            .as_ref()
+            .map(api_failure_label)
+            .unwrap_or("fresh"),
+    );
+    if let Some(failure) = observation.failure.as_ref() {
+        return Err(api_failure_message(failure));
+    }
+    let details = parse_account_details(&observation.body, auth::now_unix())?;
+    service
+        .history
+        .lock()
+        .map_err(|_| "Account details cache is unavailable".to_string())?
+        .save_account_details(&account.identity_hash, &details)?;
+    Ok(details)
+}
+
+pub fn cached_account_details(
+    account_identity_hash: String,
+) -> Result<Option<AccountDetails>, String> {
+    core()?
+        .history
+        .lock()
+        .map_err(|_| "Account details cache is unavailable".to_string())?
+        .account_details(&account_identity_hash)
+}
+
+pub fn sync_logs() -> Result<Vec<SyncLogEntry>, String> {
+    core()?
+        .history
+        .lock()
+        .map_err(|_| "Diagnostics are unavailable".to_string())?
+        .sync_logs()
 }
 
 pub fn cached_usage(account: AccountInfo) -> Result<UsageResult, String> {
@@ -313,6 +427,40 @@ pub fn remove_account_data(account_identity_hash: String) -> Result<(), String> 
 fn core() -> Result<&'static CoreService, String> {
     CORE.get()
         .ok_or_else(|| "Core has not been initialized".to_string())
+}
+
+fn record_observation(
+    service: &CoreService,
+    identity_hash: &str,
+    trigger: SyncTrigger,
+    observation: &HttpObservation,
+    result_state: &str,
+) {
+    let started_at = auth::now_unix() - (observation.duration_ms / 1000);
+    let error_kind = observation.failure.as_ref().map(api_failure_label);
+    if let Ok(history) = service.history.lock() {
+        let _ = history.record_sync_log(
+            identity_hash,
+            trigger,
+            &observation.endpoint,
+            started_at,
+            observation.duration_ms,
+            observation.status_code,
+            result_state,
+            error_kind,
+            &observation.body,
+        );
+    }
+}
+
+fn api_failure_label(failure: &ApiFailure) -> &'static str {
+    match failure {
+        ApiFailure::Unauthorized => "unauthorized",
+        ApiFailure::RateLimited(_) => "rate_limited",
+        ApiFailure::Server => "server_error",
+        ApiFailure::Offline => "offline",
+        ApiFailure::Other => "rejected",
+    }
 }
 
 fn cached_failure(
@@ -440,6 +588,7 @@ mod tests {
             }],
             reset_credits_available: None,
             reset_credits: None,
+            credits: None,
             fetched_at: 1_700_000_000,
         };
         let mut history = HistoryRepository::open(":memory:").unwrap();

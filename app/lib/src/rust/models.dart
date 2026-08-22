@@ -6,6 +6,30 @@
 import 'frb_generated.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
+class AccountDetails {
+  final PlatformInt64 createdAt;
+  final String? email;
+  final PlatformInt64 fetchedAt;
+
+  const AccountDetails({
+    required this.createdAt,
+    this.email,
+    required this.fetchedAt,
+  });
+
+  @override
+  int get hashCode => createdAt.hashCode ^ email.hashCode ^ fetchedAt.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is AccountDetails &&
+          runtimeType == other.runtimeType &&
+          createdAt == other.createdAt &&
+          email == other.email &&
+          fetchedAt == other.fetchedAt;
+}
+
 /// Non-secret account metadata. `identity_hash` is the only account identifier
 /// written to SQLite; it is a SHA-256 digest derived from JWT claims.
 class AccountInfo {
@@ -56,6 +80,49 @@ class AccountInfo {
 }
 
 enum CredentialStatus { available, missing, refreshRequired }
+
+class CreditsSnapshot {
+  final bool hasCredits;
+  final bool unlimited;
+  final String? balance;
+
+  const CreditsSnapshot({
+    required this.hasCredits,
+    required this.unlimited,
+    this.balance,
+  });
+
+  @override
+  int get hashCode =>
+      hasCredits.hashCode ^ unlimited.hashCode ^ balance.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is CreditsSnapshot &&
+          runtimeType == other.runtimeType &&
+          hasCredits == other.hasCredits &&
+          unlimited == other.unlimited &&
+          balance == other.balance;
+}
+
+class DailyTokenBucket {
+  final String startDate;
+  final PlatformInt64 tokens;
+
+  const DailyTokenBucket({required this.startDate, required this.tokens});
+
+  @override
+  int get hashCode => startDate.hashCode ^ tokens.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is DailyTokenBucket &&
+          runtimeType == other.runtimeType &&
+          startDate == other.startDate &&
+          tokens == other.tokens;
+}
 
 class DeviceCodeLoginComplete {
   final SecureCredential credential;
@@ -153,6 +220,31 @@ class HistoryPoint {
 }
 
 enum LoginState { signedIn, signedOut, expired }
+
+class ProfileUsage {
+  final TokenUsageSummary summary;
+  final List<DailyTokenBucket> dailyUsageBuckets;
+  final PlatformInt64 fetchedAt;
+
+  const ProfileUsage({
+    required this.summary,
+    required this.dailyUsageBuckets,
+    required this.fetchedAt,
+  });
+
+  @override
+  int get hashCode =>
+      summary.hashCode ^ dailyUsageBuckets.hashCode ^ fetchedAt.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is ProfileUsage &&
+          runtimeType == other.runtimeType &&
+          summary == other.summary &&
+          dailyUsageBuckets == other.dailyUsageBuckets &&
+          fetchedAt == other.fetchedAt;
+}
 
 class QuotaWindow {
   final String id;
@@ -253,6 +345,102 @@ class SecureCredential {
           refreshToken == other.refreshToken;
 }
 
+class SyncLogEntry {
+  final PlatformInt64 id;
+  final String accountIdentityHash;
+  final SyncTrigger trigger;
+  final String endpoint;
+  final PlatformInt64 startedAt;
+  final PlatformInt64 durationMs;
+  final PlatformInt64? statusCode;
+  final String resultState;
+  final String? errorKind;
+  final String responseBody;
+  final bool truncated;
+
+  const SyncLogEntry({
+    required this.id,
+    required this.accountIdentityHash,
+    required this.trigger,
+    required this.endpoint,
+    required this.startedAt,
+    required this.durationMs,
+    this.statusCode,
+    required this.resultState,
+    this.errorKind,
+    required this.responseBody,
+    required this.truncated,
+  });
+
+  @override
+  int get hashCode =>
+      id.hashCode ^
+      accountIdentityHash.hashCode ^
+      trigger.hashCode ^
+      endpoint.hashCode ^
+      startedAt.hashCode ^
+      durationMs.hashCode ^
+      statusCode.hashCode ^
+      resultState.hashCode ^
+      errorKind.hashCode ^
+      responseBody.hashCode ^
+      truncated.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is SyncLogEntry &&
+          runtimeType == other.runtimeType &&
+          id == other.id &&
+          accountIdentityHash == other.accountIdentityHash &&
+          trigger == other.trigger &&
+          endpoint == other.endpoint &&
+          startedAt == other.startedAt &&
+          durationMs == other.durationMs &&
+          statusCode == other.statusCode &&
+          resultState == other.resultState &&
+          errorKind == other.errorKind &&
+          responseBody == other.responseBody &&
+          truncated == other.truncated;
+}
+
+enum SyncTrigger { manual, resume, foregroundTimer, background, pageLoad }
+
+class TokenUsageSummary {
+  final PlatformInt64? lifetimeTokens;
+  final PlatformInt64? peakDailyTokens;
+  final PlatformInt64? longestRunningTurnSec;
+  final PlatformInt64? currentStreakDays;
+  final PlatformInt64? longestStreakDays;
+
+  const TokenUsageSummary({
+    this.lifetimeTokens,
+    this.peakDailyTokens,
+    this.longestRunningTurnSec,
+    this.currentStreakDays,
+    this.longestStreakDays,
+  });
+
+  @override
+  int get hashCode =>
+      lifetimeTokens.hashCode ^
+      peakDailyTokens.hashCode ^
+      longestRunningTurnSec.hashCode ^
+      currentStreakDays.hashCode ^
+      longestStreakDays.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is TokenUsageSummary &&
+          runtimeType == other.runtimeType &&
+          lifetimeTokens == other.lifetimeTokens &&
+          peakDailyTokens == other.peakDailyTokens &&
+          longestRunningTurnSec == other.longestRunningTurnSec &&
+          currentStreakDays == other.currentStreakDays &&
+          longestStreakDays == other.longestStreakDays;
+}
+
 class UsageResult {
   final UsageSnapshot? snapshot;
   final UsageState state;
@@ -301,6 +489,7 @@ class UsageSnapshot {
   final List<QuotaWindow> windows;
   final PlatformInt64? resetCreditsAvailable;
   final List<ResetCredit>? resetCredits;
+  final CreditsSnapshot? credits;
   final PlatformInt64 fetchedAt;
 
   const UsageSnapshot({
@@ -308,6 +497,7 @@ class UsageSnapshot {
     required this.windows,
     this.resetCreditsAvailable,
     this.resetCredits,
+    this.credits,
     required this.fetchedAt,
   });
 
@@ -317,6 +507,7 @@ class UsageSnapshot {
       windows.hashCode ^
       resetCreditsAvailable.hashCode ^
       resetCredits.hashCode ^
+      credits.hashCode ^
       fetchedAt.hashCode;
 
   @override
@@ -328,6 +519,7 @@ class UsageSnapshot {
           windows == other.windows &&
           resetCreditsAvailable == other.resetCreditsAvailable &&
           resetCredits == other.resetCredits &&
+          credits == other.credits &&
           fetchedAt == other.fetchedAt;
 }
 

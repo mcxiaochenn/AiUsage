@@ -3,7 +3,7 @@
 //! Only this module knows endpoint spelling and request headers. A future
 //! upstream API change is isolated here; nothing in Flutter sees raw JSON.
 
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use reqwest::{Client, StatusCode};
 
@@ -29,6 +29,15 @@ pub(crate) enum ApiFailure {
     Server,
     Offline,
     Other,
+}
+
+#[derive(Clone, Debug)]
+pub(crate) struct HttpObservation {
+    pub endpoint: String,
+    pub status_code: Option<i64>,
+    pub body: String,
+    pub duration_ms: i64,
+    pub failure: Option<ApiFailure>,
 }
 
 impl CodexProvider {
@@ -82,9 +91,15 @@ impl CodexProvider {
         credential: &SecureCredential,
         workspace_id: Option<&str>,
         is_fedramp: bool,
-    ) -> Result<String, ApiFailure> {
-        self.get_json(&self.usage_url(), credential, workspace_id, is_fedramp)
-            .await
+    ) -> HttpObservation {
+        self.get_json(
+            "usage",
+            &self.usage_url(),
+            credential,
+            workspace_id,
+            is_fedramp,
+        )
+        .await
     }
 
     pub(crate) async fn reset_credits_json(
@@ -92,8 +107,9 @@ impl CodexProvider {
         credential: &SecureCredential,
         workspace_id: Option<&str>,
         is_fedramp: bool,
-    ) -> Result<String, ApiFailure> {
+    ) -> HttpObservation {
         self.get_json(
+            "reset-credits",
             &self.reset_credits_url(),
             credential,
             workspace_id,
@@ -102,13 +118,45 @@ impl CodexProvider {
         .await
     }
 
+    pub(crate) async fn profile_json(
+        &self,
+        credential: &SecureCredential,
+        workspace_id: Option<&str>,
+        is_fedramp: bool,
+    ) -> HttpObservation {
+        self.get_json(
+            "profile-usage",
+            &format!("{}/wham/profiles/me", self.base_url),
+            credential,
+            workspace_id,
+            is_fedramp,
+        )
+        .await
+    }
+
+    pub(crate) async fn account_details_json(
+        &self,
+        credential: &SecureCredential,
+    ) -> HttpObservation {
+        self.get_json(
+            "account-details",
+            "https://api.openai.com/v1/me",
+            credential,
+            None,
+            false,
+        )
+        .await
+    }
+
     async fn get_json(
         &self,
+        endpoint: &str,
         url: &str,
         credential: &SecureCredential,
         workspace_id: Option<&str>,
         is_fedramp: bool,
-    ) -> Result<String, ApiFailure> {
+    ) -> HttpObservation {
+        let started = Instant::now();
         for attempt in 0..=2 {
             let mut request = self
                 .client
@@ -122,27 +170,58 @@ impl CodexProvider {
             if is_fedramp {
                 request = request.header("X-OpenAI-Fedramp", "true");
             }
-            let response = request.send().await.map_err(map_transport)?;
-            let status = response.status();
-            if status.is_success() {
-                return response.text().await.map_err(map_transport);
-            }
-            if status == StatusCode::UNAUTHORIZED {
-                return Err(ApiFailure::Unauthorized);
-            }
-            if status == StatusCode::TOO_MANY_REQUESTS {
-                return Err(ApiFailure::RateLimited(retry_after_seconds(&response)));
-            }
-            if status.is_server_error() {
-                if attempt < 2 {
-                    tokio::time::sleep(backoff_delay(attempt)).await;
-                    continue;
+            let response = match request.send().await {
+                Ok(response) => response,
+                Err(error) => {
+                    return HttpObservation {
+                        endpoint: endpoint.to_string(),
+                        status_code: None,
+                        body: String::new(),
+                        duration_ms: started.elapsed().as_millis() as i64,
+                        failure: Some(map_transport(error)),
+                    };
                 }
-                return Err(ApiFailure::Server);
+            };
+            let status = response.status();
+            let retry_after = retry_after_seconds(&response);
+            let body = response.text().await.unwrap_or_default();
+            if status.is_success() {
+                return HttpObservation {
+                    endpoint: endpoint.to_string(),
+                    status_code: Some(i64::from(status.as_u16())),
+                    body,
+                    duration_ms: started.elapsed().as_millis() as i64,
+                    failure: None,
+                };
             }
-            return Err(ApiFailure::Other);
+            let failure = if status == StatusCode::UNAUTHORIZED {
+                ApiFailure::Unauthorized
+            } else if status == StatusCode::TOO_MANY_REQUESTS {
+                ApiFailure::RateLimited(retry_after)
+            } else if status.is_server_error() {
+                ApiFailure::Server
+            } else {
+                ApiFailure::Other
+            };
+            if status.is_server_error() && attempt < 2 {
+                tokio::time::sleep(backoff_delay(attempt)).await;
+                continue;
+            }
+            return HttpObservation {
+                endpoint: endpoint.to_string(),
+                status_code: Some(i64::from(status.as_u16())),
+                body,
+                duration_ms: started.elapsed().as_millis() as i64,
+                failure: Some(failure),
+            };
         }
-        Err(ApiFailure::Server)
+        HttpObservation {
+            endpoint: endpoint.to_string(),
+            status_code: None,
+            body: String::new(),
+            duration_ms: started.elapsed().as_millis() as i64,
+            failure: Some(ApiFailure::Server),
+        }
     }
 }
 

@@ -24,13 +24,22 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   String dco_decode_String(dynamic raw);
 
   @protected
+  AccountDetails dco_decode_account_details(dynamic raw);
+
+  @protected
   AccountInfo dco_decode_account_info(dynamic raw);
 
   @protected
   bool dco_decode_bool(dynamic raw);
 
   @protected
+  AccountDetails dco_decode_box_autoadd_account_details(dynamic raw);
+
+  @protected
   AccountInfo dco_decode_box_autoadd_account_info(dynamic raw);
+
+  @protected
+  CreditsSnapshot dco_decode_box_autoadd_credits_snapshot(dynamic raw);
 
   @protected
   DeviceCodeLoginComplete dco_decode_box_autoadd_device_code_login_complete(
@@ -41,6 +50,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   PlatformInt64 dco_decode_box_autoadd_i_64(dynamic raw);
 
   @protected
+  ProfileUsage dco_decode_box_autoadd_profile_usage(dynamic raw);
+
+  @protected
   SecureCredential dco_decode_box_autoadd_secure_credential(dynamic raw);
 
   @protected
@@ -48,6 +60,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   CredentialStatus dco_decode_credential_status(dynamic raw);
+
+  @protected
+  CreditsSnapshot dco_decode_credits_snapshot(dynamic raw);
+
+  @protected
+  DailyTokenBucket dco_decode_daily_token_bucket(dynamic raw);
 
   @protected
   DeviceCodeLoginComplete dco_decode_device_code_login_complete(dynamic raw);
@@ -71,7 +89,13 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   PlatformInt64 dco_decode_i_64(dynamic raw);
 
   @protected
+  List<DailyTokenBucket> dco_decode_list_daily_token_bucket(dynamic raw);
+
+  @protected
   List<HistoryPoint> dco_decode_list_history_point(dynamic raw);
+
+  @protected
+  List<int> dco_decode_list_prim_u_8_loose(dynamic raw);
 
   @protected
   Uint8List dco_decode_list_prim_u_8_strict(dynamic raw);
@@ -83,10 +107,19 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<ResetCredit> dco_decode_list_reset_credit(dynamic raw);
 
   @protected
+  List<SyncLogEntry> dco_decode_list_sync_log_entry(dynamic raw);
+
+  @protected
   LoginState dco_decode_login_state(dynamic raw);
 
   @protected
   String? dco_decode_opt_String(dynamic raw);
+
+  @protected
+  AccountDetails? dco_decode_opt_box_autoadd_account_details(dynamic raw);
+
+  @protected
+  CreditsSnapshot? dco_decode_opt_box_autoadd_credits_snapshot(dynamic raw);
 
   @protected
   DeviceCodeLoginComplete?
@@ -94,6 +127,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   PlatformInt64? dco_decode_opt_box_autoadd_i_64(dynamic raw);
+
+  @protected
+  ProfileUsage? dco_decode_opt_box_autoadd_profile_usage(dynamic raw);
 
   @protected
   SecureCredential? dco_decode_opt_box_autoadd_secure_credential(dynamic raw);
@@ -105,6 +141,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<ResetCredit>? dco_decode_opt_list_reset_credit(dynamic raw);
 
   @protected
+  ProfileUsage dco_decode_profile_usage(dynamic raw);
+
+  @protected
   QuotaWindow dco_decode_quota_window(dynamic raw);
 
   @protected
@@ -112,6 +151,15 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   SecureCredential dco_decode_secure_credential(dynamic raw);
+
+  @protected
+  SyncLogEntry dco_decode_sync_log_entry(dynamic raw);
+
+  @protected
+  SyncTrigger dco_decode_sync_trigger(dynamic raw);
+
+  @protected
+  TokenUsageSummary dco_decode_token_usage_summary(dynamic raw);
 
   @protected
   int dco_decode_u_8(dynamic raw);
@@ -132,13 +180,26 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   String sse_decode_String(SseDeserializer deserializer);
 
   @protected
+  AccountDetails sse_decode_account_details(SseDeserializer deserializer);
+
+  @protected
   AccountInfo sse_decode_account_info(SseDeserializer deserializer);
 
   @protected
   bool sse_decode_bool(SseDeserializer deserializer);
 
   @protected
+  AccountDetails sse_decode_box_autoadd_account_details(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   AccountInfo sse_decode_box_autoadd_account_info(SseDeserializer deserializer);
+
+  @protected
+  CreditsSnapshot sse_decode_box_autoadd_credits_snapshot(
+    SseDeserializer deserializer,
+  );
 
   @protected
   DeviceCodeLoginComplete sse_decode_box_autoadd_device_code_login_complete(
@@ -147,6 +208,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   PlatformInt64 sse_decode_box_autoadd_i_64(SseDeserializer deserializer);
+
+  @protected
+  ProfileUsage sse_decode_box_autoadd_profile_usage(
+    SseDeserializer deserializer,
+  );
 
   @protected
   SecureCredential sse_decode_box_autoadd_secure_credential(
@@ -160,6 +226,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   CredentialStatus sse_decode_credential_status(SseDeserializer deserializer);
+
+  @protected
+  CreditsSnapshot sse_decode_credits_snapshot(SseDeserializer deserializer);
+
+  @protected
+  DailyTokenBucket sse_decode_daily_token_bucket(SseDeserializer deserializer);
 
   @protected
   DeviceCodeLoginComplete sse_decode_device_code_login_complete(
@@ -189,9 +261,17 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   PlatformInt64 sse_decode_i_64(SseDeserializer deserializer);
 
   @protected
+  List<DailyTokenBucket> sse_decode_list_daily_token_bucket(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   List<HistoryPoint> sse_decode_list_history_point(
     SseDeserializer deserializer,
   );
+
+  @protected
+  List<int> sse_decode_list_prim_u_8_loose(SseDeserializer deserializer);
 
   @protected
   Uint8List sse_decode_list_prim_u_8_strict(SseDeserializer deserializer);
@@ -203,10 +283,25 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<ResetCredit> sse_decode_list_reset_credit(SseDeserializer deserializer);
 
   @protected
+  List<SyncLogEntry> sse_decode_list_sync_log_entry(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   LoginState sse_decode_login_state(SseDeserializer deserializer);
 
   @protected
   String? sse_decode_opt_String(SseDeserializer deserializer);
+
+  @protected
+  AccountDetails? sse_decode_opt_box_autoadd_account_details(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  CreditsSnapshot? sse_decode_opt_box_autoadd_credits_snapshot(
+    SseDeserializer deserializer,
+  );
 
   @protected
   DeviceCodeLoginComplete?
@@ -216,6 +311,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   PlatformInt64? sse_decode_opt_box_autoadd_i_64(SseDeserializer deserializer);
+
+  @protected
+  ProfileUsage? sse_decode_opt_box_autoadd_profile_usage(
+    SseDeserializer deserializer,
+  );
 
   @protected
   SecureCredential? sse_decode_opt_box_autoadd_secure_credential(
@@ -233,6 +333,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  ProfileUsage sse_decode_profile_usage(SseDeserializer deserializer);
+
+  @protected
   QuotaWindow sse_decode_quota_window(SseDeserializer deserializer);
 
   @protected
@@ -240,6 +343,17 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   SecureCredential sse_decode_secure_credential(SseDeserializer deserializer);
+
+  @protected
+  SyncLogEntry sse_decode_sync_log_entry(SseDeserializer deserializer);
+
+  @protected
+  SyncTrigger sse_decode_sync_trigger(SseDeserializer deserializer);
+
+  @protected
+  TokenUsageSummary sse_decode_token_usage_summary(
+    SseDeserializer deserializer,
+  );
 
   @protected
   int sse_decode_u_8(SseDeserializer deserializer);
@@ -260,14 +374,32 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_String(String self, SseSerializer serializer);
 
   @protected
+  void sse_encode_account_details(
+    AccountDetails self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_account_info(AccountInfo self, SseSerializer serializer);
 
   @protected
   void sse_encode_bool(bool self, SseSerializer serializer);
 
   @protected
+  void sse_encode_box_autoadd_account_details(
+    AccountDetails self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_box_autoadd_account_info(
     AccountInfo self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_credits_snapshot(
+    CreditsSnapshot self,
     SseSerializer serializer,
   );
 
@@ -280,6 +412,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_box_autoadd_i_64(
     PlatformInt64 self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_profile_usage(
+    ProfileUsage self,
     SseSerializer serializer,
   );
 
@@ -298,6 +436,18 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_credential_status(
     CredentialStatus self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_credits_snapshot(
+    CreditsSnapshot self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_daily_token_bucket(
+    DailyTokenBucket self,
     SseSerializer serializer,
   );
 
@@ -332,10 +482,19 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_i_64(PlatformInt64 self, SseSerializer serializer);
 
   @protected
+  void sse_encode_list_daily_token_bucket(
+    List<DailyTokenBucket> self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_list_history_point(
     List<HistoryPoint> self,
     SseSerializer serializer,
   );
+
+  @protected
+  void sse_encode_list_prim_u_8_loose(List<int> self, SseSerializer serializer);
 
   @protected
   void sse_encode_list_prim_u_8_strict(
@@ -356,10 +515,28 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_list_sync_log_entry(
+    List<SyncLogEntry> self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_login_state(LoginState self, SseSerializer serializer);
 
   @protected
   void sse_encode_opt_String(String? self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_opt_box_autoadd_account_details(
+    AccountDetails? self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_opt_box_autoadd_credits_snapshot(
+    CreditsSnapshot? self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_opt_box_autoadd_device_code_login_complete(
@@ -370,6 +547,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_opt_box_autoadd_i_64(
     PlatformInt64? self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_opt_box_autoadd_profile_usage(
+    ProfileUsage? self,
     SseSerializer serializer,
   );
 
@@ -392,6 +575,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_profile_usage(ProfileUsage self, SseSerializer serializer);
+
+  @protected
   void sse_encode_quota_window(QuotaWindow self, SseSerializer serializer);
 
   @protected
@@ -400,6 +586,18 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_secure_credential(
     SecureCredential self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_sync_log_entry(SyncLogEntry self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_sync_trigger(SyncTrigger self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_token_usage_summary(
+    TokenUsageSummary self,
     SseSerializer serializer,
   );
 

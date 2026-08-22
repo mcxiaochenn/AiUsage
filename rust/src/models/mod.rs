@@ -47,6 +47,13 @@ pub struct QuotaWindow {
     pub window_seconds: i64,
 }
 
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct CreditsSnapshot {
+    pub has_credits: bool,
+    pub unlimited: bool,
+    pub balance: Option<String>,
+}
+
 impl QuotaWindow {
     pub fn remaining_percent(&self) -> f64 {
         100.0 - self.used_percent
@@ -69,7 +76,61 @@ pub struct UsageSnapshot {
     pub windows: Vec<QuotaWindow>,
     pub reset_credits_available: Option<i64>,
     pub reset_credits: Option<Vec<ResetCredit>>,
+    pub credits: Option<CreditsSnapshot>,
     pub fetched_at: i64,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct AccountDetails {
+    pub created_at: i64,
+    pub email: Option<String>,
+    pub fetched_at: i64,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct TokenUsageSummary {
+    pub lifetime_tokens: Option<i64>,
+    pub peak_daily_tokens: Option<i64>,
+    pub longest_running_turn_sec: Option<i64>,
+    pub current_streak_days: Option<i64>,
+    pub longest_streak_days: Option<i64>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct DailyTokenBucket {
+    pub start_date: String,
+    pub tokens: i64,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ProfileUsage {
+    pub summary: TokenUsageSummary,
+    pub daily_usage_buckets: Vec<DailyTokenBucket>,
+    pub fetched_at: i64,
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub enum SyncTrigger {
+    Manual,
+    Resume,
+    ForegroundTimer,
+    Background,
+    PageLoad,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct SyncLogEntry {
+    pub id: i64,
+    pub account_identity_hash: String,
+    pub trigger: SyncTrigger,
+    pub endpoint: String,
+    pub started_at: i64,
+    pub duration_ms: i64,
+    pub status_code: Option<i64>,
+    pub result_state: String,
+    pub error_kind: Option<String>,
+    pub response_body: String,
+    pub truncated: bool,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]

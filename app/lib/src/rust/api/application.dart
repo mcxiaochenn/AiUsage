@@ -3,8 +3,6 @@
 
 // ignore_for_file: invalid_use_of_internal_member, unused_import, unnecessary_import
 
-import 'dart:typed_data';
-
 import '../frb_generated.dart';
 import '../models.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
@@ -24,15 +22,49 @@ Future<void> cancelDeviceLogin({required String loginId}) =>
     RustLib.instance.api.crateApiApplicationCancelDeviceLogin(loginId: loginId);
 
 Future<DeviceCodeLoginComplete> importCodexAuthJson({
-  required Uint8List content,
+  required List<int> content,
 }) => RustLib.instance.api.crateApiApplicationImportCodexAuthJson(
   content: content,
 );
 
-Future<UsageResult> refreshUsage({required SecureCredential credential}) =>
-    RustLib.instance.api.crateApiApplicationRefreshUsage(
-      credential: credential,
-    );
+Future<UsageResult> refreshUsage({
+  required SecureCredential credential,
+  required SyncTrigger trigger,
+}) => RustLib.instance.api.crateApiApplicationRefreshUsage(
+  credential: credential,
+  trigger: trigger,
+);
+
+Future<ProfileUsage> fetchProfileUsage({
+  required SecureCredential credential,
+  required SyncTrigger trigger,
+}) => RustLib.instance.api.crateApiApplicationFetchProfileUsage(
+  credential: credential,
+  trigger: trigger,
+);
+
+Future<ProfileUsage?> cachedProfileUsage({
+  required String accountIdentityHash,
+}) => RustLib.instance.api.crateApiApplicationCachedProfileUsage(
+  accountIdentityHash: accountIdentityHash,
+);
+
+Future<AccountDetails> fetchAccountDetails({
+  required SecureCredential credential,
+  required SyncTrigger trigger,
+}) => RustLib.instance.api.crateApiApplicationFetchAccountDetails(
+  credential: credential,
+  trigger: trigger,
+);
+
+Future<AccountDetails?> cachedAccountDetails({
+  required String accountIdentityHash,
+}) => RustLib.instance.api.crateApiApplicationCachedAccountDetails(
+  accountIdentityHash: accountIdentityHash,
+);
+
+Future<List<SyncLogEntry>> syncLogs() =>
+    RustLib.instance.api.crateApiApplicationSyncLogs();
 
 Future<UsageResult> cachedUsage({required AccountInfo account}) =>
     RustLib.instance.api.crateApiApplicationCachedUsage(account: account);

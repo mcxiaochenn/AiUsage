@@ -3,7 +3,10 @@
 use chrono::DateTime;
 use serde_json::Value;
 
-use crate::models::{AccountInfo, QuotaWindow, ResetCredit, UsageSnapshot};
+use crate::models::{
+    AccountDetails, AccountInfo, CreditsSnapshot, DailyTokenBucket, ProfileUsage, QuotaWindow,
+    ResetCredit, TokenUsageSummary, UsageSnapshot,
+};
 
 #[derive(Clone, Debug)]
 pub struct RawWhamUsage {
@@ -68,9 +71,78 @@ impl RawWhamUsage {
                 .and_then(|value| value.get("available_count"))
                 .and_then(value_as_i64),
             reset_credits: None,
+            credits: self.value.get("credits").map(|credits| CreditsSnapshot {
+                has_credits: credits
+                    .get("has_credits")
+                    .and_then(Value::as_bool)
+                    .unwrap_or(false),
+                unlimited: credits
+                    .get("unlimited")
+                    .and_then(Value::as_bool)
+                    .unwrap_or(false),
+                balance: credits.get("balance").and_then(|value| match value {
+                    Value::String(value) => Some(value.clone()),
+                    Value::Number(value) => Some(value.to_string()),
+                    _ => None,
+                }),
+            }),
             fetched_at,
         }
     }
+}
+
+pub fn parse_profile_usage(body: &str, fetched_at: i64) -> Result<ProfileUsage, String> {
+    let value: Value = serde_json::from_str(body).map_err(|error| error.to_string())?;
+    let stats = value.get("stats").unwrap_or(&value);
+    let number = |name: &str| {
+        stats
+            .get(name)
+            .or_else(|| value.get(name))
+            .and_then(value_as_i64)
+    };
+    let daily_usage_buckets = value
+        .get("daily_usage_buckets")
+        .and_then(Value::as_array)
+        .map(|items| {
+            items
+                .iter()
+                .filter_map(|item| {
+                    Some(DailyTokenBucket {
+                        start_date: item.get("start_date")?.as_str()?.to_string(),
+                        tokens: item.get("tokens").and_then(value_as_i64)?.max(0),
+                    })
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+    Ok(ProfileUsage {
+        summary: TokenUsageSummary {
+            lifetime_tokens: number("lifetime_tokens"),
+            peak_daily_tokens: number("peak_daily_tokens"),
+            longest_running_turn_sec: number("longest_running_turn_sec"),
+            current_streak_days: number("current_streak_days"),
+            longest_streak_days: number("longest_streak_days"),
+        },
+        daily_usage_buckets,
+        fetched_at,
+    })
+}
+
+pub fn parse_account_details(body: &str, fetched_at: i64) -> Result<AccountDetails, String> {
+    let value: Value = serde_json::from_str(body).map_err(|error| error.to_string())?;
+    let created_at = value
+        .get("created")
+        .and_then(value_as_i64)
+        .filter(|value| *value > 0)
+        .ok_or_else(|| "Account creation time is unavailable".to_string())?;
+    Ok(AccountDetails {
+        created_at,
+        email: value
+            .get("email")
+            .and_then(Value::as_str)
+            .map(ToOwned::to_owned),
+        fetched_at,
+    })
 }
 
 pub fn parse_credit_details(
@@ -252,6 +324,42 @@ mod tests {
         assert_eq!(snapshot.windows[1].title, "1-week limit");
         assert_eq!(snapshot.windows[2].title, "Codex Spark");
         assert_eq!(snapshot.reset_credits_available, Some(2));
+    }
+
+    #[test]
+    fn parses_finite_and_unlimited_credit_balances() {
+        let finite = RawWhamUsage::parse(
+            r#"{"credits":{"has_credits":true,"unlimited":false,"balance":"9.99"}}"#,
+        )
+        .unwrap()
+        .normalize(account(), 1);
+        assert_eq!(finite.credits.unwrap().balance.as_deref(), Some("9.99"));
+
+        let unlimited = RawWhamUsage::parse(
+            r#"{"credits":{"has_credits":true,"unlimited":true,"balance":null}}"#,
+        )
+        .unwrap()
+        .normalize(account(), 1);
+        assert!(unlimited.credits.unwrap().unlimited);
+    }
+
+    #[test]
+    fn parses_profile_summary_daily_buckets_and_account_creation() {
+        let profile = parse_profile_usage(
+            r#"{"stats":{"lifetime_tokens":123,"peak_daily_tokens":50,"current_streak_days":2},"daily_usage_buckets":[{"start_date":"2026-08-22","tokens":12}]}"#,
+            100,
+        )
+        .unwrap();
+        assert_eq!(profile.summary.lifetime_tokens, Some(123));
+        assert_eq!(profile.daily_usage_buckets[0].tokens, 12);
+
+        let details = parse_account_details(
+            r#"{"created":1700000000,"email":"user@example.com","orgs":{"data":[{"created":1}]}}"#,
+            101,
+        )
+        .unwrap();
+        assert_eq!(details.created_at, 1_700_000_000);
+        assert!(parse_account_details(r#"{"email":"user@example.com"}"#, 1).is_err());
     }
 
     #[test]
