@@ -1,6 +1,6 @@
 //! Tolerant translation from undocumented OpenAI JSON to stable domain models.
 
-use chrono::DateTime;
+use chrono::{DateTime, NaiveDate};
 use serde_json::Value;
 
 use crate::models::{
@@ -92,29 +92,47 @@ impl RawWhamUsage {
 }
 
 pub fn parse_profile_usage(body: &str, fetched_at: i64) -> Result<ProfileUsage, String> {
-    let value: Value = serde_json::from_str(body).map_err(|error| error.to_string())?;
+    let value: Value = serde_json::from_str(body)
+        .map_err(|error| format!("schema_mismatch: Invalid Profile JSON: {error}"))?;
     let stats = value.get("stats").unwrap_or(&value);
+    if value
+        .get("metadata")
+        .and_then(|metadata| metadata.get("stats_error"))
+        .is_some_and(non_empty_json_value)
+    {
+        return Err("backend_stats_error: Profile statistics are unavailable".to_string());
+    }
     let number = |name: &str| {
         stats
             .get(name)
             .or_else(|| value.get(name))
             .and_then(value_as_i64)
     };
-    let daily_usage_buckets = value
+    let raw_buckets = stats
         .get("daily_usage_buckets")
-        .and_then(Value::as_array)
-        .map(|items| {
-            items
-                .iter()
-                .filter_map(|item| {
-                    Some(DailyTokenBucket {
-                        start_date: item.get("start_date")?.as_str()?.to_string(),
-                        tokens: item.get("tokens").and_then(value_as_i64)?.max(0),
-                    })
-                })
-                .collect()
+        .or_else(|| value.get("daily_usage_buckets"))
+        .ok_or_else(|| "schema_mismatch: Profile daily_usage_buckets is missing".to_string())?;
+    let items = raw_buckets.as_array().ok_or_else(|| {
+        "schema_mismatch: Profile daily_usage_buckets is not an array".to_string()
+    })?;
+    let daily_usage_buckets = items
+        .iter()
+        .filter_map(|item| {
+            let start_date = item.get("start_date")?.as_str()?;
+            if NaiveDate::parse_from_str(start_date, "%Y-%m-%d").is_err() {
+                return None;
+            }
+            Some(DailyTokenBucket {
+                start_date: start_date.to_string(),
+                tokens: item.get("tokens").and_then(value_as_i64)?.max(0),
+            })
         })
-        .unwrap_or_default();
+        .collect::<Vec<_>>();
+    if !items.is_empty() && daily_usage_buckets.is_empty() {
+        return Err(
+            "schema_mismatch: Profile daily_usage_buckets contains no valid entries".to_string(),
+        );
+    }
     Ok(ProfileUsage {
         summary: TokenUsageSummary {
             lifetime_tokens: number("lifetime_tokens"),
@@ -126,6 +144,17 @@ pub fn parse_profile_usage(body: &str, fetched_at: i64) -> Result<ProfileUsage, 
         daily_usage_buckets,
         fetched_at,
     })
+}
+
+fn non_empty_json_value(value: &Value) -> bool {
+    match value {
+        Value::Null => false,
+        Value::Bool(value) => *value,
+        Value::Number(value) => value.as_f64().is_some_and(|value| value != 0.0),
+        Value::String(value) => !value.trim().is_empty(),
+        Value::Array(value) => !value.is_empty(),
+        Value::Object(value) => !value.is_empty(),
+    }
 }
 
 pub fn parse_account_details(body: &str, fetched_at: i64) -> Result<AccountDetails, String> {
@@ -360,6 +389,84 @@ mod tests {
         .unwrap();
         assert_eq!(details.created_at, 1_700_000_000);
         assert!(parse_account_details(r#"{"email":"user@example.com"}"#, 1).is_err());
+    }
+
+    #[test]
+    fn parses_nested_profile_daily_buckets_before_legacy_top_level_buckets() {
+        let profile = parse_profile_usage(
+            r#"{
+                "stats": {
+                    "lifetime_tokens": 123,
+                    "daily_usage_buckets": [
+                        {"start_date":"2026-08-20","tokens":12},
+                        {"start_date":"2026-08-19","tokens":-4}
+                    ]
+                },
+                "daily_usage_buckets": [
+                    {"start_date":"legacy","tokens":999}
+                ]
+            }"#,
+            100,
+        )
+        .unwrap();
+
+        assert_eq!(profile.daily_usage_buckets.len(), 2);
+        assert_eq!(profile.daily_usage_buckets[0].start_date, "2026-08-20");
+        assert_eq!(profile.daily_usage_buckets[0].tokens, 12);
+        assert_eq!(profile.daily_usage_buckets[1].start_date, "2026-08-19");
+        assert_eq!(profile.daily_usage_buckets[1].tokens, 0);
+    }
+
+    #[test]
+    fn accepts_empty_profile_buckets_and_keeps_valid_partial_entries() {
+        let empty = parse_profile_usage(r#"{"stats":{"daily_usage_buckets":[]}}"#, 1).unwrap();
+        assert!(empty.daily_usage_buckets.is_empty());
+
+        let partial = parse_profile_usage(
+            r#"{"stats":{"daily_usage_buckets":[
+                {"start_date":"not-a-date","tokens":5},
+                {"start_date":"2026-02-30","tokens":6},
+                {"start_date":"2026-08-20","tokens":7},
+                {"tokens":9}
+            ]}}"#,
+            2,
+        )
+        .unwrap();
+        assert_eq!(partial.daily_usage_buckets.len(), 1);
+        assert_eq!(partial.daily_usage_buckets[0].start_date, "2026-08-20");
+    }
+
+    #[test]
+    fn rejects_missing_null_wrong_type_and_entirely_invalid_profile_buckets() {
+        for body in [
+            r#"{"stats":{"lifetime_tokens":1}}"#,
+            r#"{"stats":{"daily_usage_buckets":null}}"#,
+            r#"{"stats":{"daily_usage_buckets":{}}}"#,
+            r#"{"stats":{"daily_usage_buckets":[{"start_date":"2026-02-30","tokens":4}]}}"#,
+        ] {
+            let error = parse_profile_usage(body, 1).unwrap_err();
+            assert!(
+                error.contains("schema_mismatch"),
+                "unexpected error: {error}"
+            );
+        }
+    }
+
+    #[test]
+    fn rejects_profile_backend_stats_errors() {
+        let error = parse_profile_usage(
+            r#"{"metadata":{"stats_error":"daily stats unavailable"},"stats":{"daily_usage_buckets":[]}}"#,
+            1,
+        )
+        .unwrap_err();
+        assert!(error.contains("backend_stats_error"));
+
+        for stats_error in ["false", "0"] {
+            let body = format!(
+                r#"{{"metadata":{{"stats_error":{stats_error}}},"stats":{{"daily_usage_buckets":[]}}}}"#
+            );
+            assert!(parse_profile_usage(&body, 1).is_ok());
+        }
     }
 
     #[test]

@@ -154,7 +154,7 @@
   "tokenUsageChartSemantics": "Token 使用量图表，{view}视图，数据截至昨天。",
   "lessUsage": "较少",
   "moreUsage": "较多",
-  "noTokenBuckets": "Profile API 未返回每日统计。",
+  "noTokenBuckets": "暂无 Token 每日统计。",
   "dynamicColor": "动态取色",
   "dynamicColorDescription": "支持时使用系统壁纸配色，默认关闭。",
   "demoMode": "体验演示",

@@ -182,7 +182,7 @@
   "@tokenUsageChartSemantics": {"placeholders": {"view": {"type": "String"}}},
   "lessUsage": "Less",
   "moreUsage": "More",
-  "noTokenBuckets": "The Profile API returned no daily buckets.",
+  "noTokenBuckets": "No daily Token statistics yet.",
   "dynamicColor": "Dynamic color",
   "dynamicColorDescription": "Use system wallpaper colors when supported. Off by default.",
   "demoMode": "Experience demo",

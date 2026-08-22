@@ -528,7 +528,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get moreUsage => '较多';
 
   @override
-  String get noTokenBuckets => 'Profile API 未返回每日统计。';
+  String get noTokenBuckets => '暂无 Token 每日统计。';
 
   @override
   String get dynamicColor => '动态取色';

@@ -508,17 +508,7 @@ fn truncate_utf8(value: &str, max_bytes: usize) -> (String, bool) {
 
 fn sanitize_response(value: &str) -> String {
     let Ok(mut json) = serde_json::from_str::<serde_json::Value>(value) else {
-        let lower = value.to_ascii_lowercase();
-        if [
-            "authorization",
-            "access_token",
-            "refresh_token",
-            "id_token",
-            "bearer ",
-        ]
-        .iter()
-        .any(|needle| lower.contains(needle))
-        {
+        if sensitive_json_text(value) {
             return "[redacted non-JSON response]".to_string();
         }
         return value.to_string();
@@ -531,12 +521,7 @@ fn redact_value(value: &mut serde_json::Value) {
     match value {
         serde_json::Value::Object(map) => {
             for (key, value) in map {
-                let normalized = key.to_ascii_lowercase();
-                if normalized == "id"
-                    || normalized.ends_with("_id")
-                    || normalized.contains("token")
-                    || normalized == "authorization"
-                {
+                if sensitive_json_key(key, value) {
                     *value = serde_json::Value::String("[redacted]".to_string());
                 } else {
                     redact_value(value);
@@ -548,8 +533,60 @@ fn redact_value(value: &mut serde_json::Value) {
                 redact_value(item);
             }
         }
+        serde_json::Value::String(text) if sensitive_json_text(text) => {
+            *text = "[redacted]".to_string();
+        }
         _ => {}
     }
+}
+
+fn sensitive_json_key(key: &str, value: &serde_json::Value) -> bool {
+    let lower = key.to_ascii_lowercase();
+    let compact = lower
+        .chars()
+        .filter(|character| character.is_ascii_alphanumeric())
+        .collect::<String>();
+    let numeric_usage_tokens = compact.ends_with("tokens") && value.is_number();
+    lower == "id"
+        || lower.ends_with("_id")
+        || lower.ends_with("-id")
+        || (compact.contains("token") && !numeric_usage_tokens)
+        || compact.contains("authorization")
+        || compact.contains("apikey")
+        || compact.contains("clientsecret")
+        || [
+            "accountid",
+            "workspaceid",
+            "userid",
+            "organizationid",
+            "projectid",
+            "apikeyid",
+        ]
+        .iter()
+        .any(|suffix| compact.ends_with(suffix))
+}
+
+fn sensitive_json_text(value: &str) -> bool {
+    let lower = value.to_ascii_lowercase();
+    [
+        "authorization",
+        "bearer ",
+        "access_token",
+        "refresh_token",
+        "id_token",
+        "sk-",
+        "chatgpt-account-id",
+        "chatgpt_account_id",
+        "chatgptaccountid",
+        "account-id",
+        "account_id",
+        "accountid",
+        "workspace-id",
+        "workspace_id",
+        "workspaceid",
+    ]
+    .iter()
+    .any(|needle| lower.contains(needle))
 }
 
 fn sql_error(error: rusqlite::Error) -> String {
@@ -663,7 +700,7 @@ mod tests {
         };
         repository.migrate().unwrap();
         let sensitive = format!(
-            "{{\"access_token\":\"secret\",\"account_id\":\"raw\",\"body\":\"{}\"}}",
+            "{{\"access_token\":\"secret\",\"account_id\":\"raw\",\"ChatGPT-Account-Id\":\"header-raw\",\"accountId\":\"camel-raw\",\"message\":\"Authorization: Bearer embedded-secret\",\"body\":\"{}\"}}",
             "x".repeat(70 * 1024)
         );
         for index in 0..205 {
@@ -686,6 +723,40 @@ mod tests {
         assert!(logs[0].truncated);
         assert!(!logs[0].response_body.contains("secret"));
         assert!(!logs[0].response_body.contains("raw"));
+        assert!(!logs[0].response_body.contains("Bearer"));
+    }
+
+    #[test]
+    fn diagnostic_sanitizer_keeps_usage_numbers_and_redacts_credentials() {
+        let sanitized = sanitize_response(
+            r#"{
+                "stats":{"lifetime_tokens":123,"peak_daily_tokens":45},
+                "daily_usage_buckets":[{"start_date":"2026-08-21","tokens":12}],
+                "apiKey":"sk-key-secret",
+                "client_secret":"client-secret",
+                "x-authorization":"credential",
+                "message":"upstream rejected sk-embedded-secret"
+            }"#,
+        );
+
+        assert!(sanitized.contains("123"));
+        assert!(sanitized.contains("45"));
+        assert!(sanitized.contains("12"));
+        assert!(!sanitized.contains("sk-key-secret"));
+        assert!(!sanitized.contains("client-secret"));
+        assert!(!sanitized.contains("credential"));
+        assert!(!sanitized.contains("sk-embedded-secret"));
+
+        for plain_text in [
+            "upstream rejected sk-proj-secret",
+            "ChatGPT-Account-Id: raw-account",
+            "workspaceId=raw-workspace",
+        ] {
+            assert_eq!(
+                sanitize_response(plain_text),
+                "[redacted non-JSON response]"
+            );
+        }
     }
 
     #[test]

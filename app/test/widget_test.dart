@@ -199,6 +199,33 @@ void main() {
     expect(identical(controller.profileUsage, profile), isTrue);
   });
 
+  testWidgets('valid empty profile uses a neutral no-data message', (
+    tester,
+  ) async {
+    const account = StoredAccount(
+      identityHash: 'empty-profile-account',
+      email: 'empty@example.com',
+      loginState: LoginState.signedOut,
+    );
+    await tester.pumpWidget(
+      AiUsageApp(
+        controller: AppController.testing(
+          accounts: const [account],
+          profileUsage: const ProfileUsage(
+            summary: TokenUsageSummary(),
+            dailyUsageBuckets: [],
+            fetchedAt: 1,
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('History'));
+    await tester.pumpAndSettle();
+    expect(find.text('No daily Token statistics yet.'), findsOneWidget);
+    expect(find.textContaining('Profile API returned no'), findsNothing);
+  });
+
   testWidgets('extra credits hide zero balance and show positive balance', (
     tester,
   ) async {

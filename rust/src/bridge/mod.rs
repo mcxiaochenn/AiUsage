@@ -313,27 +313,13 @@ pub async fn fetch_profile_usage(
             account.is_fedramp,
         )
         .await;
-    record_observation(
+    handle_profile_observation(
         service,
         &account.identity_hash,
         trigger,
         &observation,
-        observation
-            .failure
-            .as_ref()
-            .map(api_failure_label)
-            .unwrap_or("fresh"),
-    );
-    if let Some(failure) = observation.failure.as_ref() {
-        return Err(api_failure_message(failure));
-    }
-    let profile = parse_profile_usage(&observation.body, auth::now_unix())?;
-    service
-        .history
-        .lock()
-        .map_err(|_| "Profile cache is unavailable".to_string())?
-        .save_profile_usage(&account.identity_hash, &profile)?;
-    Ok(profile)
+        auth::now_unix(),
+    )
 }
 
 pub fn cached_profile_usage(account_identity_hash: String) -> Result<Option<ProfileUsage>, String> {
@@ -436,8 +422,26 @@ fn record_observation(
     observation: &HttpObservation,
     result_state: &str,
 ) {
-    let started_at = auth::now_unix() - (observation.duration_ms / 1000);
     let error_kind = observation.failure.as_ref().map(api_failure_label);
+    record_observation_with_error_kind(
+        service,
+        identity_hash,
+        trigger,
+        observation,
+        result_state,
+        error_kind,
+    );
+}
+
+fn record_observation_with_error_kind(
+    service: &CoreService,
+    identity_hash: &str,
+    trigger: SyncTrigger,
+    observation: &HttpObservation,
+    result_state: &str,
+    error_kind: Option<&str>,
+) {
+    let started_at = auth::now_unix() - (observation.duration_ms / 1000);
     if let Ok(history) = service.history.lock() {
         let _ = history.record_sync_log(
             identity_hash,
@@ -450,6 +454,67 @@ fn record_observation(
             error_kind,
             &observation.body,
         );
+    }
+}
+
+fn handle_profile_observation(
+    service: &CoreService,
+    identity_hash: &str,
+    trigger: SyncTrigger,
+    observation: &HttpObservation,
+    fetched_at: i64,
+) -> Result<ProfileUsage, String> {
+    if let Some(failure) = observation.failure.as_ref() {
+        record_observation(
+            service,
+            identity_hash,
+            trigger,
+            observation,
+            api_failure_label(failure),
+        );
+        return Err(api_failure_message(failure));
+    }
+
+    let profile = match parse_profile_usage(&observation.body, fetched_at) {
+        Ok(profile) => profile,
+        Err(error) => {
+            record_observation_with_error_kind(
+                service,
+                identity_hash,
+                trigger,
+                observation,
+                "parse_error",
+                Some(profile_parse_error_kind(&error)),
+            );
+            return Err(error);
+        }
+    };
+    let result_state = if profile.daily_usage_buckets.is_empty() {
+        "empty"
+    } else {
+        "fresh"
+    };
+    service
+        .history
+        .lock()
+        .map_err(|_| "Profile cache is unavailable".to_string())?
+        .save_profile_usage(identity_hash, &profile)?;
+    record_observation_with_error_kind(
+        service,
+        identity_hash,
+        trigger,
+        observation,
+        result_state,
+        None,
+    );
+    Ok(profile)
+}
+
+fn profile_parse_error_kind(error: &str) -> &'static str {
+    if error.starts_with("backend_stats_error:") {
+        "backend_stats_error"
+    } else {
+        "schema_mismatch"
     }
 }
 
@@ -546,7 +611,46 @@ fn retry_after(failure: &ApiFailure) -> Option<i64> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::models::{CredentialStatus, LoginState, QuotaWindow, UsageSnapshot};
+    use crate::models::{
+        CredentialStatus, DailyTokenBucket, LoginState, QuotaWindow, TokenUsageSummary,
+        UsageSnapshot,
+    };
+
+    fn profile(tokens: i64, fetched_at: i64) -> ProfileUsage {
+        ProfileUsage {
+            summary: TokenUsageSummary {
+                lifetime_tokens: Some(tokens),
+                peak_daily_tokens: Some(tokens),
+                longest_running_turn_sec: None,
+                current_streak_days: None,
+                longest_streak_days: None,
+            },
+            daily_usage_buckets: vec![DailyTokenBucket {
+                start_date: "2026-08-20".to_string(),
+                tokens,
+            }],
+            fetched_at,
+        }
+    }
+
+    fn profile_service() -> CoreService {
+        CoreService {
+            history: Mutex::new(HistoryRepository::open(":memory:").unwrap()),
+            provider: CodexProvider::production().unwrap(),
+            oauth_client: Client::new(),
+            pending_device_logins: Mutex::new(HashMap::new()),
+        }
+    }
+
+    fn profile_observation(body: &str) -> HttpObservation {
+        HttpObservation {
+            endpoint: "profile-usage".to_string(),
+            status_code: Some(200),
+            body: body.to_string(),
+            duration_ms: 12,
+            failure: None,
+        }
+    }
 
     #[test]
     fn maps_401_429_and_5xx_to_distinct_ui_states() {
@@ -612,5 +716,91 @@ mod tests {
         assert_eq!(result.state, UsageState::Offline);
         assert!(result.showing_cached_data);
         assert_eq!(result.snapshot.unwrap().windows[0].used_percent, 42.0);
+    }
+
+    #[test]
+    fn profile_parse_failure_keeps_cache_and_records_schema_mismatch() {
+        let service = profile_service();
+        service
+            .history
+            .lock()
+            .unwrap()
+            .save_profile_usage("account-hash", &profile(5, 1))
+            .unwrap();
+
+        let result = handle_profile_observation(
+            &service,
+            "account-hash",
+            SyncTrigger::PageLoad,
+            &profile_observation(r#"{"stats":{"lifetime_tokens":99}}"#),
+            2,
+        );
+
+        assert!(result.is_err());
+        let history = service.history.lock().unwrap();
+        let cached = history.profile_usage("account-hash").unwrap().unwrap();
+        assert_eq!(cached.daily_usage_buckets[0].tokens, 5);
+        let logs = history.sync_logs().unwrap();
+        assert_eq!(logs[0].result_state, "parse_error");
+        assert_eq!(logs[0].error_kind.as_deref(), Some("schema_mismatch"));
+    }
+
+    #[test]
+    fn profile_success_overwrites_cache_and_records_empty_or_fresh() {
+        let service = profile_service();
+        service
+            .history
+            .lock()
+            .unwrap()
+            .save_profile_usage("account-hash", &profile(5, 1))
+            .unwrap();
+
+        let empty = handle_profile_observation(
+            &service,
+            "account-hash",
+            SyncTrigger::PageLoad,
+            &profile_observation(r#"{"stats":{"daily_usage_buckets":[]}}"#),
+            2,
+        )
+        .unwrap();
+        assert!(empty.daily_usage_buckets.is_empty());
+
+        let fresh = handle_profile_observation(
+            &service,
+            "account-hash",
+            SyncTrigger::Manual,
+            &profile_observation(
+                r#"{"stats":{"daily_usage_buckets":[{"start_date":"2026-08-21","tokens":8}]}}"#,
+            ),
+            3,
+        )
+        .unwrap();
+        assert_eq!(fresh.daily_usage_buckets[0].tokens, 8);
+
+        let history = service.history.lock().unwrap();
+        let cached = history.profile_usage("account-hash").unwrap().unwrap();
+        assert_eq!(cached.daily_usage_buckets[0].tokens, 8);
+        let logs = history.sync_logs().unwrap();
+        assert_eq!(logs[0].result_state, "fresh");
+        assert_eq!(logs[1].result_state, "empty");
+    }
+
+    #[test]
+    fn profile_backend_error_has_distinct_diagnostic_kind() {
+        let service = profile_service();
+        let result = handle_profile_observation(
+            &service,
+            "account-hash",
+            SyncTrigger::PageLoad,
+            &profile_observation(
+                r#"{"metadata":{"stats_error":"unavailable"},"stats":{"daily_usage_buckets":[]}}"#,
+            ),
+            2,
+        );
+
+        assert!(result.is_err());
+        let logs = service.history.lock().unwrap().sync_logs().unwrap();
+        assert_eq!(logs[0].result_state, "parse_error");
+        assert_eq!(logs[0].error_kind.as_deref(), Some("backend_stats_error"));
     }
 }

@@ -1025,7 +1025,7 @@ abstract class AppLocalizations {
   /// No description provided for @noTokenBuckets.
   ///
   /// In en, this message translates to:
-  /// **'The Profile API returned no daily buckets.'**
+  /// **'No daily Token statistics yet.'**
   String get noTokenBuckets;
 
   /// No description provided for @dynamicColor.

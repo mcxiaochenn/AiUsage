@@ -549,7 +549,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get moreUsage => 'More';
 
   @override
-  String get noTokenBuckets => 'The Profile API returned no daily buckets.';
+  String get noTokenBuckets => 'No daily Token statistics yet.';
 
   @override
   String get dynamicColor => 'Dynamic color';
