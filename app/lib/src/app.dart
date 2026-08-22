@@ -1,6 +1,7 @@
 import 'dart:async';
+import 'dart:math';
 
-import 'package:fl_chart/fl_chart.dart';
+import 'package:dynamic_color/dynamic_color.dart';
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -14,6 +15,7 @@ import 'app_controller.dart';
 import '../l10n/app_localizations.dart';
 import 'rust/models.dart';
 import 'services/secure_account_vault.dart';
+import 'services/system_settings.dart';
 
 final appControllerProvider = ChangeNotifierProvider<AppController>(
   (ref) => throw UnimplementedError('The app controller must be overridden.'),
@@ -61,39 +63,58 @@ class _MonitorRouterState extends ConsumerState<_MonitorRouter> {
         builder: (context, state) =>
             const _AppShell(selectedIndex: 3, child: SettingsPage()),
       ),
+      GoRoute(
+        path: '/account-details',
+        builder: (context, state) =>
+            const _AppShell(selectedIndex: 1, child: AccountDetailsPage()),
+      ),
+      GoRoute(
+        path: '/diagnostics',
+        builder: (context, state) =>
+            const _AppShell(selectedIndex: 3, child: DiagnosticsPage()),
+      ),
     ],
   );
 
   @override
   Widget build(BuildContext context) {
     final settings = ref.watch(appControllerProvider).settings;
-    return MaterialApp.router(
-      onGenerateTitle: (context) => AppLocalizations.of(context).appTitle,
-      localizationsDelegates: AppLocalizations.localizationsDelegates,
-      supportedLocales: AppLocalizations.supportedLocales,
-      locale: switch (settings.locale) {
-        LocalePreference.system => null,
-        LocalePreference.english => const Locale('en'),
-        LocalePreference.simplifiedChinese => const Locale('zh'),
+    return DynamicColorBuilder(
+      builder: (lightDynamic, darkDynamic) {
+        final useDynamic = settings.dynamicColorEnabled && lightDynamic != null;
+        return MaterialApp.router(
+          onGenerateTitle: (context) => AppLocalizations.of(context).appTitle,
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: switch (settings.locale) {
+            LocalePreference.system => null,
+            LocalePreference.english => const Locale('en'),
+            LocalePreference.simplifiedChinese => const Locale('zh'),
+          },
+          debugShowCheckedModeBanner: false,
+          themeMode: switch (settings.theme) {
+            ThemePreference.system => ThemeMode.system,
+            ThemePreference.light => ThemeMode.light,
+            ThemePreference.dark => ThemeMode.dark,
+          },
+          theme: ThemeData(
+            colorScheme: useDynamic
+                ? lightDynamic
+                : ColorScheme.fromSeed(seedColor: Colors.indigo),
+            useMaterial3: true,
+          ),
+          darkTheme: ThemeData(
+            colorScheme: settings.dynamicColorEnabled && darkDynamic != null
+                ? darkDynamic
+                : ColorScheme.fromSeed(
+                    seedColor: Colors.indigo,
+                    brightness: Brightness.dark,
+                  ),
+            useMaterial3: true,
+          ),
+          routerConfig: _router,
+        );
       },
-      debugShowCheckedModeBanner: false,
-      themeMode: switch (settings.theme) {
-        ThemePreference.system => ThemeMode.system,
-        ThemePreference.light => ThemeMode.light,
-        ThemePreference.dark => ThemeMode.dark,
-      },
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.indigo),
-        useMaterial3: true,
-      ),
-      darkTheme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: Colors.indigo,
-          brightness: Brightness.dark,
-        ),
-        useMaterial3: true,
-      ),
-      routerConfig: _router,
     );
   }
 }
@@ -133,7 +154,9 @@ class _AppShellState extends ConsumerState<_AppShell>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
-      unawaited(ref.read(appControllerProvider).refresh());
+      unawaited(
+        ref.read(appControllerProvider).refresh(trigger: SyncTrigger.resume),
+      );
     }
   }
 
@@ -311,29 +334,18 @@ class DashboardPage extends ConsumerWidget {
           else ...[
             _AccountHeader(snapshot: snapshot),
             const SizedBox(height: 12),
-            if (snapshot.windows.isEmpty)
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(20),
-                  child: Text(l10n.noQuotaWindows),
+            if (controller.demoMode)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Chip(
+                  avatar: const Icon(Icons.science_outlined, size: 18),
+                  label: Text(l10n.demoData),
                 ),
               ),
-            ...snapshot.windows.map(
-              (window) => _QuotaWindowCard(window: window),
+            _OverviewGrid(
+              snapshot: snapshot,
+              showResetCredits: controller.settings.showResetCredits,
             ),
-            if (controller.settings.showResetCredits &&
-                snapshot.resetCreditsAvailable != null)
-              Card(
-                child: ListTile(
-                  leading: const Icon(Icons.restart_alt),
-                  title: Text(l10n.resetCredits),
-                  subtitle: Text(l10n.resetCreditsReadOnly),
-                  trailing: Text(
-                    l10n.availableCount(snapshot.resetCreditsAvailable!),
-                    style: Theme.of(context).textTheme.titleMedium,
-                  ),
-                ),
-              ),
             Padding(
               padding: const EdgeInsets.only(top: 8),
               child: Text(
@@ -359,12 +371,16 @@ class _AccountHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
+    final colors = Theme.of(context).colorScheme;
     return Card(
+      color: colors.primaryContainer,
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Row(
           children: [
             CircleAvatar(
+              backgroundColor: colors.primary,
+              foregroundColor: colors.onPrimary,
               child: Text(
                 (snapshot.account.email ?? '?').characters.first.toUpperCase(),
               ),
@@ -382,10 +398,63 @@ class _AccountHeader extends StatelessWidget {
                 ],
               ),
             ),
-            const Icon(Icons.verified_user_outlined),
+            Icon(
+              Icons.verified_user_outlined,
+              color: colors.onPrimaryContainer,
+            ),
           ],
         ),
       ),
+    );
+  }
+}
+
+class _OverviewGrid extends StatelessWidget {
+  const _OverviewGrid({required this.snapshot, required this.showResetCredits});
+
+  final UsageSnapshot snapshot;
+  final bool showResetCredits;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final cards = <Widget>[
+      if (snapshot.windows.isEmpty)
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Text(l10n.noQuotaWindows),
+          ),
+        )
+      else
+        ...snapshot.windows.map((window) => _QuotaWindowCard(window: window)),
+      if (snapshot.credits case final credits?) _CreditsCard(credits: credits),
+      if (showResetCredits && snapshot.resetCreditsAvailable != null)
+        _ResetCreditsCard(snapshot: snapshot),
+    ];
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final columns = constraints.maxWidth >= 920
+            ? 3
+            : constraints.maxWidth >= 600
+            ? 2
+            : 1;
+        final width = (constraints.maxWidth - (columns - 1) * 12) / columns;
+        return Wrap(
+          spacing: 12,
+          runSpacing: 12,
+          children: [
+            for (final card in cards)
+              SizedBox(
+                width: width,
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(minHeight: 230),
+                  child: card,
+                ),
+              ),
+          ],
+        );
+      },
     );
   }
 }
@@ -403,23 +472,17 @@ class _QuotaWindowCard extends StatelessWidget {
       final used = window.usedPercent.clamp(0, 100).toDouble();
       final remaining = (100 - used).clamp(0, 100).toDouble();
       return Card(
-        margin: const EdgeInsets.only(bottom: 12),
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: Column(
+            mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      _windowTitle(context, window),
-                      style: Theme.of(context).textTheme.titleMedium,
-                    ),
-                  ),
-                  Text(l10n.usedPercent(used.round())),
-                ],
+              Text(
+                _windowTitle(context, window),
+                style: Theme.of(context).textTheme.titleMedium,
               ),
+              Text(l10n.usedPercent(used.round())),
               const SizedBox(height: 12),
               ClipRRect(
                 borderRadius: BorderRadius.circular(8),
@@ -450,6 +513,105 @@ class _QuotaWindowCard extends StatelessWidget {
       );
     },
   );
+}
+
+class _CreditsCard extends StatelessWidget {
+  const _CreditsCard({required this.credits});
+
+  final CreditsSnapshot credits;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Icon(Icons.account_balance_wallet_outlined),
+            const SizedBox(height: 12),
+            Text(
+              l10n.extraCredits,
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            const SizedBox(height: 20),
+            Text(
+              credits.unlimited
+                  ? l10n.unlimited
+                  : credits.balance ?? l10n.balanceUnavailable,
+              style: Theme.of(context).textTheme.headlineSmall,
+            ),
+            Text(credits.hasCredits ? l10n.creditsAvailable : l10n.noCredits),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ResetCreditsCard extends StatelessWidget {
+  const _ResetCreditsCard({required this.snapshot});
+
+  final UsageSnapshot snapshot;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final available = snapshot.resetCreditsAvailable ?? 0;
+    final credits = snapshot.resetCredits ?? const <ResetCredit>[];
+    final expiries =
+        credits
+            .where((credit) => credit.expiresAt != null)
+            .map((credit) => credit.expiresAt!)
+            .toList()
+          ..sort();
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.restart_alt),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    l10n.resetCredits,
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Text(l10n.resetCreditsReadOnly),
+            const SizedBox(height: 16),
+            Text(
+              l10n.availableCount(available),
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
+            const SizedBox(height: 8),
+            if (expiries.isNotEmpty)
+              Text(l10n.earliestExpiry(_absoluteTime(context, expiries.first)))
+            else
+              Text(l10n.expiryUnavailable),
+            if (credits.isNotEmpty)
+              Text(
+                credits
+                    .map((credit) => credit.title ?? credit.status)
+                    .join(' · '),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 class AccountsPage extends ConsumerWidget {
@@ -490,16 +652,36 @@ class AccountsPage extends ConsumerWidget {
                   account.identityHash,
               onTap: () =>
                   unawaited(controller.selectAccount(account.identityHash)),
-              trailing: PopupMenuButton<String>(
-                onSelected: (value) =>
-                    _accountAction(context, controller, account, value),
-                itemBuilder: (context) => [
-                  PopupMenuItem(value: 'refresh', child: Text(l10n.refresh)),
-                  PopupMenuItem(value: 'logout', child: Text(l10n.logout)),
-                  PopupMenuItem(
-                    value: 'remove',
-                    child: Text(l10n.removeAccount),
+              trailing: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  IconButton(
+                    tooltip: l10n.accountDetails,
+                    onPressed: () async {
+                      await controller.selectAccount(account.identityHash);
+                      if (context.mounted) context.go('/account-details');
+                    },
+                    icon: const Icon(Icons.info_outline),
                   ),
+                  if (!controller.demoMode)
+                    PopupMenuButton<String>(
+                      onSelected: (value) =>
+                          _accountAction(context, controller, account, value),
+                      itemBuilder: (context) => [
+                        PopupMenuItem(
+                          value: 'refresh',
+                          child: Text(l10n.refresh),
+                        ),
+                        PopupMenuItem(
+                          value: 'logout',
+                          child: Text(l10n.logout),
+                        ),
+                        PopupMenuItem(
+                          value: 'remove',
+                          child: Text(l10n.removeAccount),
+                        ),
+                      ],
+                    ),
                 ],
               ),
             ),
@@ -553,6 +735,148 @@ class AccountsPage extends ConsumerWidget {
   }
 }
 
+class AccountDetailsPage extends ConsumerStatefulWidget {
+  const AccountDetailsPage({super.key});
+
+  @override
+  ConsumerState<AccountDetailsPage> createState() => _AccountDetailsPageState();
+}
+
+class _AccountDetailsPageState extends ConsumerState<AccountDetailsPage> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final controller = ref.read(appControllerProvider);
+      final account = controller.selectedAccount;
+      if (account != null) unawaited(controller.loadAccountDetails(account));
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final controller = ref.watch(appControllerProvider);
+    final account = controller.selectedAccount;
+    final details = controller.accountDetails;
+    final l10n = AppLocalizations.of(context);
+    if (account == null) {
+      return _EmptyState(
+        icon: Icons.person_off_outlined,
+        title: l10n.noAccounts,
+        message: l10n.noAccountsMessage,
+      );
+    }
+    final registeredDays = details == null
+        ? null
+        : (DateTime.now().millisecondsSinceEpoch ~/ 1000 - details.createdAt) ~/
+              86400;
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        Row(
+          children: [
+            IconButton(
+              tooltip: l10n.back,
+              onPressed: () => context.go('/accounts'),
+              icon: const Icon(Icons.arrow_back),
+            ),
+            Expanded(
+              child: Text(
+                l10n.accountDetails,
+                style: Theme.of(context).textTheme.headlineSmall,
+              ),
+            ),
+            if (controller.demoMode) Chip(label: Text(l10n.demoData)),
+          ],
+        ),
+        Card(
+          child: Column(
+            children: [
+              _DetailTile(
+                label: l10n.email,
+                value: account.email ?? l10n.unknownAccount,
+              ),
+              _DetailTile(
+                label: l10n.plan,
+                value: account.plan ?? l10n.unknownPlan,
+              ),
+              _DetailTile(
+                label: l10n.loginStatus,
+                value: _loginStateLabel(context, account.loginState),
+              ),
+              _DetailTile(
+                label: l10n.credential,
+                value: account.credential == null
+                    ? l10n.credentialCleared
+                    : l10n.credentialAvailable,
+              ),
+              _DetailTile(
+                label: l10n.lastRefresh,
+                value: account.lastSuccessfulRefresh == null
+                    ? l10n.never
+                    : _absoluteTime(context, account.lastSuccessfulRefresh!),
+              ),
+              _DetailTile(
+                label: l10n.fedramp,
+                value: account.isFedramp ? l10n.yes : l10n.no,
+              ),
+              _DetailTile(
+                label: l10n.registrationTime,
+                value: details == null
+                    ? l10n.unavailable
+                    : _absoluteTime(context, details.createdAt),
+              ),
+              _DetailTile(
+                label: l10n.registeredDays,
+                value: registeredDays == null
+                    ? l10n.unavailable
+                    : l10n.daysCount(registeredDays.clamp(0, 1 << 30)),
+              ),
+            ],
+          ),
+        ),
+        if (controller.accountDetailsLoading)
+          const Center(child: CircularProgressIndicator()),
+        if (controller.accountDetailsError != null)
+          Card(
+            child: ListTile(
+              leading: const Icon(Icons.warning_amber_outlined),
+              title: Text(l10n.accountDetailsUnavailable),
+              subtitle: Text(controller.accountDetailsError!),
+              trailing: IconButton(
+                tooltip: l10n.retry,
+                onPressed: () => unawaited(
+                  controller.loadAccountDetails(account, force: true),
+                ),
+                icon: const Icon(Icons.refresh),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class _DetailTile extends StatelessWidget {
+  const _DetailTile({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) => ListTile(
+    title: Text(label),
+    trailing: SizedBox(
+      width: 180,
+      child: Text(
+        value,
+        textAlign: TextAlign.end,
+        overflow: TextOverflow.ellipsis,
+      ),
+    ),
+  );
+}
+
 class HistoryPage extends ConsumerStatefulWidget {
   const HistoryPage({super.key});
 
@@ -561,166 +885,253 @@ class HistoryPage extends ConsumerStatefulWidget {
 }
 
 class _HistoryPageState extends ConsumerState<HistoryPage> {
-  Duration _period = const Duration(hours: 24);
+  String? _requestedAccount;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      unawaited(ref.read(appControllerProvider).loadProfile());
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     final controller = ref.watch(appControllerProvider);
-    final snapshot = controller.usage?.snapshot;
+    final selectedId = controller.selectedAccount?.identityHash;
+    if (!controller.demoMode &&
+        selectedId != null &&
+        selectedId != _requestedAccount) {
+      _requestedAccount = selectedId;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) unawaited(ref.read(appControllerProvider).loadProfile());
+      });
+    }
+    final profile = controller.profileUsage;
     final l10n = AppLocalizations.of(context);
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        Text(l10n.history, style: Theme.of(context).textTheme.headlineSmall),
-        const SizedBox(height: 8),
-        SegmentedButton<Duration>(
-          segments: [
-            ButtonSegment(
-              value: const Duration(hours: 24),
-              label: Text(l10n.hours24),
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                l10n.tokenActivity,
+                style: Theme.of(context).textTheme.headlineSmall,
+              ),
             ),
-            ButtonSegment(
-              value: const Duration(days: 7),
-              label: Text(l10n.days7),
+            if (controller.demoMode) Chip(label: Text(l10n.demoData)),
+            IconButton(
+              tooltip: l10n.refresh,
+              onPressed: controller.profileLoading || controller.demoMode
+                  ? null
+                  : () => unawaited(controller.loadProfile(force: true)),
+              icon: const Icon(Icons.refresh),
             ),
           ],
-          selected: {_period},
-          onSelectionChanged: (selection) =>
-              setState(() => _period = selection.first),
         ),
-        const SizedBox(height: 20),
-        FutureBuilder<List<HistoryPoint>>(
-          key: ValueKey(
-            '${controller.selectedAccount?.identityHash}:$_period:${snapshot?.fetchedAt}',
+        Text(l10n.profileMayLag, style: Theme.of(context).textTheme.bodySmall),
+        const SizedBox(height: 12),
+        if (controller.profileLoading && profile == null)
+          const SizedBox(
+            height: 240,
+            child: Center(child: CircularProgressIndicator()),
+          )
+        else if (profile == null)
+          _EmptyState(
+            icon: Icons.query_stats_outlined,
+            title: l10n.profileUnavailable,
+            message: controller.profileError ?? l10n.noHistoryMessage,
+          )
+        else ...[
+          _TokenSummaryGrid(summary: profile.summary),
+          const SizedBox(height: 12),
+          _TokenHeatmap(buckets: profile.dailyUsageBuckets),
+          const SizedBox(height: 8),
+          Text(
+            l10n.profileUpdatedAt(_absoluteTime(context, profile.fetchedAt)),
+            style: Theme.of(context).textTheme.bodySmall,
           ),
-          future: controller.history(_period),
-          builder: (context, result) {
-            if (result.connectionState != ConnectionState.done) {
-              return const SizedBox(
-                height: 260,
-                child: Center(child: CircularProgressIndicator()),
-              );
-            }
-            final points = result.data ?? const <HistoryPoint>[];
-            if (points.isEmpty) {
-              return _EmptyState(
-                icon: Icons.query_stats_outlined,
-                title: l10n.noHistory,
-                message: l10n.noHistoryMessage,
-              );
-            }
-            return _HistoryChart(points: points, snapshot: snapshot);
-          },
-        ),
+          if (controller.profileError != null)
+            Text(
+              l10n.showingCachedProfile,
+              style: TextStyle(color: Theme.of(context).colorScheme.error),
+            ),
+        ],
       ],
     );
   }
 }
 
-class _HistoryChart extends StatelessWidget {
-  const _HistoryChart({required this.points, required this.snapshot});
+class _TokenSummaryGrid extends StatelessWidget {
+  const _TokenSummaryGrid({required this.summary});
 
-  final List<HistoryPoint> points;
-  final UsageSnapshot? snapshot;
+  final TokenUsageSummary summary;
 
   @override
   Widget build(BuildContext context) {
-    final grouped = <String, List<HistoryPoint>>{};
-    for (final point in points) {
-      (grouped[point.windowId] ??= []).add(point);
-    }
-    final earliest = points
-        .map((point) => point.timestamp)
-        .reduce((a, b) => a < b ? a : b);
-    const colors = [
-      Colors.indigo,
-      Colors.teal,
-      Colors.orange,
-      Colors.purple,
-      Colors.pink,
+    final l10n = AppLocalizations.of(context);
+    final items = [
+      (l10n.lifetimeTokens, _compactNumber(summary.lifetimeTokens)),
+      (l10n.peakDailyTokens, _compactNumber(summary.peakDailyTokens)),
+      (
+        l10n.longestTask,
+        summary.longestRunningTurnSec == null
+            ? l10n.unavailable
+            : _durationLabel(summary.longestRunningTurnSec!),
+      ),
+      (l10n.currentStreak, l10n.daysCount(summary.currentStreakDays ?? 0)),
+      (l10n.longestStreak, l10n.daysCount(summary.longestStreakDays ?? 0)),
     ];
-    final windows = {
-      for (final window in snapshot?.windows ?? const <QuotaWindow>[])
-        window.id: window,
-    };
-    final bars = grouped.entries.toList().asMap().entries.map((entry) {
-      final values = entry.value.value
-        ..sort((a, b) => a.timestamp.compareTo(b.timestamp));
-      return LineChartBarData(
-        spots: values
-            .map(
-              (point) => FlSpot(
-                (point.timestamp - earliest).toDouble(),
-                point.usedPercent.clamp(0, 100).toDouble(),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = constraints.maxWidth >= 700
+            ? (constraints.maxWidth - 24) / 3
+            : (constraints.maxWidth - 12) / 2;
+        return Wrap(
+          spacing: 12,
+          runSpacing: 12,
+          children: [
+            for (final item in items)
+              SizedBox(
+                width: width,
+                child: Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(item.$1),
+                        const SizedBox(height: 8),
+                        Text(
+                          item.$2,
+                          style: Theme.of(context).textTheme.titleLarge,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
               ),
-            )
-            .toList(),
-        isCurved: true,
-        color: colors[entry.key % colors.length],
-        barWidth: 3,
-        dotData: const FlDotData(show: false),
-      );
-    }).toList();
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _TokenHeatmap extends StatelessWidget {
+  const _TokenHeatmap({required this.buckets});
+
+  final List<DailyTokenBucket> buckets;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final sorted = [...buckets]
+      ..sort((a, b) => a.startDate.compareTo(b.startDate));
+    final visible = sorted.length > 366
+        ? sorted.sublist(sorted.length - 366)
+        : sorted;
+    final maxTokens = visible.fold<int>(
+      0,
+      (maxValue, item) => max(maxValue, item.tokens),
+    );
+    final weeks = <List<DailyTokenBucket>>[];
+    for (var index = 0; index < visible.length; index += 7) {
+      weeks.add(visible.sublist(index, min(index + 7, visible.length)));
+    }
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            SizedBox(
-              height: 240,
-              child: LineChart(
-                LineChartData(
-                  minY: 0,
-                  maxY: 100,
-                  lineBarsData: bars,
-                  borderData: FlBorderData(show: false),
-                  gridData: const FlGridData(drawVerticalLine: false),
-                  titlesData: FlTitlesData(
-                    topTitles: const AxisTitles(
-                      sideTitles: SideTitles(showTitles: false),
-                    ),
-                    rightTitles: const AxisTitles(
-                      sideTitles: SideTitles(showTitles: false),
-                    ),
-                    bottomTitles: const AxisTitles(
-                      sideTitles: SideTitles(showTitles: false),
-                    ),
-                    leftTitles: const AxisTitles(
-                      sideTitles: SideTitles(
-                        showTitles: true,
-                        reservedSize: 36,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
+            Text(
+              l10n.dailyTokenHeatmap,
+              style: Theme.of(context).textTheme.titleMedium,
             ),
             const SizedBox(height: 12),
-            Wrap(
-              spacing: 12,
-              runSpacing: 6,
-              children: grouped.keys.toList().asMap().entries.map((entry) {
-                final color = colors[entry.key % colors.length];
-                return Row(
-                  mainAxisSize: MainAxisSize.min,
+            if (visible.isEmpty)
+              Text(l10n.noTokenBuckets)
+            else
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                reverse: true,
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Container(width: 10, height: 10, color: color),
-                    const SizedBox(width: 4),
-                    Text(
-                      windows[entry.value] == null
-                          ? AppLocalizations.of(context).customLimit
-                          : _windowTitle(context, windows[entry.value]!),
-                    ),
+                    for (final week in weeks)
+                      Padding(
+                        padding: const EdgeInsets.only(right: 3),
+                        child: Column(
+                          children: [
+                            for (final bucket in week)
+                              Tooltip(
+                                message:
+                                    '${bucket.startDate} · ${bucket.tokens}',
+                                child: Container(
+                                  width: 15,
+                                  height: 15,
+                                  margin: const EdgeInsets.only(bottom: 3),
+                                  decoration: BoxDecoration(
+                                    color: _heatColor(
+                                      context,
+                                      bucket.tokens,
+                                      maxTokens,
+                                    ),
+                                    borderRadius: BorderRadius.circular(3),
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
                   ],
-                );
-              }).toList(),
+                ),
+              ),
+            const SizedBox(height: 8),
+            Text(
+              l10n.heatmapLegend,
+              style: Theme.of(context).textTheme.bodySmall,
             ),
           ],
         ),
       ),
     );
   }
+
+  Color _heatColor(BuildContext context, int tokens, int maxTokens) {
+    final colors = Theme.of(context).colorScheme;
+    if (tokens <= 0 || maxTokens <= 0) return colors.surfaceContainerHighest;
+    final level = (tokens / maxTokens * 4).ceil().clamp(1, 4);
+    return Color.lerp(colors.primaryContainer, colors.primary, level / 4)!;
+  }
+}
+
+String _compactNumber(int? value) {
+  if (value == null) return '—';
+  if (value >= 1000000000) return '${(value / 1000000000).toStringAsFixed(1)}B';
+  if (value >= 1000000) return '${(value / 1000000).toStringAsFixed(1)}M';
+  if (value >= 1000) return '${(value / 1000).toStringAsFixed(1)}K';
+  return value.toString();
+}
+
+String _durationLabel(int seconds) {
+  final duration = Duration(seconds: seconds);
+  final hours = duration.inHours;
+  final minutes = duration.inMinutes.remainder(60);
+  return hours > 0 ? '${hours}h ${minutes}m' : '${minutes}m';
+}
+
+String _syncTriggerLabel(BuildContext context, SyncTrigger trigger) {
+  final l10n = AppLocalizations.of(context);
+  return switch (trigger) {
+    SyncTrigger.manual => l10n.syncManual,
+    SyncTrigger.resume => l10n.syncResume,
+    SyncTrigger.foregroundTimer => l10n.syncForeground,
+    SyncTrigger.background => l10n.syncBackground,
+    SyncTrigger.pageLoad => l10n.syncPageLoad,
+  };
 }
 
 class SettingsPage extends ConsumerWidget {
@@ -759,6 +1170,17 @@ class SettingsPage extends ConsumerWidget {
                         title: Text(_themeLabel(context, value)),
                       ),
                   ],
+                ),
+              ),
+              const Divider(height: 1),
+              SwitchListTile(
+                title: Text(l10n.dynamicColor),
+                subtitle: Text(l10n.dynamicColorDescription),
+                value: settings.dynamicColorEnabled,
+                onChanged: (value) => unawaited(
+                  controller.updateSettings(
+                    settings.copyWith(dynamicColorEnabled: value),
+                  ),
                 ),
               ),
             ],
@@ -850,11 +1272,196 @@ class SettingsPage extends ConsumerWidget {
                   ),
                 ),
               ),
+              SwitchListTile(
+                title: Text(l10n.demoMode),
+                subtitle: Text(l10n.demoModeDescription),
+                value: settings.demoModeEnabled,
+                onChanged: (value) => unawaited(
+                  controller.updateSettings(
+                    settings.copyWith(demoModeEnabled: value),
+                  ),
+                ),
+              ),
+              SwitchListTile(
+                title: Text(l10n.backgroundRefresh),
+                subtitle: Text(l10n.backgroundRefreshDescription),
+                value: settings.backgroundRefreshEnabled,
+                onChanged: (value) async {
+                  if (value && !await _confirmBackgroundRefresh(context)) {
+                    return;
+                  }
+                  await controller.updateSettings(
+                    settings.copyWith(backgroundRefreshEnabled: value),
+                  );
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.monitor_heart_outlined),
+                title: Text(l10n.diagnostics),
+                subtitle: Text(l10n.diagnosticsDescription),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => context.go('/diagnostics'),
+              ),
             ],
           ),
         ),
         const SizedBox(height: 8),
         Text(l10n.privacy),
+      ],
+    );
+  }
+
+  Future<bool> _confirmBackgroundRefresh(BuildContext context) async {
+    final l10n = AppLocalizations.of(context);
+    var confirmed = false;
+    return await showDialog<bool>(
+          context: context,
+          builder: (context) => StatefulBuilder(
+            builder: (context, setState) => AlertDialog(
+              title: Text(l10n.backgroundWarningTitle),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(l10n.backgroundWarningMessage),
+                    const SizedBox(height: 12),
+                    Wrap(
+                      spacing: 8,
+                      children: [
+                        OutlinedButton(
+                          onPressed: () => unawaited(
+                            const SystemSettingsService()
+                                .openApplicationDetails(),
+                          ),
+                          child: Text(l10n.appSettings),
+                        ),
+                        OutlinedButton(
+                          onPressed: () => unawaited(
+                            const SystemSettingsService().openBatterySettings(),
+                          ),
+                          child: Text(l10n.batterySettings),
+                        ),
+                      ],
+                    ),
+                    CheckboxListTile(
+                      contentPadding: EdgeInsets.zero,
+                      value: confirmed,
+                      onChanged: (value) =>
+                          setState(() => confirmed = value ?? false),
+                      title: Text(l10n.backgroundConfirmed),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context, false),
+                  child: Text(l10n.cancel),
+                ),
+                FilledButton(
+                  onPressed: confirmed
+                      ? () => Navigator.pop(context, true)
+                      : null,
+                  child: Text(l10n.enable),
+                ),
+              ],
+            ),
+          ),
+        ) ??
+        false;
+  }
+}
+
+class DiagnosticsPage extends ConsumerStatefulWidget {
+  const DiagnosticsPage({super.key});
+
+  @override
+  ConsumerState<DiagnosticsPage> createState() => _DiagnosticsPageState();
+}
+
+class _DiagnosticsPageState extends ConsumerState<DiagnosticsPage> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      unawaited(ref.read(appControllerProvider).loadSyncLogs());
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final controller = ref.watch(appControllerProvider);
+    final l10n = AppLocalizations.of(context);
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        Row(
+          children: [
+            IconButton(
+              tooltip: l10n.back,
+              onPressed: () => context.go('/settings'),
+              icon: const Icon(Icons.arrow_back),
+            ),
+            Expanded(
+              child: Text(
+                l10n.diagnostics,
+                style: Theme.of(context).textTheme.headlineSmall,
+              ),
+            ),
+            IconButton(
+              tooltip: l10n.refresh,
+              onPressed: () => unawaited(controller.loadSyncLogs()),
+              icon: const Icon(Icons.refresh),
+            ),
+          ],
+        ),
+        Text(
+          l10n.diagnosticsPrivacy,
+          style: Theme.of(context).textTheme.bodySmall,
+        ),
+        const SizedBox(height: 8),
+        if (controller.syncLogs.isEmpty)
+          _EmptyState(
+            icon: Icons.receipt_long_outlined,
+            title: l10n.noDiagnostics,
+            message: l10n.noDiagnosticsDescription,
+          )
+        else
+          ...controller.syncLogs.map(
+            (entry) => Card(
+              child: ExpansionTile(
+                leading: Icon(
+                  entry.errorKind == null
+                      ? Icons.check_circle_outline
+                      : Icons.error_outline,
+                ),
+                title: Text('${entry.endpoint} · ${entry.statusCode ?? '—'}'),
+                subtitle: Text(
+                  '${_absoluteTime(context, entry.startedAt)} · ${entry.durationMs} ms · ${_syncTriggerLabel(context, entry.trigger)}',
+                ),
+                childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                children: [
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: SelectableText(
+                      entry.responseBody.isEmpty
+                          ? l10n.emptyResponse
+                          : entry.responseBody,
+                      style: Theme.of(
+                        context,
+                      ).textTheme.bodySmall?.copyWith(fontFamily: 'monospace'),
+                    ),
+                  ),
+                  if (entry.truncated)
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(l10n.responseTruncated),
+                    ),
+                ],
+              ),
+            ),
+          ),
       ],
     );
   }
