@@ -2,10 +2,32 @@ import 'package:ai_usage/src/app.dart';
 import 'package:ai_usage/src/app_controller.dart';
 import 'package:ai_usage/src/rust/models.dart';
 import 'package:ai_usage/src/services/secure_account_vault.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test('credential source persists and old metadata remains unknown', () {
+    const imported = StoredAccount(
+      identityHash: 'imported-account',
+      loginState: LoginState.signedIn,
+      credentialSource: CredentialSource.authJson,
+    );
+
+    expect(
+      StoredAccount.fromMetadata(imported.toMetadata()).credentialSource,
+      CredentialSource.authJson,
+    );
+    expect(
+      StoredAccount.fromMetadata(const {
+        'identity_hash': 'old-account',
+        'login_state': 'signedIn',
+      }).credentialSource,
+      CredentialSource.unknown,
+    );
+  });
+
   test('new privacy and battery-sensitive settings default off', () {
     const settings = MonitorSettings();
     expect(settings.dynamicColorEnabled, isFalse);
@@ -63,6 +85,27 @@ void main() {
     expect(find.byIcon(Icons.person_add_alt_1), findsOneWidget);
   });
 
+  testWidgets('account list shows the persisted credential source', (
+    tester,
+  ) async {
+    const account = StoredAccount(
+      identityHash: 'device-account',
+      email: 'device@example.com',
+      loginState: LoginState.signedIn,
+      credentialSource: CredentialSource.deviceCode,
+    );
+    await tester.pumpWidget(
+      AiUsageApp(controller: AppController.testing(accounts: const [account])),
+    );
+
+    await tester.tap(find.text('Accounts'));
+    await tester.pumpAndSettle();
+    expect(
+      find.textContaining('Browser authorization (Device Code)'),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('complete demo mode renders quota credits and token profile', (
     tester,
   ) async {
@@ -89,6 +132,111 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('extra credits hide zero balance and show positive balance', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      AiUsageApp(controller: _controllerWithCredits(balance: '0.00')),
+    );
+    expect(find.text('Extra credits'), findsNothing);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pumpWidget(
+      AiUsageApp(controller: _controllerWithCredits(balance: '1.25')),
+    );
+    await tester.pump();
+    expect(find.text('Extra credits'), findsOneWidget);
+  });
+
+  testWidgets(
+    'extra credits show unlimited and fall back for invalid balance',
+    (tester) async {
+      await tester.pumpWidget(
+        AiUsageApp(controller: _controllerWithCredits(unlimited: true)),
+      );
+      expect(find.text('Extra credits'), findsOneWidget);
+
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pumpWidget(
+        AiUsageApp(
+          controller: _controllerWithCredits(
+            balance: 'not-a-number',
+            hasCredits: true,
+          ),
+        ),
+      );
+      await tester.pump();
+      expect(find.text('Extra credits'), findsOneWidget);
+    },
+  );
+
+  testWidgets('account details use a secondary scaffold and source label', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(360, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final controller = AppController.testing(
+      settings: const MonitorSettings(demoModeEnabled: true, demoSeed: 42),
+    );
+    await tester.pumpWidget(AiUsageApp(controller: controller));
+
+    await tester.tap(find.text('Accounts'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byIcon(Icons.info_outline));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(AppBar), findsOneWidget);
+    expect(find.byType(NavigationBar), findsNothing);
+    expect(find.text('Credential source'), findsOneWidget);
+    expect(find.text('Demo data'), findsWidgets);
+
+    await tester.tap(find.byType(BackButton));
+    await tester.pumpAndSettle();
+    expect(find.text('Accounts'), findsWidgets);
+  });
+
+  testWidgets(
+    'Android back returns primary pages to dashboard then requires two exits',
+    (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.android;
+      try {
+        var exitCalls = 0;
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+            .setMockMethodCallHandler(SystemChannels.platform, (call) async {
+              if (call.method == 'SystemNavigator.pop') exitCalls += 1;
+              return null;
+            });
+        addTearDown(
+          () => TestDefaultBinaryMessengerBinding
+              .instance
+              .defaultBinaryMessenger
+              .setMockMethodCallHandler(SystemChannels.platform, null),
+        );
+        await tester.pumpWidget(
+          AiUsageApp(controller: AppController.testing()),
+        );
+
+        await tester.tap(find.text('History'));
+        await tester.pumpAndSettle();
+        await tester.binding.handlePopRoute();
+        await tester.pumpAndSettle();
+        expect(find.text('Dashboard'), findsWidgets);
+
+        await tester.binding.handlePopRoute();
+        await tester.pump();
+        expect(find.text('Press back again to exit AiUsage'), findsOneWidget);
+        expect(exitCalls, 0);
+        await tester.binding.handlePopRoute();
+        await tester.pump();
+        expect(exitCalls, 1);
+      } finally {
+        debugDefaultTargetPlatformOverride = null;
+      }
+    },
+  );
+
   testWidgets('overview remains overflow-free at 2x text scale', (
     tester,
   ) async {
@@ -110,3 +258,42 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 }
+
+AppController _controllerWithCredits({
+  String? balance,
+  bool unlimited = false,
+  bool hasCredits = false,
+}) {
+  const accountInfo = AccountInfo(
+    identityHash: 'credits-account',
+    email: 'credits@example.com',
+    plan: 'plus',
+    isFedramp: false,
+    loginState: LoginState.signedIn,
+    credentialStatus: CredentialStatus.available,
+  );
+  const account = StoredAccount(
+    identityHash: 'credits-account',
+    email: 'credits@example.com',
+    plan: 'plus',
+    loginState: LoginState.signedIn,
+  );
+  return AppController.testing(
+    accounts: const [account],
+    usage: UsageResult(
+      snapshot: UsageSnapshot(
+        account: accountInfo,
+        windows: const [],
+        credits: CreditsSnapshot(
+          hasCredits: hasCredits,
+          unlimited: unlimited,
+          balance: balance,
+        ),
+        fetchedAt: 1,
+      ),
+      state: UsageState.fresh,
+      showingCachedData: false,
+    ),
+  );
+}
+

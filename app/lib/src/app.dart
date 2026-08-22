@@ -3,6 +3,7 @@ import 'dart:math';
 
 import 'package:dynamic_color/dynamic_color.dart';
 import 'package:file_selector/file_selector.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
@@ -40,7 +41,8 @@ class _MonitorRouter extends ConsumerStatefulWidget {
   ConsumerState<_MonitorRouter> createState() => _MonitorRouterState();
 }
 
-class _MonitorRouterState extends ConsumerState<_MonitorRouter> {
+class _MonitorRouterState extends ConsumerState<_MonitorRouter>
+    with WidgetsBindingObserver {
   late final GoRouter _router = GoRouter(
     routes: [
       GoRoute(
@@ -65,16 +67,36 @@ class _MonitorRouterState extends ConsumerState<_MonitorRouter> {
       ),
       GoRoute(
         path: '/account-details',
-        builder: (context, state) =>
-            const _AppShell(selectedIndex: 1, child: AccountDetailsPage()),
+        builder: (context, state) => const _AccountDetailsRoute(),
       ),
       GoRoute(
         path: '/diagnostics',
-        builder: (context, state) =>
-            const _AppShell(selectedIndex: 3, child: DiagnosticsPage()),
+        builder: (context, state) => const _DiagnosticsRoute(),
       ),
     ],
   );
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _router.dispose();
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      unawaited(
+        ref.read(appControllerProvider).refresh(trigger: SyncTrigger.resume),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -129,8 +151,7 @@ class _AppShell extends ConsumerStatefulWidget {
   ConsumerState<_AppShell> createState() => _AppShellState();
 }
 
-class _AppShellState extends ConsumerState<_AppShell>
-    with WidgetsBindingObserver {
+class _AppShellState extends ConsumerState<_AppShell> {
   static const _routes = ['/', '/accounts', '/history', '/settings'];
   static const _icons = [
     Icons.space_dashboard_outlined,
@@ -139,25 +160,13 @@ class _AppShellState extends ConsumerState<_AppShell>
     Icons.settings_outlined,
   ];
 
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addObserver(this);
-  }
+  Timer? _exitTimer;
+  bool _exitArmed = false;
 
   @override
   void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
+    _exitTimer?.cancel();
     super.dispose();
-  }
-
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) {
-      unawaited(
-        ref.read(appControllerProvider).refresh(trigger: SyncTrigger.resume),
-      );
-    }
   }
 
   @override
@@ -225,27 +234,170 @@ class _AppShellState extends ConsumerState<_AppShell>
               ),
             ),
     );
-    if (!desktop) return content;
-    return Scaffold(
-      body: Row(
-        children: [
-          NavigationRail(
-            selectedIndex: widget.selectedIndex,
-            labelType: NavigationRailLabelType.all,
-            onDestinationSelected: (index) => context.go(_routes[index]),
-            destinations: List.generate(
-              labels.length,
-              (index) => NavigationRailDestination(
-                icon: Icon(_icons[index]),
-                label: Text(labels[index]),
-              ),
+    final shell = !desktop
+        ? content
+        : Scaffold(
+            body: Row(
+              children: [
+                NavigationRail(
+                  selectedIndex: widget.selectedIndex,
+                  labelType: NavigationRailLabelType.all,
+                  onDestinationSelected: (index) => context.go(_routes[index]),
+                  destinations: List.generate(
+                    labels.length,
+                    (index) => NavigationRailDestination(
+                      icon: Icon(_icons[index]),
+                      label: Text(labels[index]),
+                    ),
+                  ),
+                ),
+                const VerticalDivider(width: 1),
+                Expanded(child: content),
+              ],
             ),
-          ),
-          const VerticalDivider(width: 1),
-          Expanded(child: content),
-        ],
+          );
+    final android = defaultTargetPlatform == TargetPlatform.android;
+    if (!android) return shell;
+    return PopScope<Object?>(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        if (widget.selectedIndex != 0) {
+          _disarmExit();
+          context.go('/');
+          return;
+        }
+        if (_exitArmed) {
+          SystemNavigator.pop();
+          return;
+        }
+        _armExit(context);
+      },
+      child: shell,
+    );
+  }
+
+  void _armExit(BuildContext context) {
+    _exitTimer?.cancel();
+    setState(() => _exitArmed = true);
+    _exitTimer = Timer(const Duration(seconds: 2), _disarmExit);
+    final messenger = ScaffoldMessenger.of(context);
+    messenger
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(AppLocalizations.of(context).pressBackAgainToExit),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+  }
+
+  void _disarmExit() {
+    _exitTimer?.cancel();
+    if (!mounted || !_exitArmed) return;
+    setState(() => _exitArmed = false);
+  }
+}
+
+class _SecondaryPageScaffold extends StatelessWidget {
+  const _SecondaryPageScaffold({
+    required this.parentPath,
+    required this.title,
+    required this.child,
+    this.actions = const [],
+  });
+
+  final String parentPath;
+  final String title;
+  final Widget child;
+  final List<Widget> actions;
+
+  @override
+  Widget build(BuildContext context) {
+    final canPop = context.canPop();
+    return PopScope<Object?>(
+      canPop: canPop,
+      onPopInvokedWithResult: (didPop, result) {
+        if (!didPop) context.go(parentPath);
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          automaticallyImplyLeading: false,
+          leading: BackButton(onPressed: () => _popOrGo(context, parentPath)),
+          title: Text(title),
+          actions: actions,
+        ),
+        body: child,
       ),
     );
+  }
+}
+
+class _AccountDetailsRoute extends ConsumerWidget {
+  const _AccountDetailsRoute();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final controller = ref.watch(appControllerProvider);
+    final account = controller.selectedAccount;
+    final l10n = AppLocalizations.of(context);
+    return _SecondaryPageScaffold(
+      parentPath: '/accounts',
+      title: l10n.accountDetails,
+      actions: [
+        if (controller.accountDetailsLoading)
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 12),
+            child: Center(
+              child: SizedBox.square(
+                dimension: 18,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+            ),
+          )
+        else
+          IconButton(
+            tooltip: l10n.refresh,
+            onPressed: account == null
+                ? null
+                : () => unawaited(
+                    controller.loadAccountDetails(account, force: true),
+                  ),
+            icon: const Icon(Icons.refresh),
+          ),
+      ],
+      child: const AccountDetailsPage(),
+    );
+  }
+}
+
+class _DiagnosticsRoute extends ConsumerWidget {
+  const _DiagnosticsRoute();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final controller = ref.watch(appControllerProvider);
+    final l10n = AppLocalizations.of(context);
+    return _SecondaryPageScaffold(
+      parentPath: '/settings',
+      title: l10n.diagnostics,
+      actions: [
+        IconButton(
+          tooltip: l10n.refresh,
+          onPressed: () => unawaited(controller.loadSyncLogs()),
+          icon: const Icon(Icons.refresh),
+        ),
+      ],
+      child: const DiagnosticsPage(),
+    );
+  }
+}
+
+void _popOrGo(BuildContext context, String fallbackPath) {
+  if (context.canPop()) {
+    context.pop();
+  } else {
+    context.go(fallbackPath);
   }
 }
 
@@ -428,7 +580,8 @@ class _OverviewGrid extends StatelessWidget {
         )
       else
         ...snapshot.windows.map((window) => _QuotaWindowCard(window: window)),
-      if (snapshot.credits case final credits?) _CreditsCard(credits: credits),
+      if (snapshot.credits case final credits? when _shouldShowCredits(credits))
+        _CreditsCard(credits: credits),
       if (showResetCredits && snapshot.resetCreditsAvailable != null)
         _ResetCreditsCard(snapshot: snapshot),
     ];
@@ -644,7 +797,7 @@ class AccountsPage extends ConsumerWidget {
               subtitle: Text(
                 '${account.plan ?? l10n.unknownPlan} · ${_loginStateLabel(context, account.loginState)}\n'
                 '${l10n.lastSuccessfulRefresh(account.lastSuccessfulRefresh == null ? l10n.never : _absoluteTime(context, account.lastSuccessfulRefresh!))}\n'
-                '${l10n.credentialStatus(account.credential == null ? l10n.credentialCleared : l10n.credentialAvailable)}',
+                '${l10n.credentialSource}: ${_credentialSourceLabel(context, account, demo: controller.demoMode)}',
               ),
               isThreeLine: true,
               selected:
@@ -659,7 +812,7 @@ class AccountsPage extends ConsumerWidget {
                     tooltip: l10n.accountDetails,
                     onPressed: () async {
                       await controller.selectAccount(account.identityHash);
-                      if (context.mounted) context.go('/account-details');
+                      if (context.mounted) context.push('/account-details');
                     },
                     icon: const Icon(Icons.info_outline),
                   ),
@@ -735,6 +888,15 @@ class AccountsPage extends ConsumerWidget {
   }
 }
 
+bool _shouldShowCredits(CreditsSnapshot credits) {
+  if (credits.unlimited) return true;
+  final balance = credits.balance;
+  if (balance == null) return credits.hasCredits;
+  final parsed = double.tryParse(balance.trim());
+  if (parsed == null || !parsed.isFinite) return credits.hasCredits;
+  return parsed > 0;
+}
+
 class AccountDetailsPage extends ConsumerStatefulWidget {
   const AccountDetailsPage({super.key});
 
@@ -773,22 +935,11 @@ class _AccountDetailsPageState extends ConsumerState<AccountDetailsPage> {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        Row(
-          children: [
-            IconButton(
-              tooltip: l10n.back,
-              onPressed: () => context.go('/accounts'),
-              icon: const Icon(Icons.arrow_back),
-            ),
-            Expanded(
-              child: Text(
-                l10n.accountDetails,
-                style: Theme.of(context).textTheme.headlineSmall,
-              ),
-            ),
-            if (controller.demoMode) Chip(label: Text(l10n.demoData)),
-          ],
-        ),
+        if (controller.demoMode)
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Chip(label: Text(l10n.demoData)),
+          ),
         Card(
           child: Column(
             children: [
@@ -805,10 +956,12 @@ class _AccountDetailsPageState extends ConsumerState<AccountDetailsPage> {
                 value: _loginStateLabel(context, account.loginState),
               ),
               _DetailTile(
-                label: l10n.credential,
-                value: account.credential == null
-                    ? l10n.credentialCleared
-                    : l10n.credentialAvailable,
+                label: l10n.credentialSource,
+                value: _credentialSourceLabel(
+                  context,
+                  account,
+                  demo: controller.demoMode,
+                ),
               ),
               _DetailTile(
                 label: l10n.lastRefresh,
@@ -832,16 +985,26 @@ class _AccountDetailsPageState extends ConsumerState<AccountDetailsPage> {
                     ? l10n.unavailable
                     : l10n.daysCount(registeredDays.clamp(0, 1 << 30)),
               ),
+              _DetailTile(
+                label: l10n.accountDetailsFetchedAt,
+                value: details == null
+                    ? l10n.unavailable
+                    : _absoluteTime(context, details.fetchedAt),
+              ),
             ],
           ),
         ),
-        if (controller.accountDetailsLoading)
-          const Center(child: CircularProgressIndicator()),
+        if (controller.accountDetailsLoading && details == null)
+          const LinearProgressIndicator(),
         if (controller.accountDetailsError != null)
           Card(
             child: ListTile(
               leading: const Icon(Icons.warning_amber_outlined),
-              title: Text(l10n.accountDetailsUnavailable),
+              title: Text(
+                details == null
+                    ? l10n.accountDetailsUnavailable
+                    : l10n.showingCachedAccountDetails,
+              ),
               subtitle: Text(controller.accountDetailsError!),
               trailing: IconButton(
                 tooltip: l10n.retry,
@@ -1300,7 +1463,7 @@ class SettingsPage extends ConsumerWidget {
                 title: Text(l10n.diagnostics),
                 subtitle: Text(l10n.diagnosticsDescription),
                 trailing: const Icon(Icons.chevron_right),
-                onTap: () => context.go('/diagnostics'),
+                onTap: () => context.push('/diagnostics'),
               ),
             ],
           ),
@@ -1396,26 +1559,6 @@ class _DiagnosticsPageState extends ConsumerState<DiagnosticsPage> {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        Row(
-          children: [
-            IconButton(
-              tooltip: l10n.back,
-              onPressed: () => context.go('/settings'),
-              icon: const Icon(Icons.arrow_back),
-            ),
-            Expanded(
-              child: Text(
-                l10n.diagnostics,
-                style: Theme.of(context).textTheme.headlineSmall,
-              ),
-            ),
-            IconButton(
-              tooltip: l10n.refresh,
-              onPressed: () => unawaited(controller.loadSyncLogs()),
-              icon: const Icon(Icons.refresh),
-            ),
-          ],
-        ),
         Text(
           l10n.diagnosticsPrivacy,
           style: Theme.of(context).textTheme.bodySmall,
@@ -1650,7 +1793,9 @@ class _DeviceLoginDialogState extends ConsumerState<_DeviceLoginDialog>
       _finished = true;
       _pollTimer?.cancel();
       _countdownTimer?.cancel();
-      await ref.read(appControllerProvider).acceptLogin(complete);
+      await ref
+          .read(appControllerProvider)
+          .acceptLogin(complete, credentialSource: CredentialSource.deviceCode);
       if (mounted) Navigator.pop(context);
     } catch (error) {
       if (mounted) setState(() => _error = '$error');
@@ -1902,6 +2047,20 @@ String _loginStateLabel(BuildContext context, LoginState state) =>
       LoginState.signedOut => AppLocalizations.of(context).signedOut,
       LoginState.expired => AppLocalizations.of(context).expired,
     };
+
+String _credentialSourceLabel(
+  BuildContext context,
+  StoredAccount account, {
+  required bool demo,
+}) {
+  final l10n = AppLocalizations.of(context);
+  if (demo) return l10n.demoData;
+  return switch (account.credentialSource) {
+    CredentialSource.deviceCode => l10n.credentialSourceDeviceCode,
+    CredentialSource.authJson => l10n.credentialSourceAuthJson,
+    CredentialSource.unknown => l10n.credentialSourceUnknown,
+  };
+}
 
 String _themeLabel(BuildContext context, ThemePreference value) =>
     switch (value) {

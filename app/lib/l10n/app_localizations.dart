@@ -128,6 +128,10 @@ abstract class AppLocalizations {
   /// **'Settings'**
   String get settings;
 
+  /// In en, this message translates to:
+  /// **'Press back again to exit AiUsage'**
+  String get pressBackAgainToExit;
+
   /// No description provided for @account.
   ///
   /// In en, this message translates to:
@@ -271,6 +275,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Available in system secure storage'**
   String get credentialAvailable;
+
+  /// In en, this message translates to: **'Credential source'**
+  String get credentialSource;
+
+  /// In en, this message translates to: **'Browser authorization (Device Code)'**
+  String get credentialSourceDeviceCode;
+
+  /// In en, this message translates to: **'auth.json import'**
+  String get credentialSourceAuthJson;
+
+  /// In en, this message translates to: **'Unknown (older version)'**
+  String get credentialSourceUnknown;
 
   /// No description provided for @never.
   ///
@@ -853,6 +869,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Account registration details are unavailable'**
   String get accountDetailsUnavailable;
+
+  /// In en, this message translates to: **'Profile fetched at'**
+  String get accountDetailsFetchedAt;
+
+  /// In en, this message translates to: **'Update failed; showing cached account details'**
+  String get showingCachedAccountDetails;
 
   /// No description provided for @retry.
   ///

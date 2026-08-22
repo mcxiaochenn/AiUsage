@@ -24,6 +24,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settings => 'Settings';
 
   @override
+  String get pressBackAgainToExit => 'Press back again to exit AiUsage';
+
+  @override
   String get account => 'Account';
 
   @override
@@ -114,6 +117,19 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get credentialAvailable => 'Available in system secure storage';
+
+  @override
+  String get credentialSource => 'Credential source';
+
+  @override
+  String get credentialSourceDeviceCode =>
+      'Browser authorization (Device Code)';
+
+  @override
+  String get credentialSourceAuthJson => 'auth.json import';
+
+  @override
+  String get credentialSourceUnknown => 'Unknown (older version)';
 
   @override
   String get never => 'Never';
@@ -449,6 +465,13 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get accountDetailsUnavailable =>
       'Account registration details are unavailable';
+
+  @override
+  String get accountDetailsFetchedAt => 'Profile fetched at';
+
+  @override
+  String get showingCachedAccountDetails =>
+      'Update failed; showing cached account details';
 
   @override
   String get retry => 'Retry';

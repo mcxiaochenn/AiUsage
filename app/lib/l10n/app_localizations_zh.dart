@@ -24,6 +24,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get settings => '设置';
 
   @override
+  String get pressBackAgainToExit => '再次返回退出 AiUsage';
+
+  @override
   String get account => '账户';
 
   @override
@@ -110,6 +113,18 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get credentialAvailable => '已保存至系统安全存储';
+
+  @override
+  String get credentialSource => '凭据来源';
+
+  @override
+  String get credentialSourceDeviceCode => '浏览器授权（Device Code）';
+
+  @override
+  String get credentialSourceAuthJson => 'auth.json 导入';
+
+  @override
+  String get credentialSourceUnknown => '未知（旧版本）';
 
   @override
   String get never => '从未';
@@ -432,6 +447,12 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get accountDetailsUnavailable => '暂时无法获取账户注册资料';
+
+  @override
+  String get accountDetailsFetchedAt => '资料获取时间';
+
+  @override
+  String get showingCachedAccountDetails => '更新失败，当前显示缓存的账户资料';
 
   @override
   String get retry => '重试';

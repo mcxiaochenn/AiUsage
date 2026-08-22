@@ -47,10 +47,12 @@ class SecureAccountVault {
   Future<void> saveSignedIn(
     AccountInfo account,
     SecureCredential credential,
+    CredentialSource credentialSource,
   ) async {
     final accounts = await loadAccounts();
     final updated = StoredAccount.fromAccount(
       account,
+      credentialSource: credentialSource,
     ).withCredential(credential);
     final next = <StoredAccount>[
       updated,
@@ -80,6 +82,7 @@ class SecureAccountVault {
           (item) => item.identityHash == account.identityHash
               ? StoredAccount.fromAccount(
                   account,
+                  credentialSource: item.credentialSource,
                 ).withCredential(item.credential)
               : item,
         )
@@ -157,6 +160,7 @@ class StoredAccount {
     required this.loginState,
     this.lastSuccessfulRefresh,
     this.credential,
+    this.credentialSource = CredentialSource.unknown,
   });
 
   final String identityHash;
@@ -167,8 +171,12 @@ class StoredAccount {
   final LoginState loginState;
   final int? lastSuccessfulRefresh;
   final SecureCredential? credential;
+  final CredentialSource credentialSource;
 
-  factory StoredAccount.fromAccount(AccountInfo account) => StoredAccount(
+  factory StoredAccount.fromAccount(
+    AccountInfo account, {
+    CredentialSource credentialSource = CredentialSource.unknown,
+  }) => StoredAccount(
     identityHash: account.identityHash,
     email: account.email,
     plan: account.plan,
@@ -176,6 +184,7 @@ class StoredAccount {
     isFedramp: account.isFedramp,
     loginState: account.loginState,
     lastSuccessfulRefresh: account.lastSuccessfulRefresh,
+    credentialSource: credentialSource,
   );
 
   factory StoredAccount.fromMetadata(Map<String, dynamic> json) =>
@@ -189,6 +198,9 @@ class StoredAccount {
           json['login_state'] as String? ?? LoginState.signedOut.name,
         ),
         lastSuccessfulRefresh: json['last_successful_refresh'] as int?,
+        credentialSource: _credentialSourceFromName(
+          json['credential_source'] as String?,
+        ),
       );
 
   AccountInfo get account => AccountInfo(
@@ -213,6 +225,7 @@ class StoredAccount {
     loginState: value == null ? LoginState.signedOut : LoginState.signedIn,
     lastSuccessfulRefresh: lastSuccessfulRefresh,
     credential: value,
+    credentialSource: credentialSource,
   );
 
   StoredAccount signedOut() => withCredential(null);
@@ -225,7 +238,17 @@ class StoredAccount {
     'is_fedramp': isFedramp,
     'login_state': loginState.name,
     'last_successful_refresh': lastSuccessfulRefresh,
+    'credential_source': credentialSource.name,
   };
+}
+
+enum CredentialSource { deviceCode, authJson, unknown }
+
+CredentialSource _credentialSourceFromName(String? value) {
+  for (final source in CredentialSource.values) {
+    if (source.name == value) return source;
+  }
+  return CredentialSource.unknown;
 }
 
 enum ThemePreference { system, light, dark }

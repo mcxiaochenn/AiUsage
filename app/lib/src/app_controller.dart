@@ -26,12 +26,18 @@ class AppController extends ChangeNotifier {
   factory AppController.testing({
     List<StoredAccount> accounts = const [],
     MonitorSettings settings = const MonitorSettings(),
+    UsageResult? usage,
+    ProfileUsage? profileUsage,
+    Map<String, AccountDetails> accountDetails = const {},
   }) {
     final controller = AppController();
     controller._loading = false;
     controller._accounts = accounts;
     controller._selectedAccountId = accounts.firstOrNull?.identityHash;
     controller._settings = settings;
+    controller._usage = usage;
+    controller._profileUsage = profileUsage;
+    controller._accountDetailsByAccount.addAll(accountDetails);
     return controller;
   }
 
@@ -48,12 +54,12 @@ class AppController extends ChangeNotifier {
   bool _refreshing = false;
   String? _bootError;
   ProfileUsage? _profileUsage;
-  AccountDetails? _accountDetails;
+  final Map<String, AccountDetails> _accountDetailsByAccount = {};
+  final Set<String> _accountDetailsLoadingAccounts = {};
+  final Map<String, String> _accountDetailsErrors = {};
   List<SyncLogEntry> _syncLogs = const [];
   bool _profileLoading = false;
-  bool _accountDetailsLoading = false;
   String? _profileError;
-  String? _accountDetailsError;
 
   List<StoredAccount> get accounts =>
       _settings.demoModeEnabled ? [_demoAccount] : List.unmodifiable(_accounts);
@@ -66,13 +72,26 @@ class AppController extends ChangeNotifier {
   UsageResult? get usage => _settings.demoModeEnabled ? _demoUsage : _usage;
   ProfileUsage? get profileUsage =>
       _settings.demoModeEnabled ? _demoProfile : _profileUsage;
-  AccountDetails? get accountDetails =>
-      _settings.demoModeEnabled ? _demoDetails : _accountDetails;
+  AccountDetails? get accountDetails {
+    if (_settings.demoModeEnabled) return _demoDetails;
+    final identityHash = _selectedAccountId;
+    return identityHash == null ? null : _accountDetailsByAccount[identityHash];
+  }
+
   List<SyncLogEntry> get syncLogs => List.unmodifiable(_syncLogs);
   bool get profileLoading => _profileLoading;
-  bool get accountDetailsLoading => _accountDetailsLoading;
+  bool get accountDetailsLoading {
+    final identityHash = _selectedAccountId;
+    return identityHash != null &&
+        _accountDetailsLoadingAccounts.contains(identityHash);
+  }
+
   String? get profileError => _profileError;
-  String? get accountDetailsError => _accountDetailsError;
+  String? get accountDetailsError {
+    final identityHash = _selectedAccountId;
+    return identityHash == null ? null : _accountDetailsErrors[identityHash];
+  }
+
   bool get demoMode => _settings.demoModeEnabled;
   MonitorSettings get settings => _settings;
   bool get loading => _loading;
@@ -88,6 +107,7 @@ class AppController extends ChangeNotifier {
       _settings = await _vault.loadSettings();
       _accounts = await _vault.loadAccounts();
       _selectedAccountId = _accounts.firstOrNull?.identityHash;
+      await _preloadAccountDetailsCaches();
       _scheduleForegroundRefresh();
       await _backgroundScheduler.configure(
         enabled: _settings.backgroundRefreshEnabled,
@@ -107,15 +127,14 @@ class AppController extends ChangeNotifier {
 
   Future<void> selectAccount(String identityHash) async {
     if (_settings.demoModeEnabled) return;
+    if (_selectedAccountId == identityHash) return;
     _selectedAccountId = identityHash;
     _usage = null;
     _profileUsage = null;
-    _accountDetails = null;
     _profileError = null;
-    _accountDetailsError = null;
     notifyListeners();
     await loadCached();
-    await refresh();
+    unawaited(refresh());
   }
 
   Future<void> loadCached() async {
@@ -187,11 +206,18 @@ class AppController extends ChangeNotifier {
 
   Future<void> importAccount(Uint8List content) async {
     final completed = await core.importCodexAuthJson(content: content);
-    await acceptLogin(completed);
+    await acceptLogin(completed, credentialSource: CredentialSource.authJson);
   }
 
-  Future<void> acceptLogin(DeviceCodeLoginComplete completed) async {
-    await _vault.saveSignedIn(completed.account, completed.credential);
+  Future<void> acceptLogin(
+    DeviceCodeLoginComplete completed, {
+    required CredentialSource credentialSource,
+  }) async {
+    await _vault.saveSignedIn(
+      completed.account,
+      completed.credential,
+      credentialSource,
+    );
     _accounts = await _vault.loadAccounts();
     _selectedAccountId = completed.account.identityHash;
     _usage = null;
@@ -211,12 +237,14 @@ class AppController extends ChangeNotifier {
   Future<void> removeAccount(String identityHash) async {
     await _vault.removeAccount(identityHash);
     await core.removeAccountData(accountIdentityHash: identityHash);
+    _accountDetailsByAccount.remove(identityHash);
+    _accountDetailsLoadingAccounts.remove(identityHash);
+    _accountDetailsErrors.remove(identityHash);
     _accounts = await _vault.loadAccounts();
     if (_selectedAccountId == identityHash) {
       _selectedAccountId = _accounts.firstOrNull?.identityHash;
       _usage = null;
       _profileUsage = null;
-      _accountDetails = null;
     }
     notifyListeners();
     await loadCached();
@@ -264,28 +292,50 @@ class AppController extends ChangeNotifier {
     StoredAccount account, {
     bool force = false,
   }) async {
-    if (_settings.demoModeEnabled || _accountDetailsLoading) return;
+    final identityHash = account.identityHash;
+    if (_settings.demoModeEnabled ||
+        _accountDetailsLoadingAccounts.contains(identityHash)) {
+      return;
+    }
     final credential = account.credential;
     if (credential == null) return;
-    _accountDetailsLoading = true;
-    _accountDetailsError = null;
+    _accountDetailsLoadingAccounts.add(identityHash);
+    _accountDetailsErrors.remove(identityHash);
     notifyListeners();
     try {
-      if (!force) {
-        _accountDetails = await core.cachedAccountDetails(
-          accountIdentityHash: account.identityHash,
+      if (!force && !_accountDetailsByAccount.containsKey(identityHash)) {
+        final cached = await core.cachedAccountDetails(
+          accountIdentityHash: identityHash,
         );
-        if (_accountDetails != null) notifyListeners();
+        if (cached != null) {
+          _accountDetailsByAccount[identityHash] = cached;
+          notifyListeners();
+        }
       }
-      _accountDetails = await core.fetchAccountDetails(
+      _accountDetailsByAccount[identityHash] = await core.fetchAccountDetails(
         credential: credential,
         trigger: SyncTrigger.pageLoad,
       );
     } catch (error) {
-      _accountDetailsError = error.toString();
+      _accountDetailsErrors[identityHash] = error.toString();
     } finally {
-      _accountDetailsLoading = false;
+      _accountDetailsLoadingAccounts.remove(identityHash);
       notifyListeners();
+    }
+  }
+
+  Future<void> _preloadAccountDetailsCaches() async {
+    for (final account in _accounts) {
+      try {
+        final cached = await core.cachedAccountDetails(
+          accountIdentityHash: account.identityHash,
+        );
+        if (cached != null) {
+          _accountDetailsByAccount[account.identityHash] = cached;
+        }
+      } catch (_) {
+        // Account details are optional and may not have been fetched yet.
+      }
     }
   }
 
@@ -323,7 +373,10 @@ class AppController extends ChangeNotifier {
     _accounts = _accounts
         .map(
           (item) => item.identityHash == account.identityHash
-              ? StoredAccount.fromAccount(account).withCredential(credential)
+              ? StoredAccount.fromAccount(
+                  account,
+                  credentialSource: item.credentialSource,
+                ).withCredential(credential)
               : item,
         )
         .toList(growable: false);
