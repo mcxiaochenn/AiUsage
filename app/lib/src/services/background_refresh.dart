@@ -6,6 +6,7 @@ import 'package:workmanager/workmanager.dart';
 
 import '../rust/api/application.dart' as core;
 import '../rust/frb_generated.dart';
+import '../rust/models.dart';
 import 'secure_account_vault.dart';
 
 const _backgroundTaskName = 'aiusage_refresh';
@@ -32,7 +33,10 @@ void backgroundRefreshDispatcher() {
       for (final account in await vault.loadAccounts()) {
         final credential = account.credential;
         if (credential == null) continue;
-        final result = await core.refreshUsage(credential: credential);
+        final result = await core.refreshUsage(
+          credential: credential,
+          trigger: SyncTrigger.background,
+        );
         if (result.updatedCredential != null) {
           await vault.updateCredential(
             account.identityHash,
@@ -55,11 +59,14 @@ void backgroundRefreshDispatcher() {
 class BackgroundRefreshScheduler {
   const BackgroundRefreshScheduler();
 
-  Future<void> configure(int refreshMinutes) async {
+  Future<void> configure({
+    required bool enabled,
+    required int refreshMinutes,
+  }) async {
     if (!Platform.isAndroid && !Platform.isIOS) return;
     await Workmanager().initialize(backgroundRefreshDispatcher);
     await Workmanager().cancelByUniqueName(_backgroundUniqueName);
-    if (refreshMinutes == 0) return;
+    if (!enabled || refreshMinutes == 0) return;
 
     // Android periodic WorkManager requests cannot be more frequent than 15
     // minutes. The app still honours 5 minutes while it is in foreground.
