@@ -90,6 +90,6 @@ MVP refresh 规则：
 
 ## 实现取舍
 
-本项目不会读取、复制或依赖 `~/.codex/auth.json`。Flutter 的 `flutter_secure_storage` 是唯一 credential owner；Rust 仅在一次 FFI 调用的内存边界中收到 credential，返回刷新后的 token bundle，并负责 HTTP、raw JSON、normalization、cache metadata 与 SQLite history。
+本项目不会自动扫描或复制 `~/.codex/auth.json`。高级用户可以通过系统文件选择器主动导入完整的 Codex OAuth `auth.json`：文件限制为 1 MiB，仅在一次 FFI 调用的内存边界中解析，不保留原文件，并拒绝 API Key-only、缺少身份信息或格式异常的内容。Flutter 的 `flutter_secure_storage` 是唯一 credential owner；Rust 返回解析或刷新后的 token bundle，并负责 HTTP、raw JSON、normalization、cache metadata 与 SQLite history。
 
 在上线前、每次升级 `CodexProvider` 前，应重新核对上游 `backend-client/src/client/rate_limit_resets.rs`、`backend-client/src/client.rs`、`login/src/server.rs`、`login/src/device_code_auth.rs` 与 `login/src/auth/manager.rs`。

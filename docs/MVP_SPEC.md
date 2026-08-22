@@ -1,4 +1,4 @@
-# Codex Usage Monitor 跨平台 MVP 技术报告
+# AiUsage 跨平台 MVP 技术报告
 
 ## 1. 项目目标
 
@@ -315,7 +315,7 @@ total_tokens
 ~/.codex/auth.json
 ```
 
-复制 Token。
+复制 Token。应用提供 Device Code 作为推荐登录方式，并允许高级用户通过系统文件选择器主动导入完整 `auth.json`；不会自动扫描文件，也不支持 API Key-only 登录。
 
 理想用户体验：
 
