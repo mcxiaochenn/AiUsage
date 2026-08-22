@@ -18,9 +18,12 @@ AiUsage 是一个本地优先的 OpenAI Codex 套餐额度监看应用 MVP。项
 - 支持 English、简体中文和跟随系统语言。
 - access token 临近过期或 Usage 请求返回 401 时，最多刷新并重试一次。
 - 动态处理零个、一个或任意多个 quota window，包括 `additional_rate_limits`。
-- 展示已用/剩余百分比、重置倒计时、绝对时间、缓存状态和只读 Reset Credits。
-- 保存 7 天 SQLite 历史，并提供最近 24 小时或 7 天折线图。
-- 支持 System/Light/Dark、Manual/5/15/30 分钟刷新和本地阈值通知。
+- 展示已用/剩余百分比、额外额度余额/无限状态、重置倒计时、绝对时间、缓存状态和只读 Reset Credits 到期详情。
+- 通过 Codex Profile 数据展示累计 Token、单日峰值、任务时长、连续使用统计和每日热力图；账号侧统计可能延迟。
+- 账户详情按需读取注册时间并计算已注册天数；接口不可用时明确显示未知，不使用其他时间猜测。
+- 保存 7 天标准化额度快照，并缓存最近一次 Profile 与账户资料；同步诊断最多保留 200 条脱敏记录。
+- 支持 System/Light/Dark、默认关闭的系统动态取色、完整合成演示态、前台 Manual/5/15/30 分钟刷新和本地阈值通知。
+- 移动端后台自动刷新与前台间隔分离且默认关闭；启用前提示耗电并引导用户检查系统设置。
 - 桌面端提供托盘摘要、Open、Refresh、Quit 以及关闭窗口后隐藏。
 - 网络或 schema 错误时保留最后一次成功快照，并明确标记陈旧状态。
 
@@ -48,9 +51,9 @@ Flutter UI / AppController
         ↓ flutter_rust_bridge
 Rust application bridge
         ├─ Device Code OAuth / auth.json import / token refresh
-        ├─ Codex Usage API compatibility layer
+        ├─ Codex Usage / Profile / account details compatibility layer
         ├─ raw response normalization
-        └─ SQLite cache and seven-day history
+        └─ SQLite cache, seven-day quota history and redacted diagnostics
 ```
 
 ```text
@@ -67,7 +70,7 @@ rust/                        Rust domain core
   src/bridge/                暴露给 Flutter 的应用服务
 ```
 
-Flutter 不解析 OpenAI 原始 JSON。跨 FFI 只传递稳定模型，例如 `UsageSnapshot`、`QuotaWindow`、`AccountInfo`、`UsageState` 和 `HistoryPoint`。
+Flutter 不解析 OpenAI 原始 JSON。跨 FFI 只传递稳定模型，例如 `UsageSnapshot`、`CreditsSnapshot`、`ProfileUsage`、`AccountDetails` 和 `SyncLogEntry`。
 
 ## 安全与隐私
 
@@ -75,8 +78,9 @@ Flutter 不解析 OpenAI 原始 JSON。跨 FFI 只传递稳定模型，例如 `U
 - `auth.json` 只在用户主动选择文件后读取，限制为 1 MiB；仅在内存中解析，不复制原文件、不写 SQLite、不记录 Token。
 - API Key-only、缺少身份信息或格式异常的文件会被拒绝；应用不会自动扫描 `~/.codex/auth.json`。
 - Android 使用 Keystore；iOS/macOS 使用 Keychain；Windows 使用系统保护存储；Linux 使用 Secret Service。
-- Rust 只在单次调用的内存边界中接收凭据，不将凭据或原始 OpenAI JSON 写入 SQLite 或日志。
-- SQLite 仅保存 identity hash、非机密账号信息、标准化 quota 和时间戳；启动时清理七天前记录。
+- Rust 只在单次调用的内存边界中接收凭据；`Authorization`、OAuth Token、原始账户 ID 和安全存储内容不会写入 SQLite 或诊断。
+- 诊断最多保存 200 条，每条原始响应正文上限 64 KiB；JSON 中的 Token 与 ID 字段会脱敏，非 JSON 响应检测到凭据特征时整段丢弃。原始响应仍可能包含邮箱、套餐等账户资料，UI 默认折叠。
+- SQLite 保存 identity hash、非机密账号信息、标准化 quota、Profile 缓存、账户资料和诊断；额度快照启动时清理七天前记录，删除账户时清理其关联数据。
 - 429 尊重 `Retry-After`，5xx 只做有限指数退避，错误时保留陈旧缓存。
 - 默认不包含 analytics、telemetry、crash report 上传、后端服务、账号同步或 cloud sync。
 
@@ -84,8 +88,9 @@ Flutter 不解析 OpenAI 原始 JSON。跨 FFI 只传递稳定模型，例如 `U
 
 实现依据是上游 `openai/codex` 的当前源码研究，详见 [OpenAI Codex 兼容性研究](docs/openai-codex-research.md)。当前兼容以下路径风格：
 
-- ChatGPT backend：`/backend-api/wham/usage` 与 `/backend-api/wham/rate-limit-reset-credits`
+- ChatGPT backend：`/backend-api/wham/usage`、`/backend-api/wham/rate-limit-reset-credits` 与 `/backend-api/wham/profiles/me`
 - Codex API：`/api/codex/usage` 与 `/api/codex/rate-limit-reset-credits`
+- OpenAI account details：`https://api.openai.com/v1/me`
 
 这些接口是官方客户端当前使用的实现，**不是 OpenAI 面向第三方承诺稳定的公开 API**。端点、请求头、OAuth 参数或响应结构可能随时变化。
 
@@ -129,7 +134,7 @@ cd ..
 ./scripts/build_android_release.ps1 -Artifact appbundle
 ```
 
-Android 构建必须提供有效 `FLUTTER_ROOT`。产物检查要求包含 `libai_usage_core.so`，且不得包含 `kernel_blob.bin`、Vulkan validation layer 或非目标 Flutter engine；失败时脚本中止。本轮 Rust 格式、Clippy、23 个单元测试、Flutter analyze、3 个 Widget tests 和 Android arm64 Release 真机启动均已通过。
+Android 构建必须提供有效 `FLUTTER_ROOT`。产物检查要求包含 `libai_usage_core.so`，且不得包含 `kernel_blob.bin`、Vulkan validation layer 或非目标 Flutter engine；失败时脚本中止。本轮 Rust 格式、Clippy、27 个单元测试、Flutter/Dart analyze、6 个 Widget tests 和 Android arm64 Release 真机启动均已通过。
 
 修改 Rust FFI 公共函数或模型后，需要重新生成 bridge：
 
@@ -146,8 +151,8 @@ flutter_rust_bridge_codegen generate --config-file flutter_rust_bridge.yaml
 | 旧 Debug 通用 APK | 193,327,790 bytes（约 184.37 MiB） | 包含多 ABI、Flutter Debug engine、kernel snapshot 和调试资源 |
 | Debug 登录约 5 分钟后的主要用户数据 | 约 92 MB | 主要是 `kernel_blob.bin` 与快照复制；SQLite 仅约 32 KB |
 | 旧功能基线 arm64 Release APK | 24,385,257 bytes（23.26 MiB） | 不含 `kernel_blob.bin`，包含 Rust 核心 |
-| 当前 AiUsage arm64 Release APK | 25,511,245 bytes（24.33 MiB） | 含 `libai_usage_core.so`，通过发布产物检查 |
-| 当前 Release 新安装数据 | 659,456 bytes（约 644 KiB） | 真机启动后的 PackageManager 统计，未完成账号登录 |
+| 当前 AiUsage arm64 Release APK | 25,140,674 bytes（23.98 MiB） | 含 `libai_usage_core.so`，通过发布产物检查 |
+| 当前 Release 应用数据 | 999,424 bytes（约 976 KiB） | 已登录真机完成演示态、详情页与历史页验收后的 PackageManager 统计 |
 
 公开分发应优先使用 AAB，由应用商店按 ABI 下发。当前 Release 仅用于本机验证，仍使用开发签名，不是正式发布包。
 
@@ -157,7 +162,9 @@ flutter_rust_bridge_codegen generate --config-file flutter_rust_bridge.yaml
 - 完整重命名后的包 ID 为 `dev.chendusk.aiusage`；Alpha 阶段不迁移旧包 `dev.codexusage.monitor` 的凭据、设置或历史，两者可暂时共存。
 - OpenAI 调整内部接口后，登录或额度查询可能失效，需要更新 compatibility layer。
 - 第三方浏览器可能禁止向验证码输入框粘贴；应用提供复制、重新打开和重新申请验证码，但不会使用 WebView、无障碍或自动填充绕过限制。
-- iOS 和 Android 后台调度都属于 best effort，不能保证固定刷新周期。
+- iOS 和 Android 后台调度默认关闭且属于 best effort，不能保证固定刷新周期；各厂商自启动/电池限制当前只能由用户在系统设置中确认。
+- Profile Token 统计由账号侧异步生成，可能缺失当天 bucket 或明显滞后，不能作为实时计费依据。
+- `/backend-api/wham/profiles/me` 与 `/v1/me` 均未被本项目视为面向第三方的稳定兼容承诺。
 - Linux 托盘是否显示取决于桌面环境和 AppIndicator 支持。
 - Android Release 已完成新安装与入口检查，但尚未在真实账号登录后连续运行 5 分钟复测数据增长。
 - 不实现 Web、API Key 登录、其他 AI Provider、云同步、reset credit consume、Thread Usage、费用计算或企业 Admin API。
@@ -169,6 +176,13 @@ flutter_rust_bridge_codegen generate --config-file flutter_rust_bridge.yaml
 - 补充关键 Flutter controller/widget 测试和应用截图。
 - OpenAI 上游发生变化时，更新兼容研究、fixture 和 provider 层。
 - 在首个稳定候选版本前明确升级与本地数据库迁移策略。
+
+### PLAN：Android 后台权限检测
+
+- 调研不同 Android 厂商对自启动、后台活动和电池“无限制”状态的可读接口，优先使用公开系统 API，不依赖无障碍服务。
+- 能可靠检测时，在用户启用后台刷新后回读状态并显示逐项结果；无法检测时继续明确标注“需要手动确认”，不伪造已授权状态。
+- 为主流厂商设置页增加经过真机验证的定向入口，并保留标准应用详情/电池优化页面作为回退。
+- 后台刷新成功率和最近执行时间只保存在本机诊断中，不增加遥测或远程上报。
 
 ## 非官方声明
 

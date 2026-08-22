@@ -454,7 +454,7 @@ Reset Credits
 
 ## History
 
-SQLite 保存：
+额度快照继续在 SQLite 中至少保存 7 天，仅用于概览离线缓存：
 
 ```text
 timestamp
@@ -464,16 +464,17 @@ used_percent
 reset_at
 ```
 
-MVP 展示：
+历史页主数据改用 Codex Profile 账号侧 Token 统计，展示：
 
 ```text
-最近 24h
-最近 7d
+Lifetime Tokens
+Peak Daily Tokens
+Longest Running Task
+Current / Longest Streak
+最长一年 Daily Token 日历热力图
 ```
 
-简单折线图即可。
-
-不要为了 MVP 开发复杂数据分析。
+Profile 数据按账户缓存并标注采集时间。服务端可能延迟或缺少当天 bucket，不能作为实时计费依据，也不得用本地额度百分比推算 Token。
 
 ---
 
@@ -806,7 +807,7 @@ available_count
 
 ## History
 
-至少保存 7 天额度快照。
+至少保存 7 天额度快照，并按账户缓存最新 Profile Token 统计。
 
 应用重启后仍存在。
 

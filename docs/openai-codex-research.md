@@ -30,6 +30,7 @@ rate_limit.primary_window
 rate_limit.secondary_window
 additional_rate_limits[]
 rate_limit_reset_credits.available_count
+credits.has_credits / credits.unlimited / credits.balance
 ```
 
 一个 window 当前包含 `used_percent`、`limit_window_seconds`、`reset_after_seconds`、`reset_at`。`secondary_window` 与整个 `rate_limit` 都可以缺失或为 `null`。每个 `additional_rate_limits[]` 当前具有 `limit_name`、`metered_feature` 与其独立的 `rate_limit`。
@@ -44,6 +45,16 @@ Rust normalizer 必须：
 - 把 malformed window 丢弃为该 window 的解析问题，不让其清空最后成功 snapshot。
 
 `/rate-limit-reset-credits` 的 detail response 当前可含 `credits[]`，条目有 `id`、`reset_type`、`status`、`granted_at`、`expires_at`、`title`、`description`。若 details 获取失败而 Usage body 已有 `available_count`，官方 app-server 测试表明仍应保留 count；MVP 采用相同行为。
+
+Usage 顶层 `credits` 与 reset credit 是两类不同概念：前者描述额外额度是否存在、是否无限和后端给出的余额字符串；后者描述可以重置 rate-limit window 的可用次数。`available_count` 是 reset credit 总数的权威值，detail 列表可能被后端截断。接口只提供单条 reset credit 的 `expires_at`，没有“次数下次补充时间”，因此 UI 只标注到期时间。
+
+## Profile Token 统计与账户资料
+
+官方 app-server 的 `account/usage/read` 将 ChatGPT 账号侧 Profile 数据规范化为 `AccountTokenUsageSummary` 和 `AccountTokenUsageDailyBucket`。当前底层路径为 `GET https://chatgpt.com/backend-api/wham/profiles/me`，可返回 lifetime tokens、peak daily tokens、longest running turn、current/longest streak 与 `daily_usage_buckets`。这些统计由服务端异步生成，已知可能缺少当天 bucket；AiUsage 不把本机额度百分比或本地会话日志合并进去。
+
+账户注册时间按用户指定的只读路径 `GET https://api.openai.com/v1/me` 获取，只读取最外层 `created`。Codex OAuth access token 若被该 endpoint 拒绝，UI 保留注册时间字段并显示不可用，不使用组织创建时间、JWT 签发时间或其他字段猜测。
+
+两条新增路径与 Usage 路径一样属于兼容性研究对象，而不是本项目承诺稳定的公开 OpenAI API。请求仍只在 Rust credential boundary 内执行；Flutter 只接收规范化模型。
 
 ## 当前 ChatGPT OAuth
 
