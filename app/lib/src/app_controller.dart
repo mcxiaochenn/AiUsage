@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:math';
 
 import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
@@ -46,14 +47,33 @@ class AppController extends ChangeNotifier {
   bool _loading = true;
   bool _refreshing = false;
   String? _bootError;
+  ProfileUsage? _profileUsage;
+  AccountDetails? _accountDetails;
+  List<SyncLogEntry> _syncLogs = const [];
+  bool _profileLoading = false;
+  bool _accountDetailsLoading = false;
+  String? _profileError;
+  String? _accountDetailsError;
 
-  List<StoredAccount> get accounts => List.unmodifiable(_accounts);
-  StoredAccount? get selectedAccount =>
-      _accounts.cast<StoredAccount?>().firstWhere(
-        (item) => item?.identityHash == _selectedAccountId,
-        orElse: () => null,
-      );
-  UsageResult? get usage => _usage;
+  List<StoredAccount> get accounts =>
+      _settings.demoModeEnabled ? [_demoAccount] : List.unmodifiable(_accounts);
+  StoredAccount? get selectedAccount => _settings.demoModeEnabled
+      ? _demoAccount
+      : _accounts.cast<StoredAccount?>().firstWhere(
+          (item) => item?.identityHash == _selectedAccountId,
+          orElse: () => null,
+        );
+  UsageResult? get usage => _settings.demoModeEnabled ? _demoUsage : _usage;
+  ProfileUsage? get profileUsage =>
+      _settings.demoModeEnabled ? _demoProfile : _profileUsage;
+  AccountDetails? get accountDetails =>
+      _settings.demoModeEnabled ? _demoDetails : _accountDetails;
+  List<SyncLogEntry> get syncLogs => List.unmodifiable(_syncLogs);
+  bool get profileLoading => _profileLoading;
+  bool get accountDetailsLoading => _accountDetailsLoading;
+  String? get profileError => _profileError;
+  String? get accountDetailsError => _accountDetailsError;
+  bool get demoMode => _settings.demoModeEnabled;
   MonitorSettings get settings => _settings;
   bool get loading => _loading;
   bool get refreshing => _refreshing;
@@ -69,7 +89,10 @@ class AppController extends ChangeNotifier {
       _accounts = await _vault.loadAccounts();
       _selectedAccountId = _accounts.firstOrNull?.identityHash;
       _scheduleForegroundRefresh();
-      await _backgroundScheduler.configure(_settings.refreshMinutes);
+      await _backgroundScheduler.configure(
+        enabled: _settings.backgroundRefreshEnabled,
+        refreshMinutes: _settings.refreshMinutes,
+      );
       if (selectedAccount != null) {
         await loadCached();
         unawaited(refresh());
@@ -83,8 +106,13 @@ class AppController extends ChangeNotifier {
   }
 
   Future<void> selectAccount(String identityHash) async {
+    if (_settings.demoModeEnabled) return;
     _selectedAccountId = identityHash;
     _usage = null;
+    _profileUsage = null;
+    _accountDetails = null;
+    _profileError = null;
+    _accountDetailsError = null;
     notifyListeners();
     await loadCached();
     await refresh();
@@ -104,14 +132,18 @@ class AppController extends ChangeNotifier {
     }
   }
 
-  Future<void> refresh() async {
+  Future<void> refresh({SyncTrigger trigger = SyncTrigger.manual}) async {
+    if (_settings.demoModeEnabled) return;
     final account = selectedAccount;
     final credential = account?.credential;
     if (account == null || credential == null || _refreshing) return;
     _refreshing = true;
     notifyListeners();
     try {
-      final result = await core.refreshUsage(credential: credential);
+      final result = await core.refreshUsage(
+        credential: credential,
+        trigger: trigger,
+      );
       _usage = result;
       if (result.updatedCredential != null) {
         await _vault.updateCredential(
@@ -183,6 +215,8 @@ class AppController extends ChangeNotifier {
     if (_selectedAccountId == identityHash) {
       _selectedAccountId = _accounts.firstOrNull?.identityHash;
       _usage = null;
+      _profileUsage = null;
+      _accountDetails = null;
     }
     notifyListeners();
     await loadCached();
@@ -199,13 +233,86 @@ class AppController extends ChangeNotifier {
     );
   }
 
+  Future<void> loadProfile({bool force = false}) async {
+    if (_settings.demoModeEnabled || _profileLoading) return;
+    final account = selectedAccount;
+    final credential = account?.credential;
+    if (account == null || credential == null) return;
+    _profileLoading = true;
+    _profileError = null;
+    notifyListeners();
+    try {
+      if (!force) {
+        _profileUsage = await core.cachedProfileUsage(
+          accountIdentityHash: account.identityHash,
+        );
+        if (_profileUsage != null) notifyListeners();
+      }
+      _profileUsage = await core.fetchProfileUsage(
+        credential: credential,
+        trigger: SyncTrigger.pageLoad,
+      );
+    } catch (error) {
+      _profileError = error.toString();
+    } finally {
+      _profileLoading = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> loadAccountDetails(
+    StoredAccount account, {
+    bool force = false,
+  }) async {
+    if (_settings.demoModeEnabled || _accountDetailsLoading) return;
+    final credential = account.credential;
+    if (credential == null) return;
+    _accountDetailsLoading = true;
+    _accountDetailsError = null;
+    notifyListeners();
+    try {
+      if (!force) {
+        _accountDetails = await core.cachedAccountDetails(
+          accountIdentityHash: account.identityHash,
+        );
+        if (_accountDetails != null) notifyListeners();
+      }
+      _accountDetails = await core.fetchAccountDetails(
+        credential: credential,
+        trigger: SyncTrigger.pageLoad,
+      );
+    } catch (error) {
+      _accountDetailsError = error.toString();
+    } finally {
+      _accountDetailsLoading = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> loadSyncLogs() async {
+    try {
+      _syncLogs = await core.syncLogs();
+      notifyListeners();
+    } catch (_) {
+      // Diagnostics are optional and must never interrupt primary monitoring.
+    }
+  }
+
   Future<void> updateSettings(MonitorSettings value) async {
     final enablingNotifications =
         value.notificationsEnabled && !_settings.notificationsEnabled;
+    if (value.demoModeEnabled &&
+        !_settings.demoModeEnabled &&
+        value.demoSeed == 0) {
+      value = value.copyWith(demoSeed: Random.secure().nextInt(0x7fffffff));
+    }
     _settings = value;
     await _vault.saveSettings(value);
     _scheduleForegroundRefresh();
-    await _backgroundScheduler.configure(value.refreshMinutes);
+    await _backgroundScheduler.configure(
+      enabled: value.backgroundRefreshEnabled && !value.demoModeEnabled,
+      refreshMinutes: value.refreshMinutes,
+    );
     if (enablingNotifications) {
       await _notifications.requestPermission(locale: value.locale);
     }
@@ -227,7 +334,110 @@ class AppController extends ChangeNotifier {
     if (_settings.refreshMinutes == 0) return;
     _foregroundTimer = Timer.periodic(
       Duration(minutes: _settings.refreshMinutes),
-      (_) => unawaited(refresh()),
+      (_) => unawaited(refresh(trigger: SyncTrigger.foregroundTimer)),
+    );
+  }
+
+  StoredAccount get _demoAccount {
+    final random = Random(_settings.demoSeed);
+    return StoredAccount(
+      identityHash: 'demo-account',
+      email: 'demo${100 + random.nextInt(900)}@example.com',
+      plan: ['plus', 'pro'][random.nextInt(2)],
+      loginState: LoginState.signedIn,
+      lastSuccessfulRefresh: DateTime.now().millisecondsSinceEpoch ~/ 1000,
+      credential: const SecureCredential(
+        idToken: 'demo',
+        accessToken: 'demo',
+        refreshToken: 'demo',
+      ),
+    );
+  }
+
+  UsageResult get _demoUsage {
+    final random = Random(_settings.demoSeed);
+    final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+    final account = _demoAccount.account;
+    return UsageResult(
+      state: UsageState.fresh,
+      showingCachedData: false,
+      snapshot: UsageSnapshot(
+        account: account,
+        windows: [
+          QuotaWindow(
+            id: 'codex:primary',
+            title: '5-hour limit',
+            usedPercent: (20 + random.nextInt(65)).toDouble(),
+            resetAt: now + 7200,
+            windowSeconds: 18000,
+          ),
+          QuotaWindow(
+            id: 'codex:secondary',
+            title: '1-week limit',
+            usedPercent: (10 + random.nextInt(75)).toDouble(),
+            resetAt: now + 4 * 86400,
+            windowSeconds: 7 * 86400,
+          ),
+        ],
+        resetCreditsAvailable: 2,
+        resetCredits: [
+          ResetCredit(
+            id: 'demo-reset',
+            status: 'available',
+            grantedAt: now - 86400,
+            expiresAt: now + 14 * 86400,
+            title: 'Full reset',
+            description: 'Demo credit',
+          ),
+        ],
+        credits: const CreditsSnapshot(
+          hasCredits: true,
+          unlimited: false,
+          balance: '25.00',
+        ),
+        fetchedAt: now,
+      ),
+    );
+  }
+
+  ProfileUsage get _demoProfile {
+    final random = Random(_settings.demoSeed);
+    final today = DateTime.now();
+    final buckets = List.generate(120, (index) {
+      final date = DateTime(
+        today.year,
+        today.month,
+        today.day,
+      ).subtract(Duration(days: 119 - index));
+      return DailyTokenBucket(
+        startDate:
+            '${date.year.toString().padLeft(4, '0')}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}',
+        tokens: random.nextInt(2500000),
+      );
+    });
+    final peak = buckets.map((item) => item.tokens).reduce(max);
+    final lifetime = buckets.fold<int>(0, (sum, item) => sum + item.tokens);
+    return ProfileUsage(
+      summary: TokenUsageSummary(
+        lifetimeTokens: lifetime,
+        peakDailyTokens: peak,
+        longestRunningTurnSec: 1420,
+        currentStreakDays: 6,
+        longestStreakDays: 18,
+      ),
+      dailyUsageBuckets: buckets,
+      fetchedAt: DateTime.now().millisecondsSinceEpoch ~/ 1000,
+    );
+  }
+
+  AccountDetails get _demoDetails {
+    final now = DateTime.now();
+    return AccountDetails(
+      createdAt:
+          now.subtract(const Duration(days: 486)).millisecondsSinceEpoch ~/
+          1000,
+      email: _demoAccount.email,
+      fetchedAt: now.millisecondsSinceEpoch ~/ 1000,
     );
   }
 
