@@ -1,0 +1,19 @@
+{
+  "available_count": 2,
+  "credits": [
+    {
+      "id": "credit-1",
+      "status": "available",
+      "granted_at": "2026-06-17T00:00:00Z",
+      "expires_at": "2026-07-17T00:00:00Z",
+      "title": "Full reset",
+      "description": "Ready to redeem"
+    },
+    {
+      "id": "credit-2",
+      "status": "unknown_future_status",
+      "granted_at": "2026-06-18T00:00:00Z",
+      "expires_at": null
+    }
+  ]
+}

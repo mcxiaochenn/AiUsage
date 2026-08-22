@@ -1,0 +1,32 @@
+{
+  "plan_type": "pro",
+  "rate_limit": {
+    "primary_window": {
+      "used_percent": 72,
+      "limit_window_seconds": 18000,
+      "reset_after_seconds": 8040,
+      "reset_at": 1700008040
+    },
+    "secondary_window": {
+      "used_percent": 41,
+      "limit_window_seconds": 604800,
+      "reset_after_seconds": 374400,
+      "reset_at": 1700374400
+    }
+  },
+  "additional_rate_limits": [
+    {
+      "limit_name": "codex_spark",
+      "metered_feature": "codex_spark",
+      "rate_limit": {
+        "primary_window": {
+          "used_percent": 12,
+          "limit_window_seconds": 3600,
+          "reset_after_seconds": 120,
+          "reset_at": 1700000120
+        }
+      }
+    }
+  ],
+  "rate_limit_reset_credits": { "available_count": 2 }
+}

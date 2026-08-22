@@ -1,0 +1,12 @@
+{
+  "unknown_top_level": { "future": true },
+  "rate_limit": {
+    "primary_window": {
+      "used_percent": 55,
+      "unknown_window_field": "kept outside domain"
+    }
+  },
+  "additional_rate_limits": [
+    { "metered_feature": "future_limit", "rate_limit": { "secondary_window": null } }
+  ]
+}
