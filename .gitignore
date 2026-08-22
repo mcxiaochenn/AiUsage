@@ -52,6 +52,9 @@ app.*.map.json
 **/android/**/gradlew
 **/android/**/gradlew.bat
 **/android/**/gradle-wrapper.jar
+!app/android/gradlew
+!app/android/gradlew.bat
+!app/android/gradle/wrapper/gradle-wrapper.jar
 *.jks
 *.keystore
 **/auth.json

@@ -4,6 +4,29 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
 }
 
+val releaseKeystorePath = System.getenv("AIUSAGE_ANDROID_KEYSTORE_PATH")
+val releaseKeystorePassword = System.getenv("AIUSAGE_ANDROID_KEYSTORE_PASSWORD")
+val releaseKeyAlias = System.getenv("AIUSAGE_ANDROID_KEY_ALIAS")
+val releaseKeyPassword = System.getenv("AIUSAGE_ANDROID_KEY_PASSWORD")
+val releaseSigningValues =
+    listOf(
+        releaseKeystorePath,
+        releaseKeystorePassword,
+        releaseKeyAlias,
+        releaseKeyPassword,
+    )
+val releaseSigningConfigured = releaseSigningValues.all { !it.isNullOrBlank() }
+val releaseBuildRequested =
+    gradle.startParameter.taskNames.any { taskName ->
+        taskName.contains("release", ignoreCase = true)
+    }
+
+if (releaseBuildRequested && !releaseSigningConfigured) {
+    throw GradleException(
+        "Release signing is required. Configure the AIUSAGE_ANDROID_* environment variables.",
+    )
+}
+
 android {
     namespace = "dev.chendusk.aiusage"
     // flutter_secure_storage 11 需要在 API 37 编译；运行时 target 仍由 Flutter 管理，
@@ -27,11 +50,22 @@ android {
         versionName = flutter.versionName
     }
 
+    signingConfigs {
+        if (releaseSigningConfigured) {
+            create("aiUsageRelease") {
+                storeFile = file(requireNotNull(releaseKeystorePath))
+                storePassword = releaseKeystorePassword
+                keyAlias = releaseKeyAlias
+                keyPassword = releaseKeyPassword
+            }
+        }
+    }
+
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+            if (releaseSigningConfigured) {
+                signingConfig = signingConfigs.getByName("aiUsageRelease")
+            }
             ndk {
                 abiFilters += "arm64-v8a"
             }

@@ -1,0 +1,103 @@
+name: Quality
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  workflow_call:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: quality-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  rust:
+    name: Rust core
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: rust
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Install Rust components
+        run: rustup component add rustfmt clippy
+      - name: Check formatting
+        run: cargo fmt --check
+      - name: Run Clippy
+        run: cargo clippy --all-targets --all-features --locked -- -D warnings
+      - name: Run Rust tests
+        run: cargo test --all-targets --all-features --locked
+
+  flutter:
+    name: Flutter app
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Set up Flutter
+        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
+        with:
+          channel: stable
+          flutter-version: 3.47.1
+          cache: true
+      - name: Restore dependencies
+        run: flutter pub get
+      - name: Verify generated localization
+        run: |
+          flutter gen-l10n
+          git diff --exit-code -- lib/l10n
+      - name: Check Dart formatting
+        run: dart format --output=none --set-exit-if-changed lib test
+      - name: Analyze Flutter app
+        run: flutter analyze --no-pub
+      - name: Run Widget tests
+        run: flutter test --no-pub
+
+  android-smoke:
+    name: Android arm64 package
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Set up Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+      - name: Set up Flutter
+        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
+        with:
+          channel: stable
+          flutter-version: 3.47.1
+          cache: true
+      - name: Restore dependencies
+        working-directory: app
+        run: flutter pub get
+      - name: Create ephemeral CI signing key
+        shell: bash
+        run: |
+          keytool -genkeypair -noprompt \
+            -keystore "$RUNNER_TEMP/aiusage-ci.jks" \
+            -storepass aiusage-ci-only \
+            -keypass aiusage-ci-only \
+            -alias aiusage-ci \
+            -keyalg RSA \
+            -keysize 2048 \
+            -validity 1 \
+            -dname "CN=AiUsage CI, O=AiUsage"
+          echo "AIUSAGE_ANDROID_KEYSTORE_PATH=$RUNNER_TEMP/aiusage-ci.jks" >> "$GITHUB_ENV"
+          echo "AIUSAGE_ANDROID_KEYSTORE_PASSWORD=aiusage-ci-only" >> "$GITHUB_ENV"
+          echo "AIUSAGE_ANDROID_KEY_ALIAS=aiusage-ci" >> "$GITHUB_ENV"
+          echo "AIUSAGE_ANDROID_KEY_PASSWORD=aiusage-ci-only" >> "$GITHUB_ENV"
+      - name: Build and inspect arm64 APK
+        shell: pwsh
+        run: ./scripts/build_android_release.ps1 -Format apk -FlutterRoot $env:FLUTTER_ROOT
