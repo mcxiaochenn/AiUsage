@@ -3,6 +3,8 @@
 
 // ignore_for_file: invalid_use_of_internal_member, unused_import, unnecessary_import
 
+import 'dart:typed_data';
+
 import '../frb_generated.dart';
 import '../models.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
@@ -20,6 +22,12 @@ Future<DeviceCodeLoginPoll> pollDeviceLogin({required String loginId}) =>
 
 Future<void> cancelDeviceLogin({required String loginId}) =>
     RustLib.instance.api.crateApiApplicationCancelDeviceLogin(loginId: loginId);
+
+Future<DeviceCodeLoginComplete> importCodexAuthJson({
+  required Uint8List content,
+}) => RustLib.instance.api.crateApiApplicationImportCodexAuthJson(
+  content: content,
+);
 
 Future<UsageResult> refreshUsage({required SecureCredential credential}) =>
     RustLib.instance.api.crateApiApplicationRefreshUsage(

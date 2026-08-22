@@ -7,6 +7,7 @@ import 'api/application.dart';
 import 'api/system.dart';
 import 'dart:async';
 import 'dart:convert';
+import 'dart:typed_data';
 import 'frb_generated.dart';
 import 'frb_generated.io.dart'
     if (dart.library.js_interop) 'frb_generated.web.dart';
@@ -70,7 +71,7 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
 
   static const kDefaultExternalLibraryLoaderConfig =
       ExternalLibraryLoaderConfig(
-      stem: 'ai_usage_core',
+        stem: 'ai_usage_core',
         ioDirectory: '../rust/target/release/',
         webPrefix: 'pkg/',
         wasmBindgenName: 'wasm_bindgen',
@@ -88,6 +89,10 @@ abstract class RustLibApi extends BaseApi {
 
   Future<void> crateApiApplicationInitializeCore({
     required String databasePath,
+  });
+
+  Future<DeviceCodeLoginComplete> crateApiApplicationImportCodexAuthJson({
+    required Uint8List content,
   });
 
   Future<String> crateApiSystemPing();
@@ -237,6 +242,39 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       const TaskConstMeta(
         debugName: "initialize_core",
         argNames: ["databasePath"],
+      );
+
+  @override
+  Future<DeviceCodeLoginComplete> crateApiApplicationImportCodexAuthJson({
+    required Uint8List content,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_list_prim_u_8_strict(content, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 10,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_device_code_login_complete,
+          decodeErrorData: sse_decode_String,
+        ),
+        constMeta: kCrateApiApplicationImportCodexAuthJsonConstMeta,
+        argValues: [content],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiApplicationImportCodexAuthJsonConstMeta =>
+      const TaskConstMeta(
+        debugName: "import_codex_auth_json",
+        argNames: ["content"],
       );
 
   @override

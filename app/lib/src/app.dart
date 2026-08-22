@@ -1,9 +1,11 @@
 import 'dart:async';
 
 import 'package:fl_chart/fl_chart.dart';
+import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -174,7 +176,7 @@ class _AppShellState extends ConsumerState<_AppShell>
           Padding(
             padding: const EdgeInsets.only(right: 12),
             child: FilledButton.icon(
-              onPressed: () => _showDeviceLogin(context),
+              onPressed: () => _showAddAccount(context),
               icon: const Icon(Icons.person_add_alt_1),
               label: const Text('Add account'),
             ),
@@ -236,7 +238,7 @@ class DashboardPage extends ConsumerWidget {
         message:
             'Use the official OpenAI device sign-in flow. Tokens stay in your system keychain.',
         action: FilledButton.icon(
-          onPressed: () => _showDeviceLogin(context),
+          onPressed: () => _showAddAccount(context),
           icon: const Icon(Icons.person_add_alt_1),
           label: const Text('Add account'),
         ),
@@ -461,7 +463,7 @@ class AccountsPage extends ConsumerWidget {
         ),
         const SizedBox(height: 8),
         OutlinedButton.icon(
-          onPressed: () => _showDeviceLogin(context),
+          onPressed: () => _showAddAccount(context),
           icon: const Icon(Icons.person_add_alt_1),
           label: const Text('Add account'),
         ),
@@ -857,21 +859,33 @@ class _DeviceLoginDialog extends ConsumerStatefulWidget {
   ConsumerState<_DeviceLoginDialog> createState() => _DeviceLoginDialogState();
 }
 
-class _DeviceLoginDialogState extends ConsumerState<_DeviceLoginDialog> {
+class _DeviceLoginDialogState extends ConsumerState<_DeviceLoginDialog>
+    with WidgetsBindingObserver {
   DeviceCodeLoginStart? _start;
   Timer? _pollTimer;
+  Timer? _countdownTimer;
+  DateTime? _expiresAt;
   String? _error;
   bool _finished = false;
+  bool _polling = false;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     unawaited(_begin());
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) unawaited(_poll());
   }
 
   @override
   void dispose() {
     _pollTimer?.cancel();
+    _countdownTimer?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
     final loginId = _start?.loginId;
     if (!_finished && loginId != null) {
       unawaited(ref.read(appControllerProvider).cancelDeviceLogin(loginId));
@@ -880,18 +894,44 @@ class _DeviceLoginDialogState extends ConsumerState<_DeviceLoginDialog> {
   }
 
   Future<void> _begin() async {
+    final previousLoginId = _start?.loginId;
+    if (previousLoginId != null && !_finished) {
+      await ref.read(appControllerProvider).cancelDeviceLogin(previousLoginId);
+      if (!mounted) return;
+    }
+    _pollTimer?.cancel();
+    _countdownTimer?.cancel();
+    setState(() {
+      _start = null;
+      _error = null;
+      _finished = false;
+    });
     try {
       final start = await ref.read(appControllerProvider).beginAddAccount();
       if (!mounted) return;
-      setState(() => _start = start);
-      await launchUrl(
-        Uri.parse(start.verificationUrl),
-        mode: LaunchMode.externalApplication,
-      );
+      setState(() {
+        _start = start;
+        _expiresAt = DateTime.now().add(const Duration(minutes: 15));
+      });
       _pollTimer = Timer.periodic(
         Duration(seconds: start.pollIntervalSeconds),
         (_) => unawaited(_poll()),
       );
+      _countdownTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+        if (!mounted) return;
+        final expiresAt = _expiresAt;
+        if (expiresAt != null && DateTime.now().isAfter(expiresAt)) {
+          _pollTimer?.cancel();
+          _countdownTimer?.cancel();
+          setState(() => _error = 'This sign-in code has expired.');
+          unawaited(
+            ref.read(appControllerProvider).cancelDeviceLogin(start.loginId),
+          );
+        } else {
+          setState(() {});
+        }
+      });
+      unawaited(_openBrowser());
     } catch (error) {
       if (mounted) setState(() => _error = '$error');
     }
@@ -899,7 +939,8 @@ class _DeviceLoginDialogState extends ConsumerState<_DeviceLoginDialog> {
 
   Future<void> _poll() async {
     final start = _start;
-    if (start == null || _finished) return;
+    if (start == null || _finished || _polling) return;
+    _polling = true;
     try {
       final result = await ref
           .read(appControllerProvider)
@@ -908,11 +949,43 @@ class _DeviceLoginDialogState extends ConsumerState<_DeviceLoginDialog> {
       if (complete == null) return;
       _finished = true;
       _pollTimer?.cancel();
+      _countdownTimer?.cancel();
       await ref.read(appControllerProvider).acceptLogin(complete);
       if (mounted) Navigator.pop(context);
     } catch (error) {
       if (mounted) setState(() => _error = '$error');
+    } finally {
+      _polling = false;
     }
+  }
+
+  Future<void> _copyCode() async {
+    final code = _start?.userCode;
+    if (code == null) return;
+    await Clipboard.setData(ClipboardData(text: code));
+    if (!mounted) return;
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('Code copied.')));
+  }
+
+  Future<void> _openBrowser() async {
+    final url = _start?.verificationUrl;
+    if (url == null) return;
+    final opened = await launchUrl(
+      Uri.parse(url),
+      mode: LaunchMode.externalApplication,
+    );
+    if (!opened && mounted) {
+      setState(() => _error = 'Unable to open the browser.');
+    }
+  }
+
+  String get _remainingLoginTime {
+    final seconds = _expiresAt?.difference(DateTime.now()).inSeconds ?? 0;
+    if (seconds <= 0) return '0:00';
+    final minutes = seconds ~/ 60;
+    return '$minutes:${(seconds % 60).toString().padLeft(2, '0')}';
   }
 
   @override
@@ -920,7 +993,7 @@ class _DeviceLoginDialogState extends ConsumerState<_DeviceLoginDialog> {
     title: const Text('Sign in to Codex'),
     content: SizedBox(
       width: 420,
-      child: _error != null
+      child: _error != null && _start == null
           ? Text('Sign-in failed: $_error')
           : _start == null
           ? const SizedBox(
@@ -939,8 +1012,21 @@ class _DeviceLoginDialogState extends ConsumerState<_DeviceLoginDialog> {
                   _start!.userCode,
                   style: Theme.of(context).textTheme.headlineMedium,
                 ),
-                const SizedBox(height: 12),
-                Text('Waiting for authorization at ${_start!.verificationUrl}'),
+                const SizedBox(height: 8),
+                Text('Code expires in $_remainingLoginTime'),
+                const SizedBox(height: 8),
+                Text(
+                  'If your browser blocks paste, enter the code manually. The app will continue checking automatically.',
+                ),
+                if (_error != null) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    'Last check failed: $_error',
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.error,
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 12),
                 const LinearProgressIndicator(),
               ],
@@ -953,13 +1039,18 @@ class _DeviceLoginDialogState extends ConsumerState<_DeviceLoginDialog> {
       ),
       if (_start != null)
         TextButton.icon(
-          onPressed: () => launchUrl(
-            Uri.parse(_start!.verificationUrl),
-            mode: LaunchMode.externalApplication,
-          ),
+          onPressed: _copyCode,
+          icon: const Icon(Icons.copy),
+          label: const Text('Copy code'),
+        ),
+      if (_start != null)
+        TextButton.icon(
+          onPressed: _openBrowser,
           icon: const Icon(Icons.open_in_new),
           label: const Text('Open browser'),
         ),
+      if (_error != null)
+        TextButton(onPressed: _begin, child: const Text('Get a new code')),
     ],
   );
 }
@@ -969,6 +1060,83 @@ Future<void> _showDeviceLogin(BuildContext context) => showDialog<void>(
   barrierDismissible: false,
   builder: (context) => const _DeviceLoginDialog(),
 );
+
+Future<void> _showAddAccount(BuildContext context) async {
+  final mobile = MediaQuery.sizeOf(context).width < 600;
+  final method = mobile
+      ? await showModalBottomSheet<String>(
+          context: context,
+          showDragHandle: true,
+          builder: (context) => const _LoginMethodChoices(),
+        )
+      : await showDialog<String>(
+          context: context,
+          builder: (context) => const SimpleDialog(
+            title: Text('Add account'),
+            children: [_LoginMethodChoices()],
+          ),
+        );
+  if (!context.mounted || method == null) return;
+  if (method == 'device') {
+    await _showDeviceLogin(context);
+  } else {
+    await _importAuthJson(context);
+  }
+}
+
+class _LoginMethodChoices extends StatelessWidget {
+  const _LoginMethodChoices();
+
+  @override
+  Widget build(BuildContext context) => Column(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      ListTile(
+        leading: const Icon(Icons.open_in_browser),
+        title: const Text('Sign in with browser'),
+        subtitle: const Text('Recommended · OpenAI Device Code flow'),
+        onTap: () => Navigator.pop(context, 'device'),
+      ),
+      ListTile(
+        leading: const Icon(Icons.file_open_outlined),
+        title: const Text('Import auth.json'),
+        subtitle: const Text('Advanced · Tokens are stored securely'),
+        onTap: () => Navigator.pop(context, 'file'),
+      ),
+      const SizedBox(height: 8),
+    ],
+  );
+}
+
+Future<void> _importAuthJson(BuildContext context) async {
+  try {
+    const typeGroup = XTypeGroup(
+      label: 'Codex auth.json',
+      extensions: ['json'],
+      mimeTypes: ['application/json'],
+      uniformTypeIdentifiers: ['public.json'],
+    );
+    final file = await openFile(acceptedTypeGroups: const [typeGroup]);
+    if (file == null || !context.mounted) return;
+    if (await file.length() > 1024 * 1024) {
+      throw const FormatException('auth_import.file_too_large');
+    }
+    final bytes = await file.readAsBytes();
+    if (!context.mounted) return;
+    await ProviderScope.containerOf(
+      context,
+    ).read(appControllerProvider).importAccount(bytes);
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('Account imported.')));
+  } catch (error) {
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Unable to import auth.json: $error')),
+    );
+  }
+}
 
 String _remainingTime(int resetAt) {
   final seconds = resetAt - DateTime.now().millisecondsSinceEpoch ~/ 1000;

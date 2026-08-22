@@ -115,7 +115,7 @@ impl CodexProvider {
                 .get(url)
                 .bearer_auth(&credential.access_token)
                 .header("Accept", "application/json")
-            .header("User-Agent", "AiUsage/0.1");
+                .header("User-Agent", "AiUsage/0.1");
             if let Some(workspace_id) = workspace_id.filter(|value| !value.is_empty()) {
                 request = request.header("ChatGPT-Account-Id", workspace_id);
             }

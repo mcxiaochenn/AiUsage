@@ -63,7 +63,7 @@ pub async fn begin_device_login() -> Result<DeviceCodeLoginStart, String> {
         .insert(login_id.clone(), pending.clone());
     Ok(DeviceCodeLoginStart {
         login_id,
-        verification_url: format!("{}/codex/device", auth::AUTH_ISSUER),
+        verification_url: pending.verification_url,
         user_code: pending.user_code,
         poll_interval_seconds: pending.interval_seconds,
     })
@@ -111,6 +111,15 @@ pub fn cancel_device_login(login_id: String) -> Result<(), String> {
         .map_err(|_| "Device login state is unavailable".to_string())?
         .remove(&login_id);
     Ok(())
+}
+
+pub fn import_codex_auth_json(content: Vec<u8>) -> Result<DeviceCodeLoginComplete, String> {
+    let credential = auth::import_auth_json(&content).map_err(auth_error_message)?;
+    let account = auth::account_from_credential(&credential).map_err(auth_error_message)?;
+    Ok(DeviceCodeLoginComplete {
+        credential,
+        account,
+    })
 }
 
 pub async fn refresh_usage(credential: SecureCredential) -> UsageResult {

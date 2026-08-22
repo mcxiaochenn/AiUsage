@@ -54,6 +54,7 @@ app.*.map.json
 **/android/**/gradle-wrapper.jar
 *.jks
 *.keystore
+**/auth.json
 
 # Apple generated and user-specific files
 **/Pods/

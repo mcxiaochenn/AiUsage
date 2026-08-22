@@ -3,8 +3,8 @@
 
 use crate::bridge;
 use crate::models::{
-    AccountInfo, DeviceCodeLoginPoll, DeviceCodeLoginStart, HistoryPoint, SecureCredential,
-    UsageResult,
+    AccountInfo, DeviceCodeLoginComplete, DeviceCodeLoginPoll, DeviceCodeLoginStart, HistoryPoint,
+    SecureCredential, UsageResult,
 };
 
 pub fn initialize_core(database_path: String) -> Result<(), String> {
@@ -21,6 +21,10 @@ pub async fn poll_device_login(login_id: String) -> Result<DeviceCodeLoginPoll, 
 
 pub fn cancel_device_login(login_id: String) -> Result<(), String> {
     bridge::cancel_device_login(login_id)
+}
+
+pub fn import_codex_auth_json(content: Vec<u8>) -> Result<DeviceCodeLoginComplete, String> {
+    bridge::import_codex_auth_json(content)
 }
 
 pub async fn refresh_usage(credential: SecureCredential) -> UsageResult {

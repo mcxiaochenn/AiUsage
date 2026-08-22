@@ -18,6 +18,7 @@ pub const AUTH_ISSUER: &str = "https://auth.openai.com";
 /// here, rather than in Flutter, so a provider update is a one-file change.
 pub const CODEX_OAUTH_CLIENT_ID: &str = "app_EMoamEEZ73f0CkXaXp7hrann";
 const DEVICE_CODE_MAX_WAIT_SECONDS: i64 = 15 * 60;
+pub const AUTH_JSON_MAX_BYTES: usize = 1024 * 1024;
 
 #[derive(Debug, Error)]
 pub enum AuthError {
@@ -33,6 +34,12 @@ pub enum AuthError {
     MissingCredential,
     #[error("OAuth login is no longer pending")]
     NotPending,
+    #[error("auth_import.file_too_large")]
+    FileTooLarge,
+    #[error("auth_import.invalid_json")]
+    InvalidAuthJson,
+    #[error("auth_import.api_key_only")]
+    ApiKeyOnly,
 }
 
 #[derive(Clone, Debug)]
@@ -41,6 +48,7 @@ pub struct PendingDeviceCode {
     pub user_code: String,
     pub interval_seconds: i64,
     pub started_at: i64,
+    pub verification_url: String,
 }
 
 #[derive(Clone, Debug)]
@@ -61,6 +69,10 @@ struct DeviceCodeStartResponse {
     user_code: String,
     #[serde(default)]
     interval: Value,
+    #[serde(default, alias = "verification_url")]
+    verification_uri: Option<String>,
+    #[serde(default)]
+    verification_uri_complete: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -80,6 +92,39 @@ struct TokenResponse {
     id_token: Option<String>,
     access_token: Option<String>,
     refresh_token: Option<String>,
+}
+
+pub fn import_auth_json(content: &[u8]) -> Result<SecureCredential, AuthError> {
+    if content.len() > AUTH_JSON_MAX_BYTES {
+        return Err(AuthError::FileTooLarge);
+    }
+    let document: Value =
+        serde_json::from_slice(content).map_err(|_| AuthError::InvalidAuthJson)?;
+    let tokens = document.get("tokens").and_then(Value::as_object);
+    if tokens.is_none()
+        && document
+            .get("OPENAI_API_KEY")
+            .and_then(Value::as_str)
+            .is_some_and(|value| !value.trim().is_empty())
+    {
+        return Err(AuthError::ApiKeyOnly);
+    }
+    let tokens = tokens.ok_or(AuthError::MissingCredential)?;
+    let read = |key: &str| {
+        tokens
+            .get(key)
+            .and_then(Value::as_str)
+            .filter(|value| !value.is_empty())
+            .map(ToOwned::to_owned)
+            .ok_or(AuthError::MissingCredential)
+    };
+    let credential = SecureCredential {
+        id_token: read("id_token")?,
+        access_token: read("access_token")?,
+        refresh_token: read("refresh_token")?,
+    };
+    account_from_credential(&credential)?;
+    Ok(credential)
 }
 
 #[derive(Serialize)]
@@ -184,6 +229,10 @@ pub async fn start_device_code(client: &Client) -> Result<PendingDeviceCode, Aut
         user_code: response.user_code,
         interval_seconds,
         started_at: now_unix(),
+        verification_url: response
+            .verification_uri_complete
+            .or(response.verification_uri)
+            .unwrap_or_else(|| format!("{AUTH_ISSUER}/codex/device")),
     })
 }
 
@@ -417,7 +466,55 @@ mod tests {
             user_code: "code".to_string(),
             interval_seconds: 5,
             started_at: now_unix() - DEVICE_CODE_MAX_WAIT_SECONDS - 1,
+            verification_url: format!("{AUTH_ISSUER}/codex/device"),
         };
         assert!(device_code_expired(&expired));
+    }
+
+    #[test]
+    fn imports_current_codex_auth_json_shape() {
+        let encoded = URL_SAFE_NO_PAD.encode(
+            serde_json::to_vec(&serde_json::json!({
+                "sub": "user-1",
+                "email": "user@example.com"
+            }))
+            .unwrap(),
+        );
+        let document = serde_json::json!({
+            "tokens": {
+                "id_token": format!("a.{encoded}.c"),
+                "access_token": "test-access-token",
+                "refresh_token": "test-refresh-token"
+            }
+        });
+        let credential = import_auth_json(&serde_json::to_vec(&document).unwrap()).unwrap();
+        assert_eq!(credential.access_token, "test-access-token");
+    }
+
+    #[test]
+    fn rejects_api_key_only_auth_json() {
+        let error = import_auth_json(br#"{"OPENAI_API_KEY":"test-key"}"#).unwrap_err();
+        assert!(matches!(error, AuthError::ApiKeyOnly));
+    }
+
+    #[test]
+    fn rejects_missing_tokens_and_malformed_json() {
+        assert!(matches!(
+            import_auth_json(br#"{"tokens":{}}"#),
+            Err(AuthError::MissingCredential)
+        ));
+        assert!(matches!(
+            import_auth_json(b"not-json"),
+            Err(AuthError::InvalidAuthJson)
+        ));
+    }
+
+    #[test]
+    fn rejects_oversized_auth_json() {
+        let content = vec![b' '; AUTH_JSON_MAX_BYTES + 1];
+        assert!(matches!(
+            import_auth_json(&content),
+            Err(AuthError::FileTooLarge)
+        ));
     }
 }

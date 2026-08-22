@@ -144,6 +144,11 @@ class AppController extends ChangeNotifier {
   Future<void> cancelDeviceLogin(String loginId) =>
       core.cancelDeviceLogin(loginId: loginId);
 
+  Future<void> importAccount(Uint8List content) async {
+    final completed = await core.importCodexAuthJson(content: content);
+    await acceptLogin(completed);
+  }
+
   Future<void> acceptLogin(DeviceCodeLoginComplete completed) async {
     await _vault.saveSignedIn(completed.account, completed.credential);
     _accounts = await _vault.loadAccounts();
