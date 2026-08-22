@@ -239,6 +239,10 @@ class MonitorSettings {
     this.refreshMinutes = 15,
     this.showResetCredits = true,
     this.notificationsEnabled = false,
+    this.dynamicColorEnabled = false,
+    this.demoModeEnabled = false,
+    this.demoSeed = 0,
+    this.backgroundRefreshEnabled = false,
   });
 
   final ThemePreference theme;
@@ -246,6 +250,10 @@ class MonitorSettings {
   final int refreshMinutes;
   final bool showResetCredits;
   final bool notificationsEnabled;
+  final bool dynamicColorEnabled;
+  final bool demoModeEnabled;
+  final int demoSeed;
+  final bool backgroundRefreshEnabled;
 
   factory MonitorSettings.fromJson(Map<String, dynamic> json) =>
       MonitorSettings(
@@ -261,6 +269,11 @@ class MonitorSettings {
         },
         showResetCredits: json['show_reset_credits'] as bool? ?? true,
         notificationsEnabled: json['notifications_enabled'] as bool? ?? false,
+        dynamicColorEnabled: json['dynamic_color_enabled'] as bool? ?? false,
+        demoModeEnabled: json['demo_mode_enabled'] as bool? ?? false,
+        demoSeed: json['demo_seed'] as int? ?? 0,
+        backgroundRefreshEnabled:
+            json['background_refresh_enabled'] as bool? ?? false,
       );
 
   MonitorSettings copyWith({
@@ -269,12 +282,21 @@ class MonitorSettings {
     int? refreshMinutes,
     bool? showResetCredits,
     bool? notificationsEnabled,
+    bool? dynamicColorEnabled,
+    bool? demoModeEnabled,
+    int? demoSeed,
+    bool? backgroundRefreshEnabled,
   }) => MonitorSettings(
     theme: theme ?? this.theme,
     locale: locale ?? this.locale,
     refreshMinutes: refreshMinutes ?? this.refreshMinutes,
     showResetCredits: showResetCredits ?? this.showResetCredits,
     notificationsEnabled: notificationsEnabled ?? this.notificationsEnabled,
+    dynamicColorEnabled: dynamicColorEnabled ?? this.dynamicColorEnabled,
+    demoModeEnabled: demoModeEnabled ?? this.demoModeEnabled,
+    demoSeed: demoSeed ?? this.demoSeed,
+    backgroundRefreshEnabled:
+        backgroundRefreshEnabled ?? this.backgroundRefreshEnabled,
   );
 
   Map<String, Object> toJson() => {
@@ -283,5 +305,9 @@ class MonitorSettings {
     'refresh_minutes': refreshMinutes,
     'show_reset_credits': showResetCredits,
     'notifications_enabled': notificationsEnabled,
+    'dynamic_color_enabled': dynamicColorEnabled,
+    'demo_mode_enabled': demoModeEnabled,
+    'demo_seed': demoSeed,
+    'background_refresh_enabled': backgroundRefreshEnabled,
   };
 }

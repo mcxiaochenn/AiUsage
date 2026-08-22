@@ -362,4 +362,192 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get storageInitFailed => '无法初始化本地存储。';
+
+  @override
+  String get demoData => '演示数据';
+
+  @override
+  String get extraCredits => '额外额度';
+
+  @override
+  String get unlimited => '无限额度';
+
+  @override
+  String get balanceUnavailable => '余额不可用';
+
+  @override
+  String get creditsAvailable => '额度可用';
+
+  @override
+  String get noCredits => '暂无额外额度';
+
+  @override
+  String earliestExpiry(String time) {
+    return '最早到期时间：$time';
+  }
+
+  @override
+  String get expiryUnavailable => '到期时间不可用';
+
+  @override
+  String get accountDetails => '账户详情';
+
+  @override
+  String get back => '返回';
+
+  @override
+  String get email => '邮箱';
+
+  @override
+  String get plan => '套餐';
+
+  @override
+  String get loginStatus => '登录状态';
+
+  @override
+  String get credential => '凭据';
+
+  @override
+  String get lastRefresh => '上次刷新';
+
+  @override
+  String get fedramp => 'FedRAMP';
+
+  @override
+  String get yes => '是';
+
+  @override
+  String get no => '否';
+
+  @override
+  String get registrationTime => '注册时间';
+
+  @override
+  String get registeredDays => '已注册天数';
+
+  @override
+  String daysCount(int count) {
+    return '$count 天';
+  }
+
+  @override
+  String get accountDetailsUnavailable => '暂时无法获取账户注册资料';
+
+  @override
+  String get retry => '重试';
+
+  @override
+  String get tokenActivity => 'Token 使用统计';
+
+  @override
+  String get profileMayLag => '账号侧 Profile 统计可能滞后于当天活动，不能作为实时计费数据。';
+
+  @override
+  String get profileUnavailable => 'Profile 统计不可用';
+
+  @override
+  String profileUpdatedAt(String time) {
+    return 'Profile 更新于 $time';
+  }
+
+  @override
+  String get showingCachedProfile => '最新请求失败，当前显示缓存的 Profile 数据。';
+
+  @override
+  String get lifetimeTokens => '累计 Token';
+
+  @override
+  String get peakDailyTokens => '单日峰值 Token';
+
+  @override
+  String get longestTask => '最长任务';
+
+  @override
+  String get currentStreak => '当前连续使用';
+
+  @override
+  String get longestStreak => '最长连续使用';
+
+  @override
+  String get dailyTokenHeatmap => '每日 Token 热力图';
+
+  @override
+  String get noTokenBuckets => 'Profile API 未返回每日统计。';
+
+  @override
+  String get heatmapLegend => '颜色由浅到深表示每日 Token 用量由低到高。';
+
+  @override
+  String get dynamicColor => '动态取色';
+
+  @override
+  String get dynamicColorDescription => '支持时使用系统壁纸配色，默认关闭。';
+
+  @override
+  String get demoMode => '体验演示';
+
+  @override
+  String get demoModeDescription => '使用合成账户、额度、Profile 与历史数据展示功能，不发起网络请求。';
+
+  @override
+  String get backgroundRefresh => '后台自动刷新';
+
+  @override
+  String get backgroundRefreshDescription => '默认关闭，与前台刷新间隔相互独立。';
+
+  @override
+  String get backgroundWarningTitle => '允许后台刷新？';
+
+  @override
+  String get backgroundWarningMessage =>
+      '后台任务可能增加耗电。请在系统设置中允许 AiUsage 后台运行并取消电池限制。当前版本无法自动检测各厂商的自启动设置。';
+
+  @override
+  String get appSettings => '应用设置';
+
+  @override
+  String get batterySettings => '电池设置';
+
+  @override
+  String get backgroundConfirmed => '我已检查并允许所需的系统设置。';
+
+  @override
+  String get enable => '启用';
+
+  @override
+  String get diagnostics => '诊断';
+
+  @override
+  String get diagnosticsDescription => '查看最近 200 条已脱敏同步记录。';
+
+  @override
+  String get diagnosticsPrivacy =>
+      '不会记录 Authorization、OAuth Token 或原始账户 ID。原始响应可能包含账户资料，默认保持折叠。';
+
+  @override
+  String get noDiagnostics => '暂无同步记录';
+
+  @override
+  String get noDiagnosticsDescription => '请求额度、Profile 或账户详情后会产生记录。';
+
+  @override
+  String get emptyResponse => '未记录响应正文。';
+
+  @override
+  String get responseTruncated => '响应已按 64 KiB 隐私与存储上限截断。';
+
+  @override
+  String get syncManual => '手动';
+
+  @override
+  String get syncResume => '返回前台';
+
+  @override
+  String get syncForeground => '前台定时';
+
+  @override
+  String get syncBackground => '后台';
+
+  @override
+  String get syncPageLoad => '页面加载';
 }

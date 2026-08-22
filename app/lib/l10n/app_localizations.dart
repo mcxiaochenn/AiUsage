@@ -721,6 +721,366 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Unable to initialize local storage.'**
   String get storageInitFailed;
+
+  /// No description provided for @demoData.
+  ///
+  /// In en, this message translates to:
+  /// **'Demo data'**
+  String get demoData;
+
+  /// No description provided for @extraCredits.
+  ///
+  /// In en, this message translates to:
+  /// **'Extra credits'**
+  String get extraCredits;
+
+  /// No description provided for @unlimited.
+  ///
+  /// In en, this message translates to:
+  /// **'Unlimited'**
+  String get unlimited;
+
+  /// No description provided for @balanceUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Balance unavailable'**
+  String get balanceUnavailable;
+
+  /// No description provided for @creditsAvailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Credits available'**
+  String get creditsAvailable;
+
+  /// No description provided for @noCredits.
+  ///
+  /// In en, this message translates to:
+  /// **'No credits available'**
+  String get noCredits;
+
+  /// No description provided for @earliestExpiry.
+  ///
+  /// In en, this message translates to:
+  /// **'Earliest expiry: {time}'**
+  String earliestExpiry(String time);
+
+  /// No description provided for @expiryUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Expiry time unavailable'**
+  String get expiryUnavailable;
+
+  /// No description provided for @accountDetails.
+  ///
+  /// In en, this message translates to:
+  /// **'Account details'**
+  String get accountDetails;
+
+  /// No description provided for @back.
+  ///
+  /// In en, this message translates to:
+  /// **'Back'**
+  String get back;
+
+  /// No description provided for @email.
+  ///
+  /// In en, this message translates to:
+  /// **'Email'**
+  String get email;
+
+  /// No description provided for @plan.
+  ///
+  /// In en, this message translates to:
+  /// **'Plan'**
+  String get plan;
+
+  /// No description provided for @loginStatus.
+  ///
+  /// In en, this message translates to:
+  /// **'Login status'**
+  String get loginStatus;
+
+  /// No description provided for @credential.
+  ///
+  /// In en, this message translates to:
+  /// **'Credential'**
+  String get credential;
+
+  /// No description provided for @lastRefresh.
+  ///
+  /// In en, this message translates to:
+  /// **'Last refresh'**
+  String get lastRefresh;
+
+  /// No description provided for @fedramp.
+  ///
+  /// In en, this message translates to:
+  /// **'FedRAMP'**
+  String get fedramp;
+
+  /// No description provided for @yes.
+  ///
+  /// In en, this message translates to:
+  /// **'Yes'**
+  String get yes;
+
+  /// No description provided for @no.
+  ///
+  /// In en, this message translates to:
+  /// **'No'**
+  String get no;
+
+  /// No description provided for @registrationTime.
+  ///
+  /// In en, this message translates to:
+  /// **'Registration time'**
+  String get registrationTime;
+
+  /// No description provided for @registeredDays.
+  ///
+  /// In en, this message translates to:
+  /// **'Registered days'**
+  String get registeredDays;
+
+  /// No description provided for @daysCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} days'**
+  String daysCount(int count);
+
+  /// No description provided for @accountDetailsUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Account registration details are unavailable'**
+  String get accountDetailsUnavailable;
+
+  /// No description provided for @retry.
+  ///
+  /// In en, this message translates to:
+  /// **'Retry'**
+  String get retry;
+
+  /// No description provided for @tokenActivity.
+  ///
+  /// In en, this message translates to:
+  /// **'Token activity'**
+  String get tokenActivity;
+
+  /// No description provided for @profileMayLag.
+  ///
+  /// In en, this message translates to:
+  /// **'Account-side Profile statistics can lag behind current-day activity and are not real-time billing data.'**
+  String get profileMayLag;
+
+  /// No description provided for @profileUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Profile statistics unavailable'**
+  String get profileUnavailable;
+
+  /// No description provided for @profileUpdatedAt.
+  ///
+  /// In en, this message translates to:
+  /// **'Profile updated {time}'**
+  String profileUpdatedAt(String time);
+
+  /// No description provided for @showingCachedProfile.
+  ///
+  /// In en, this message translates to:
+  /// **'The latest request failed; showing cached Profile data.'**
+  String get showingCachedProfile;
+
+  /// No description provided for @lifetimeTokens.
+  ///
+  /// In en, this message translates to:
+  /// **'Lifetime tokens'**
+  String get lifetimeTokens;
+
+  /// No description provided for @peakDailyTokens.
+  ///
+  /// In en, this message translates to:
+  /// **'Peak daily tokens'**
+  String get peakDailyTokens;
+
+  /// No description provided for @longestTask.
+  ///
+  /// In en, this message translates to:
+  /// **'Longest task'**
+  String get longestTask;
+
+  /// No description provided for @currentStreak.
+  ///
+  /// In en, this message translates to:
+  /// **'Current streak'**
+  String get currentStreak;
+
+  /// No description provided for @longestStreak.
+  ///
+  /// In en, this message translates to:
+  /// **'Longest streak'**
+  String get longestStreak;
+
+  /// No description provided for @dailyTokenHeatmap.
+  ///
+  /// In en, this message translates to:
+  /// **'Daily token heatmap'**
+  String get dailyTokenHeatmap;
+
+  /// No description provided for @noTokenBuckets.
+  ///
+  /// In en, this message translates to:
+  /// **'The Profile API returned no daily buckets.'**
+  String get noTokenBuckets;
+
+  /// No description provided for @heatmapLegend.
+  ///
+  /// In en, this message translates to:
+  /// **'Lighter to darker cells represent lower to higher daily token usage.'**
+  String get heatmapLegend;
+
+  /// No description provided for @dynamicColor.
+  ///
+  /// In en, this message translates to:
+  /// **'Dynamic color'**
+  String get dynamicColor;
+
+  /// No description provided for @dynamicColorDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Use system wallpaper colors when supported. Off by default.'**
+  String get dynamicColorDescription;
+
+  /// No description provided for @demoMode.
+  ///
+  /// In en, this message translates to:
+  /// **'Experience demo'**
+  String get demoMode;
+
+  /// No description provided for @demoModeDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Show synthetic account, quota, profile, and history data without network requests.'**
+  String get demoModeDescription;
+
+  /// No description provided for @backgroundRefresh.
+  ///
+  /// In en, this message translates to:
+  /// **'Background automatic refresh'**
+  String get backgroundRefresh;
+
+  /// No description provided for @backgroundRefreshDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Off by default. Foreground refresh interval remains independent.'**
+  String get backgroundRefreshDescription;
+
+  /// No description provided for @backgroundWarningTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Allow background refresh?'**
+  String get backgroundWarningTitle;
+
+  /// No description provided for @backgroundWarningMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Background work may increase battery use. Allow AiUsage to run in the background and remove battery restrictions in system settings. Android vendor settings cannot yet be detected automatically.'**
+  String get backgroundWarningMessage;
+
+  /// No description provided for @appSettings.
+  ///
+  /// In en, this message translates to:
+  /// **'App settings'**
+  String get appSettings;
+
+  /// No description provided for @batterySettings.
+  ///
+  /// In en, this message translates to:
+  /// **'Battery settings'**
+  String get batterySettings;
+
+  /// No description provided for @backgroundConfirmed.
+  ///
+  /// In en, this message translates to:
+  /// **'I have reviewed and allowed the required system settings.'**
+  String get backgroundConfirmed;
+
+  /// No description provided for @enable.
+  ///
+  /// In en, this message translates to:
+  /// **'Enable'**
+  String get enable;
+
+  /// No description provided for @diagnostics.
+  ///
+  /// In en, this message translates to:
+  /// **'Diagnostics'**
+  String get diagnostics;
+
+  /// No description provided for @diagnosticsDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'View the latest 200 redacted synchronization records.'**
+  String get diagnosticsDescription;
+
+  /// No description provided for @diagnosticsPrivacy.
+  ///
+  /// In en, this message translates to:
+  /// **'Authorization, OAuth tokens, and raw account IDs are never recorded. Raw responses may contain account profile information and are collapsed by default.'**
+  String get diagnosticsPrivacy;
+
+  /// No description provided for @noDiagnostics.
+  ///
+  /// In en, this message translates to:
+  /// **'No synchronization records'**
+  String get noDiagnostics;
+
+  /// No description provided for @noDiagnosticsDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Records appear after usage, Profile, or account-detail requests.'**
+  String get noDiagnosticsDescription;
+
+  /// No description provided for @emptyResponse.
+  ///
+  /// In en, this message translates to:
+  /// **'No response body was recorded.'**
+  String get emptyResponse;
+
+  /// No description provided for @responseTruncated.
+  ///
+  /// In en, this message translates to:
+  /// **'Response truncated at the 64 KiB privacy and storage limit.'**
+  String get responseTruncated;
+
+  /// No description provided for @syncManual.
+  ///
+  /// In en, this message translates to:
+  /// **'Manual'**
+  String get syncManual;
+
+  /// No description provided for @syncResume.
+  ///
+  /// In en, this message translates to:
+  /// **'App resume'**
+  String get syncResume;
+
+  /// No description provided for @syncForeground.
+  ///
+  /// In en, this message translates to:
+  /// **'Foreground timer'**
+  String get syncForeground;
+
+  /// No description provided for @syncBackground.
+  ///
+  /// In en, this message translates to:
+  /// **'Background'**
+  String get syncBackground;
+
+  /// No description provided for @syncPageLoad.
+  ///
+  /// In en, this message translates to:
+  /// **'Page load'**
+  String get syncPageLoad;
 }
 
 class _AppLocalizationsDelegate

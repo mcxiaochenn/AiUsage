@@ -378,4 +378,203 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get storageInitFailed => 'Unable to initialize local storage.';
+
+  @override
+  String get demoData => 'Demo data';
+
+  @override
+  String get extraCredits => 'Extra credits';
+
+  @override
+  String get unlimited => 'Unlimited';
+
+  @override
+  String get balanceUnavailable => 'Balance unavailable';
+
+  @override
+  String get creditsAvailable => 'Credits available';
+
+  @override
+  String get noCredits => 'No credits available';
+
+  @override
+  String earliestExpiry(String time) {
+    return 'Earliest expiry: $time';
+  }
+
+  @override
+  String get expiryUnavailable => 'Expiry time unavailable';
+
+  @override
+  String get accountDetails => 'Account details';
+
+  @override
+  String get back => 'Back';
+
+  @override
+  String get email => 'Email';
+
+  @override
+  String get plan => 'Plan';
+
+  @override
+  String get loginStatus => 'Login status';
+
+  @override
+  String get credential => 'Credential';
+
+  @override
+  String get lastRefresh => 'Last refresh';
+
+  @override
+  String get fedramp => 'FedRAMP';
+
+  @override
+  String get yes => 'Yes';
+
+  @override
+  String get no => 'No';
+
+  @override
+  String get registrationTime => 'Registration time';
+
+  @override
+  String get registeredDays => 'Registered days';
+
+  @override
+  String daysCount(int count) {
+    return '$count days';
+  }
+
+  @override
+  String get accountDetailsUnavailable =>
+      'Account registration details are unavailable';
+
+  @override
+  String get retry => 'Retry';
+
+  @override
+  String get tokenActivity => 'Token activity';
+
+  @override
+  String get profileMayLag =>
+      'Account-side Profile statistics can lag behind current-day activity and are not real-time billing data.';
+
+  @override
+  String get profileUnavailable => 'Profile statistics unavailable';
+
+  @override
+  String profileUpdatedAt(String time) {
+    return 'Profile updated $time';
+  }
+
+  @override
+  String get showingCachedProfile =>
+      'The latest request failed; showing cached Profile data.';
+
+  @override
+  String get lifetimeTokens => 'Lifetime tokens';
+
+  @override
+  String get peakDailyTokens => 'Peak daily tokens';
+
+  @override
+  String get longestTask => 'Longest task';
+
+  @override
+  String get currentStreak => 'Current streak';
+
+  @override
+  String get longestStreak => 'Longest streak';
+
+  @override
+  String get dailyTokenHeatmap => 'Daily token heatmap';
+
+  @override
+  String get noTokenBuckets => 'The Profile API returned no daily buckets.';
+
+  @override
+  String get heatmapLegend =>
+      'Lighter to darker cells represent lower to higher daily token usage.';
+
+  @override
+  String get dynamicColor => 'Dynamic color';
+
+  @override
+  String get dynamicColorDescription =>
+      'Use system wallpaper colors when supported. Off by default.';
+
+  @override
+  String get demoMode => 'Experience demo';
+
+  @override
+  String get demoModeDescription =>
+      'Show synthetic account, quota, profile, and history data without network requests.';
+
+  @override
+  String get backgroundRefresh => 'Background automatic refresh';
+
+  @override
+  String get backgroundRefreshDescription =>
+      'Off by default. Foreground refresh interval remains independent.';
+
+  @override
+  String get backgroundWarningTitle => 'Allow background refresh?';
+
+  @override
+  String get backgroundWarningMessage =>
+      'Background work may increase battery use. Allow AiUsage to run in the background and remove battery restrictions in system settings. Android vendor settings cannot yet be detected automatically.';
+
+  @override
+  String get appSettings => 'App settings';
+
+  @override
+  String get batterySettings => 'Battery settings';
+
+  @override
+  String get backgroundConfirmed =>
+      'I have reviewed and allowed the required system settings.';
+
+  @override
+  String get enable => 'Enable';
+
+  @override
+  String get diagnostics => 'Diagnostics';
+
+  @override
+  String get diagnosticsDescription =>
+      'View the latest 200 redacted synchronization records.';
+
+  @override
+  String get diagnosticsPrivacy =>
+      'Authorization, OAuth tokens, and raw account IDs are never recorded. Raw responses may contain account profile information and are collapsed by default.';
+
+  @override
+  String get noDiagnostics => 'No synchronization records';
+
+  @override
+  String get noDiagnosticsDescription =>
+      'Records appear after usage, Profile, or account-detail requests.';
+
+  @override
+  String get emptyResponse => 'No response body was recorded.';
+
+  @override
+  String get responseTruncated =>
+      'Response truncated at the 64 KiB privacy and storage limit.';
+
+  @override
+  String get syncManual => 'Manual';
+
+  @override
+  String get syncResume => 'App resume';
+
+  @override
+  String get syncForeground => 'Foreground timer';
+
+  @override
+  String get syncBackground => 'Background';
+
+  @override
+  String get syncPageLoad => 'Page load';
 }
