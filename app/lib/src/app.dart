@@ -1190,19 +1190,10 @@ class _TokenHeatmap extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    final sorted = [...buckets]
-      ..sort((a, b) => a.startDate.compareTo(b.startDate));
-    final visible = sorted.length > 366
-        ? sorted.sublist(sorted.length - 366)
-        : sorted;
-    final maxTokens = visible.fold<int>(
-      0,
-      (maxValue, item) => max(maxValue, item.tokens),
-    );
-    final weeks = <List<DailyTokenBucket>>[];
-    for (var index = 0; index < visible.length; index += 7) {
-      weeks.add(visible.sublist(index, min(index + 7, visible.length)));
-    }
+    final weeks = _buildHeatmapWeeks(buckets, DateTime.now());
+    final maxTokens = weeks
+        .expand((week) => week)
+        .fold<int>(0, (peak, cell) => max(peak, cell.tokens ?? 0));
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -1214,7 +1205,7 @@ class _TokenHeatmap extends StatelessWidget {
               style: Theme.of(context).textTheme.titleMedium,
             ),
             const SizedBox(height: 12),
-            if (visible.isEmpty)
+            if (buckets.isEmpty)
               Text(l10n.noTokenBuckets)
             else
               SingleChildScrollView(
@@ -1228,23 +1219,10 @@ class _TokenHeatmap extends StatelessWidget {
                         padding: const EdgeInsets.only(right: 3),
                         child: Column(
                           children: [
-                            for (final bucket in week)
-                              Tooltip(
-                                message:
-                                    '${bucket.startDate} · ${bucket.tokens}',
-                                child: Container(
-                                  width: 15,
-                                  height: 15,
-                                  margin: const EdgeInsets.only(bottom: 3),
-                                  decoration: BoxDecoration(
-                                    color: _heatColor(
-                                      context,
-                                      bucket.tokens,
-                                      maxTokens,
-                                    ),
-                                    borderRadius: BorderRadius.circular(3),
-                                  ),
-                                ),
+                            for (final cell in week)
+                              _HeatmapCellWidget(
+                                cell: cell,
+                                maxTokens: maxTokens,
                               ),
                           ],
                         ),
@@ -1262,6 +1240,32 @@ class _TokenHeatmap extends StatelessWidget {
       ),
     );
   }
+}
+
+class _HeatmapCellWidget extends StatelessWidget {
+  const _HeatmapCellWidget({required this.cell, required this.maxTokens});
+
+  final _HeatmapCell cell;
+  final int maxTokens;
+
+  @override
+  Widget build(BuildContext context) {
+    final tokens = cell.tokens;
+    final tile = Container(
+      key: ValueKey('heatmap-${cell.date}'),
+      width: 15,
+      height: 15,
+      margin: const EdgeInsets.only(bottom: 3),
+      decoration: BoxDecoration(
+        color: tokens == null
+            ? Colors.transparent
+            : _heatColor(context, tokens, maxTokens),
+        borderRadius: BorderRadius.circular(3),
+      ),
+    );
+    if (tokens == null) return tile;
+    return Tooltip(message: '${cell.date} · $tokens', child: tile);
+  }
 
   Color _heatColor(BuildContext context, int tokens, int maxTokens) {
     final colors = Theme.of(context).colorScheme;
@@ -1270,6 +1274,64 @@ class _TokenHeatmap extends StatelessWidget {
     return Color.lerp(colors.primaryContainer, colors.primary, level / 4)!;
   }
 }
+
+class _HeatmapCell {
+  const _HeatmapCell({required this.date, required this.tokens});
+
+  final String date;
+  final int? tokens;
+}
+
+List<List<_HeatmapCell>> _buildHeatmapWeeks(
+  List<DailyTokenBucket> buckets,
+  DateTime now,
+) {
+  final today = DateTime.utc(now.year, now.month, now.day);
+  final cutoff = today.subtract(const Duration(days: 1));
+  final currentWeekStart = today.subtract(Duration(days: today.weekday % 7));
+  final firstDate = currentWeekStart.subtract(const Duration(days: 51 * 7));
+  final totals = <String, int>{};
+  for (final bucket in buckets) {
+    final date = _parseCalendarDate(bucket.startDate);
+    if (date == null || date.isBefore(firstDate) || date.isAfter(cutoff)) {
+      continue;
+    }
+    final key = _calendarDate(date);
+    totals.update(
+      key,
+      (value) => value + max(0, bucket.tokens),
+      ifAbsent: () => max(0, bucket.tokens),
+    );
+  }
+
+  return List.generate(52, (weekIndex) {
+    final weekStart = firstDate.add(Duration(days: weekIndex * 7));
+    return List.generate(7, (dayIndex) {
+      final date = weekStart.add(Duration(days: dayIndex));
+      final key = _calendarDate(date);
+      return _HeatmapCell(
+        date: key,
+        tokens: date.isAfter(cutoff) ? null : totals[key] ?? 0,
+      );
+    }, growable: false);
+  }, growable: false);
+}
+
+DateTime? _parseCalendarDate(String value) {
+  final match = RegExp(r'^(\d{4})-(\d{2})-(\d{2})$').firstMatch(value);
+  if (match == null) return null;
+  final year = int.parse(match.group(1)!);
+  final month = int.parse(match.group(2)!);
+  final day = int.parse(match.group(3)!);
+  final date = DateTime.utc(year, month, day);
+  if (date.year != year || date.month != month || date.day != day) return null;
+  return date;
+}
+
+String _calendarDate(DateTime date) =>
+    '${date.year.toString().padLeft(4, '0')}-'
+    '${date.month.toString().padLeft(2, '0')}-'
+    '${date.day.toString().padLeft(2, '0')}';
 
 String _compactNumber(int? value) {
   if (value == null) return '—';

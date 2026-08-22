@@ -461,7 +461,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get tokenActivity => 'Token 使用统计';
 
   @override
-  String get profileMayLag => '账号侧 Profile 统计可能滞后于当天活动，不能作为实时计费数据。';
+  String get profileMayLag => 'Profile 统计按日生成，热力图截至昨天，不能作为实时计费数据。';
 
   @override
   String get profileUnavailable => 'Profile 统计不可用';
@@ -496,7 +496,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get noTokenBuckets => 'Profile API 未返回每日统计。';
 
   @override
-  String get heatmapLegend => '颜色由浅到深表示每日 Token 用量由低到高。';
+  String get heatmapLegend => '数据截至昨天；颜色由浅到深表示每日 Token 用量由低到高。';
 
   @override
   String get dynamicColor => '动态取色';

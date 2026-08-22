@@ -128,6 +128,8 @@ abstract class AppLocalizations {
   /// **'Settings'**
   String get settings;
 
+  /// No description provided for @pressBackAgainToExit.
+  ///
   /// In en, this message translates to:
   /// **'Press back again to exit AiUsage'**
   String get pressBackAgainToExit;
@@ -276,16 +278,28 @@ abstract class AppLocalizations {
   /// **'Available in system secure storage'**
   String get credentialAvailable;
 
-  /// In en, this message translates to: **'Credential source'**
+  /// No description provided for @credentialSource.
+  ///
+  /// In en, this message translates to:
+  /// **'Credential source'**
   String get credentialSource;
 
-  /// In en, this message translates to: **'Browser authorization (Device Code)'**
+  /// No description provided for @credentialSourceDeviceCode.
+  ///
+  /// In en, this message translates to:
+  /// **'Browser authorization (Device Code)'**
   String get credentialSourceDeviceCode;
 
-  /// In en, this message translates to: **'auth.json import'**
+  /// No description provided for @credentialSourceAuthJson.
+  ///
+  /// In en, this message translates to:
+  /// **'auth.json import'**
   String get credentialSourceAuthJson;
 
-  /// In en, this message translates to: **'Unknown (older version)'**
+  /// No description provided for @credentialSourceUnknown.
+  ///
+  /// In en, this message translates to:
+  /// **'Unknown (older version)'**
   String get credentialSourceUnknown;
 
   /// No description provided for @never.
@@ -870,10 +884,16 @@ abstract class AppLocalizations {
   /// **'Account registration details are unavailable'**
   String get accountDetailsUnavailable;
 
-  /// In en, this message translates to: **'Profile fetched at'**
+  /// No description provided for @accountDetailsFetchedAt.
+  ///
+  /// In en, this message translates to:
+  /// **'Profile fetched at'**
   String get accountDetailsFetchedAt;
 
-  /// In en, this message translates to: **'Update failed; showing cached account details'**
+  /// No description provided for @showingCachedAccountDetails.
+  ///
+  /// In en, this message translates to:
+  /// **'Update failed; showing cached account details'**
   String get showingCachedAccountDetails;
 
   /// No description provided for @retry.
@@ -891,7 +911,7 @@ abstract class AppLocalizations {
   /// No description provided for @profileMayLag.
   ///
   /// In en, this message translates to:
-  /// **'Account-side Profile statistics can lag behind current-day activity and are not real-time billing data.'**
+  /// **'Profile statistics are generated daily. The heatmap ends yesterday and is not real-time billing data.'**
   String get profileMayLag;
 
   /// No description provided for @profileUnavailable.
@@ -957,7 +977,7 @@ abstract class AppLocalizations {
   /// No description provided for @heatmapLegend.
   ///
   /// In en, this message translates to:
-  /// **'Lighter to darker cells represent lower to higher daily token usage.'**
+  /// **'Through yesterday. Lighter to darker cells represent lower to higher daily token usage.'**
   String get heatmapLegend;
 
   /// No description provided for @dynamicColor.

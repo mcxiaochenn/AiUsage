@@ -481,7 +481,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get profileMayLag =>
-      'Account-side Profile statistics can lag behind current-day activity and are not real-time billing data.';
+      'Profile statistics are generated daily. The heatmap ends yesterday and is not real-time billing data.';
 
   @override
   String get profileUnavailable => 'Profile statistics unavailable';
@@ -518,7 +518,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get heatmapLegend =>
-      'Lighter to darker cells represent lower to higher daily token usage.';
+      'Through yesterday. Lighter to darker cells represent lower to higher daily token usage.';
 
   @override
   String get dynamicColor => 'Dynamic color';

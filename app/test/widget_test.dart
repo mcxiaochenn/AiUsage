@@ -132,6 +132,49 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('heatmap ends yesterday and normalizes daily buckets', (
+    tester,
+  ) async {
+    final today = DateTime.now();
+    final yesterday = today.subtract(const Duration(days: 1));
+    final twoDaysAgo = today.subtract(const Duration(days: 2));
+    final threeDaysAgo = today.subtract(const Duration(days: 3));
+    final olderDate = today.subtract(const Duration(days: 250));
+    final profile = ProfileUsage(
+      summary: const TokenUsageSummary(),
+      dailyUsageBuckets: [
+        DailyTokenBucket(startDate: _dateKey(yesterday), tokens: 5),
+        DailyTokenBucket(startDate: _dateKey(yesterday), tokens: 7),
+        DailyTokenBucket(startDate: _dateKey(twoDaysAgo), tokens: -4),
+        DailyTokenBucket(startDate: _dateKey(today), tokens: 999),
+        DailyTokenBucket(startDate: _dateKey(olderDate), tokens: 3),
+      ],
+      fetchedAt: 1,
+    );
+    const account = StoredAccount(
+      identityHash: 'profile-account',
+      email: 'profile@example.com',
+      loginState: LoginState.signedOut,
+    );
+    await tester.pumpWidget(
+      AiUsageApp(
+        controller: AppController.testing(
+          accounts: const [account],
+          profileUsage: profile,
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('History'));
+    await tester.pumpAndSettle();
+    expect(find.byTooltip('${_dateKey(yesterday)} · 12'), findsOneWidget);
+    expect(find.byTooltip('${_dateKey(twoDaysAgo)} · 0'), findsOneWidget);
+    expect(find.byTooltip('${_dateKey(threeDaysAgo)} · 0'), findsOneWidget);
+    expect(find.byTooltip('${_dateKey(olderDate)} · 3'), findsOneWidget);
+    expect(find.byTooltip('${_dateKey(today)} · 999'), findsNothing);
+    expect(find.textContaining('ends yesterday'), findsOneWidget);
+  });
+
   testWidgets('extra credits hide zero balance and show positive balance', (
     tester,
   ) async {
@@ -297,3 +340,7 @@ AppController _controllerWithCredits({
   );
 }
 
+String _dateKey(DateTime date) =>
+    '${date.year.toString().padLeft(4, '0')}-'
+    '${date.month.toString().padLeft(2, '0')}-'
+    '${date.day.toString().padLeft(2, '0')}';
