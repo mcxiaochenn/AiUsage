@@ -1,15 +1,17 @@
 # AiUsage
 
-![Status](https://img.shields.io/badge/status-early%20development-orange)
-![Version](https://img.shields.io/badge/version-0.1.0--alpha-blue)
+![CI](https://github.com/mcxiaochenn/AiUsage/actions/workflows/ci.yml/badge.svg)
+![Release](https://img.shields.io/github/v/release/mcxiaochenn/AiUsage)
+![Status](https://img.shields.io/badge/Android-stable-brightgreen)
+![Version](https://img.shields.io/badge/version-v0.1.0-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
-> [!WARNING]
-> **Early Development / Alpha**：项目仍处于早期开发阶段，尚未提供稳定版本、正式安装包、平台兼容保证或数据迁移承诺。请勿将其作为关键额度告警的唯一来源。
+> [!IMPORTANT]
+> **v0.1.0 Android Stable**：这是 AiUsage 首个正式签名的 Android 稳定版本。Windows、macOS、Linux 和 iOS 仍处于源码级实验支持；OpenAI 内部接口可能随时变化，请勿将本应用作为关键额度告警的唯一来源。
 
 AiUsage 是一个本地优先的 OpenAI Codex 套餐额度监看应用 MVP。项目使用 Flutter 提供 Android、iOS、Windows、macOS 和 Linux 的统一界面，由 Rust 负责 OAuth、Usage API 兼容、数据标准化及 SQLite 历史。
 
-**English summary:** AiUsage is an early-development, local-first cross-platform monitor for OpenAI Codex usage limits. It keeps credentials in platform secure storage, normalizes quota windows in a Rust core, and stores only local usage history. This project is unofficial and currently relies on undocumented endpoints used by the official Codex client.
+**English summary:** AiUsage is a local-first Android monitor for OpenAI Codex usage limits. Version 0.1.0 is the first stable, signed Android release; other platform projects remain experimental. Credentials stay in platform secure storage, while the Rust core normalizes quota data and keeps history locally. This unofficial project relies on undocumented endpoints used by the official Codex client.
 
 ## 已实现功能
 
@@ -128,13 +130,13 @@ flutter test --no-pub
 
 # arm64 Release APK，并验证 ABI、Rust 动态库、调试资源和 30 MiB 上限
 cd ..
-./scripts/build_android_release.ps1 -Artifact apk
+./scripts/build_android_release.ps1 -Format apk
 
 # 商店候选优先使用 AAB
-./scripts/build_android_release.ps1 -Artifact appbundle
+./scripts/build_android_release.ps1 -Format appbundle
 ```
 
-Android 构建必须提供有效 `FLUTTER_ROOT`。产物检查要求包含 `libai_usage_core.so`，且不得包含 `kernel_blob.bin`、Vulkan validation layer 或非目标 Flutter engine；失败时脚本中止。本轮 Rust 格式、Clippy、27 个单元测试、Flutter/Dart analyze、6 个 Widget tests 和 Android arm64 Release 真机启动均已通过。
+Android 构建必须提供有效 `FLUTTER_ROOT` 和 `AIUSAGE_ANDROID_*` 签名环境变量。产物检查要求包含 `libai_usage_core.so`，且不得包含 `kernel_blob.bin`、Vulkan validation layer 或非目标 Flutter engine；正式产物还必须匹配固定证书 SHA-256。本轮 Rust 格式、Clippy、35 个单元测试、Flutter analyze、16 个 Widget tests、Android arm64 APK/AAB 构建及签名检查均已通过。
 
 修改 Rust FFI 公共函数或模型后，需要重新生成 bridge：
 
@@ -151,15 +153,16 @@ flutter_rust_bridge_codegen generate --config-file flutter_rust_bridge.yaml
 | 旧 Debug 通用 APK | 193,327,790 bytes（约 184.37 MiB） | 包含多 ABI、Flutter Debug engine、kernel snapshot 和调试资源 |
 | Debug 登录约 5 分钟后的主要用户数据 | 约 92 MB | 主要是 `kernel_blob.bin` 与快照复制；SQLite 仅约 32 KB |
 | 旧功能基线 arm64 Release APK | 24,385,257 bytes（23.26 MiB） | 不含 `kernel_blob.bin`，包含 Rust 核心 |
-| 当前 AiUsage arm64 Release APK | 25,140,674 bytes（23.98 MiB） | 含 `libai_usage_core.so`，通过发布产物检查 |
+| v0.1.0 arm64 Release APK 候选 | 25,320,930 bytes（24.15 MiB） | 含 `libai_usage_core.so`，通过 ABI、体积和签名检查 |
+| v0.1.0 arm64 Release AAB 候选 | 25,569,773 bytes（24.39 MiB） | 供后续商店提交，使用同一发布证书 |
 | 当前 Release 应用数据 | 999,424 bytes（约 976 KiB） | 已登录真机完成演示态、详情页与历史页验收后的 PackageManager 统计 |
 
-公开分发应优先使用 AAB，由应用商店按 ABI 下发。当前 Release 仅用于本机验证，仍使用开发签名，不是正式发布包。
+GitHub Release 提供正式签名的 arm64 APK 和 AAB；直接安装使用 APK，AAB 仅作为后续商店提交候选。下载后可使用同版本 `SHA256SUMS` 文件校验完整性。
 
 ## 已知限制
 
-- 项目当前没有稳定 Release、自动更新器、正式签名安装包或商店发布。
-- 完整重命名后的包 ID 为 `dev.chendusk.aiusage`；Alpha 阶段不迁移旧包 `dev.codexusage.monitor` 的凭据、设置或历史，两者可暂时共存。
+- 当前没有自动更新器或应用商店发布；用户需要从 GitHub Release 手动下载安装包。
+- 完整重命名后的包 ID 为 `dev.chendusk.aiusage`；不迁移旧包 `dev.codexusage.monitor` 的凭据、设置或历史，两者可暂时共存。
 - OpenAI 调整内部接口后，登录或额度查询可能失效，需要更新 compatibility layer。
 - 第三方浏览器可能禁止向验证码输入框粘贴；应用提供复制、重新打开和重新申请验证码，但不会使用 WebView、无障碍或自动填充绕过限制。
 - iOS 和 Android 后台调度默认关闭且属于 best effort，不能保证固定刷新周期；各厂商自启动/电池限制当前只能由用户在系统设置中确认。
