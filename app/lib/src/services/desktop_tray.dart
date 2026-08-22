@@ -1,11 +1,12 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:ui';
 
-import 'package:flutter/widgets.dart';
 import 'package:tray_manager/tray_manager.dart';
 import 'package:window_manager/window_manager.dart';
 
 import '../app_controller.dart';
+import 'secure_account_vault.dart';
 
 class DesktopTrayService with TrayListener, WindowListener {
   DesktopTrayService._();
@@ -51,6 +52,11 @@ class DesktopTrayService with TrayListener, WindowListener {
   Future<void> _refreshMenu() async {
     if (!_isDesktop) return;
     final windows = _controller?.usage?.snapshot?.windows ?? const [];
+    final locale = _controller?.settings.locale ?? LocalePreference.system;
+    final chinese =
+        locale == LocalePreference.simplifiedChinese ||
+        (locale == LocalePreference.system &&
+            PlatformDispatcher.instance.locale.languageCode == 'zh');
     final summary = windows
         .take(2)
         .map((window) => '${window.title} ${window.usedPercent.round()}%')
@@ -63,10 +69,10 @@ class DesktopTrayService with TrayListener, WindowListener {
         items: [
           ...summary.map((text) => MenuItem(label: text, disabled: true)),
           if (summary.isNotEmpty) MenuItem.separator(),
-          MenuItem(key: 'open', label: 'Open'),
-          MenuItem(key: 'refresh', label: 'Refresh'),
+          MenuItem(key: 'open', label: chinese ? '打开' : 'Open'),
+          MenuItem(key: 'refresh', label: chinese ? '刷新' : 'Refresh'),
           MenuItem.separator(),
-          MenuItem(key: 'quit', label: 'Quit'),
+          MenuItem(key: 'quit', label: chinese ? '退出' : 'Quit'),
         ],
       ),
     );

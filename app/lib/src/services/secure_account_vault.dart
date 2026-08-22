@@ -230,15 +230,19 @@ class StoredAccount {
 
 enum ThemePreference { system, light, dark }
 
+enum LocalePreference { system, english, simplifiedChinese }
+
 class MonitorSettings {
   const MonitorSettings({
     this.theme = ThemePreference.system,
+    this.locale = LocalePreference.system,
     this.refreshMinutes = 15,
     this.showResetCredits = true,
     this.notificationsEnabled = false,
   });
 
   final ThemePreference theme;
+  final LocalePreference locale;
   final int refreshMinutes;
   final bool showResetCredits;
   final bool notificationsEnabled;
@@ -247,6 +251,9 @@ class MonitorSettings {
       MonitorSettings(
         theme: ThemePreference.values.byName(
           json['theme'] as String? ?? ThemePreference.system.name,
+        ),
+        locale: LocalePreference.values.byName(
+          json['locale'] as String? ?? LocalePreference.system.name,
         ),
         refreshMinutes: switch (json['refresh_minutes']) {
           0 || 5 || 15 || 30 => json['refresh_minutes'] as int,
@@ -258,11 +265,13 @@ class MonitorSettings {
 
   MonitorSettings copyWith({
     ThemePreference? theme,
+    LocalePreference? locale,
     int? refreshMinutes,
     bool? showResetCredits,
     bool? notificationsEnabled,
   }) => MonitorSettings(
     theme: theme ?? this.theme,
+    locale: locale ?? this.locale,
     refreshMinutes: refreshMinutes ?? this.refreshMinutes,
     showResetCredits: showResetCredits ?? this.showResetCredits,
     notificationsEnabled: notificationsEnabled ?? this.notificationsEnabled,
@@ -270,6 +279,7 @@ class MonitorSettings {
 
   Map<String, Object> toJson() => {
     'theme': theme.name,
+    'locale': locale.name,
     'refresh_minutes': refreshMinutes,
     'show_reset_credits': showResetCredits,
     'notifications_enabled': notificationsEnabled,

@@ -22,9 +22,15 @@ class AppController extends ChangeNotifier {
 
   /// Useful for widget tests: no platform channels are contacted until
   /// [bootstrap] is called.
-  factory AppController.testing() {
+  factory AppController.testing({
+    List<StoredAccount> accounts = const [],
+    MonitorSettings settings = const MonitorSettings(),
+  }) {
     final controller = AppController();
     controller._loading = false;
+    controller._accounts = accounts;
+    controller._selectedAccountId = accounts.firstOrNull?.identityHash;
+    controller._settings = settings;
     return controller;
   }
 
@@ -120,7 +126,10 @@ class AppController extends ChangeNotifier {
           result.updatedCredential ?? credential,
         );
         if (_settings.notificationsEnabled) {
-          await _notifications.inspectSnapshot(result.snapshot!);
+          await _notifications.inspectSnapshot(
+            result.snapshot!,
+            locale: _settings.locale,
+          );
         }
       }
     } catch (error) {
@@ -198,7 +207,7 @@ class AppController extends ChangeNotifier {
     _scheduleForegroundRefresh();
     await _backgroundScheduler.configure(value.refreshMinutes);
     if (enablingNotifications) {
-      await _notifications.requestPermission();
+      await _notifications.requestPermission(locale: value.locale);
     }
     notifyListeners();
   }
