@@ -145,6 +145,7 @@ class _AppShellState extends ConsumerState<_AppShell>
     final labels = [l10n.dashboard, l10n.accounts, l10n.history, l10n.settings];
     final content = Scaffold(
       appBar: AppBar(
+        titleSpacing: desktop ? NavigationToolbar.kMiddleSpacing : 8,
         title: desktop
             ? Text(l10n.appTitle)
             : controller.accounts.isEmpty

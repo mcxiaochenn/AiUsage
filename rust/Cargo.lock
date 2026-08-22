@@ -27,6 +27,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "ai_usage_core"
+version = "0.1.0"
+dependencies = [
+ "base64",
+ "chrono",
+ "flutter_rust_bridge",
+ "reqwest",
+ "rusqlite",
+ "serde",
+ "serde_json",
+ "sha2",
+ "thiserror",
+ "tokio",
+ "uuid",
+]
+
+[[package]]
 name = "allo-isolate"
 version = "0.1.27"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -197,23 +214,6 @@ dependencies = [
  "num-traits",
  "wasm-bindgen",
  "windows-link",
-]
-
-[[package]]
-name = "ai_usage_core"
-version = "0.1.0"
-dependencies = [
- "base64",
- "chrono",
- "flutter_rust_bridge",
- "reqwest",
- "rusqlite",
- "serde",
- "serde_json",
- "sha2",
- "thiserror",
- "tokio",
- "uuid",
 ]
 
 [[package]]
