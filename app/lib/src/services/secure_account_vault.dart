@@ -13,13 +13,13 @@ class SecureAccountVault {
   SecureAccountVault({FlutterSecureStorage? storage})
     : _storage = storage ?? FlutterSecureStorage();
 
-  static const _indexKey = 'codex_usage_monitor.account_index.v1';
-  static const _settingsKey = 'codex_usage_monitor.settings.v1';
+  static const _indexKey = 'aiusage.account_index.v1';
+  static const _settingsKey = 'aiusage.settings.v1';
 
   final FlutterSecureStorage _storage;
 
   String _credentialKey(String identityHash) =>
-      'codex_usage_monitor.credential.$identityHash.v1';
+      'aiusage.credential.$identityHash.v1';
 
   Future<List<StoredAccount>> loadAccounts() async {
     final serialized = await _storage.read(key: _indexKey);

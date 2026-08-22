@@ -31,9 +31,9 @@ class NotificationService {
       ),
       linux: LinuxInitializationSettings(defaultActionName: 'Open'),
       windows: WindowsInitializationSettings(
-        appName: 'Codex Usage Monitor',
-        appUserModelId: 'dev.codexusage.monitor',
-        guid: '2cb4e4a0-11ce-4638-8a12-91e1b1122574',
+        appName: 'AiUsage',
+        appUserModelId: 'dev.chendusk.aiusage',
+        guid: 'b47bd236-f19d-4bf3-9f1c-ec523fe3210c',
       ),
     );
     await _plugin.initialize(settings: settings);

@@ -11,5 +11,5 @@ Future<void> main() async {
   final controller = AppController();
   await controller.bootstrap();
   await DesktopTrayService.instance.install(controller);
-  runApp(CodexUsageMonitorApp(controller: controller));
+  runApp(AiUsageApp(controller: controller));
 }

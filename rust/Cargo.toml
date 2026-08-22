@@ -1,9 +1,9 @@
 [package]
-name = "codex_usage_monitor_core"
+name = "ai_usage_core"
 version = "0.1.0"
 edition = "2024"
 license = "MIT"
-description = "Native core for Codex Usage Monitor"
+description = "Native core for AiUsage"
 
 [lib]
 crate-type = ["cdylib", "staticlib", "rlib"]

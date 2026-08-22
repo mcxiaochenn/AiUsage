@@ -57,7 +57,7 @@ class AppController extends ChangeNotifier {
     try {
       final supportDirectory = await getApplicationSupportDirectory();
       final databasePath =
-          '${supportDirectory.path}${Platform.pathSeparator}codex_usage_monitor.sqlite3';
+          '${supportDirectory.path}${Platform.pathSeparator}aiusage.sqlite3';
       await core.initializeCore(databasePath: databasePath);
       _settings = await _vault.loadSettings();
       _accounts = await _vault.loadAccounts();

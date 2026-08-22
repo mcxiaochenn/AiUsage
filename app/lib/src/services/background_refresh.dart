@@ -8,9 +8,9 @@ import '../rust/api/application.dart' as core;
 import '../rust/frb_generated.dart';
 import 'secure_account_vault.dart';
 
-const _backgroundTaskName = 'codex_usage_refresh';
+const _backgroundTaskName = 'aiusage_refresh';
 // Also listed in iOS BGTaskSchedulerPermittedIdentifiers.
-const _backgroundUniqueName = 'dev.codexusage.monitor.refresh';
+const _backgroundUniqueName = 'dev.chendusk.aiusage.refresh';
 
 /// Entrypoint used by Android WorkManager and iOS BGTaskScheduler.
 ///
@@ -25,7 +25,7 @@ void backgroundRefreshDispatcher() {
       await RustLib.init();
       final supportDirectory = await getApplicationSupportDirectory();
       final databasePath =
-          '${supportDirectory.path}${Platform.pathSeparator}codex_usage_monitor.sqlite3';
+          '${supportDirectory.path}${Platform.pathSeparator}aiusage.sqlite3';
       await core.initializeCore(databasePath: databasePath);
 
       final vault = SecureAccountVault();

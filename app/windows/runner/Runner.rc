@@ -90,12 +90,12 @@ BEGIN
         BLOCK "040904e4"
         BEGIN
             VALUE "CompanyName", "mcxiaochenn" "\0"
-            VALUE "FileDescription", "Codex Usage Monitor" "\0"
+            VALUE "FileDescription", "AiUsage" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
-            VALUE "InternalName", "codex_usage_monitor" "\0"
+            VALUE "InternalName", "ai_usage" "\0"
             VALUE "LegalCopyright", "Copyright (C) 2026 mcxiaochenn. All rights reserved." "\0"
-            VALUE "OriginalFilename", "codex_usage_monitor.exe" "\0"
-            VALUE "ProductName", "Codex Usage Monitor" "\0"
+            VALUE "OriginalFilename", "ai_usage.exe" "\0"
+            VALUE "ProductName", "AiUsage" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"
         END
     END

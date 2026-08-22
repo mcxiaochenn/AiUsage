@@ -1,4 +1,4 @@
-name: codex_usage_monitor_core
+name: ai_usage_core
 description: "Utility to build Rust code"
 version: 0.0.1
 publish_to: none

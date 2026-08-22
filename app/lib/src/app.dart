@@ -15,8 +15,8 @@ final appControllerProvider = ChangeNotifierProvider<AppController>(
   (ref) => throw UnimplementedError('The app controller must be overridden.'),
 );
 
-class CodexUsageMonitorApp extends StatelessWidget {
-  const CodexUsageMonitorApp({super.key, required this.controller});
+class AiUsageApp extends StatelessWidget {
+  const AiUsageApp({super.key, required this.controller});
 
   final AppController controller;
 
@@ -64,7 +64,7 @@ class _MonitorRouterState extends ConsumerState<_MonitorRouter> {
   Widget build(BuildContext context) {
     final settings = ref.watch(appControllerProvider).settings;
     return MaterialApp.router(
-      title: 'Codex Usage Monitor',
+      title: 'AiUsage',
       debugShowCheckedModeBanner: false,
       themeMode: switch (settings.theme) {
         ThemePreference.system => ThemeMode.system,
@@ -133,7 +133,7 @@ class _AppShellState extends ConsumerState<_AppShell>
     final desktop = MediaQuery.sizeOf(context).width >= 820;
     final content = Scaffold(
       appBar: AppBar(
-        title: const Text('Codex Usage Monitor'),
+        title: const Text('AiUsage'),
         actions: [
           if (controller.accounts.isNotEmpty)
             Padding(

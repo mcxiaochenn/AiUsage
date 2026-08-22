@@ -30,7 +30,7 @@ class DesktopTrayService with TrayListener, WindowListener {
         size: Size(1100, 760),
         minimumSize: Size(520, 620),
         center: true,
-        title: 'Codex Usage Monitor',
+        title: 'AiUsage',
       ),
       () async {
         await windowManager.show();
@@ -56,7 +56,7 @@ class DesktopTrayService with TrayListener, WindowListener {
         .map((window) => '${window.title} ${window.usedPercent.round()}%')
         .toList();
     await trayManager.setToolTip(
-      summary.isEmpty ? 'Codex Usage Monitor' : summary.join(' · '),
+      summary.isEmpty ? 'AiUsage' : summary.join(' · '),
     );
     await trayManager.setContextMenu(
       Menu(

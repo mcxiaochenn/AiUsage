@@ -1,4 +1,4 @@
-package dev.codexusage.monitor
+package dev.chendusk.aiusage
 
 import io.flutter.embedding.android.FlutterActivity
 
