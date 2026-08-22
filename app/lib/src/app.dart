@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:math';
 
 import 'package:dynamic_color/dynamic_color.dart';
 import 'package:file_selector/file_selector.dart';
@@ -17,6 +16,7 @@ import '../l10n/app_localizations.dart';
 import 'rust/models.dart';
 import 'services/secure_account_vault.dart';
 import 'services/system_settings.dart';
+import 'widgets/token_usage_chart.dart';
 
 final appControllerProvider = ChangeNotifierProvider<AppController>(
   (ref) => throw UnimplementedError('The app controller must be overridden.'),
@@ -1049,6 +1049,7 @@ class HistoryPage extends ConsumerStatefulWidget {
 
 class _HistoryPageState extends ConsumerState<HistoryPage> {
   String? _requestedAccount;
+  TokenUsageView _tokenUsageView = TokenUsageView.daily;
 
   @override
   void initState() {
@@ -1109,7 +1110,11 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
         else ...[
           _TokenSummaryGrid(summary: profile.summary),
           const SizedBox(height: 12),
-          _TokenHeatmap(buckets: profile.dailyUsageBuckets),
+          TokenUsageChart(
+            buckets: profile.dailyUsageBuckets,
+            view: _tokenUsageView,
+            onViewChanged: (view) => setState(() => _tokenUsageView = view),
+          ),
           const SizedBox(height: 8),
           Text(
             l10n.profileUpdatedAt(_absoluteTime(context, profile.fetchedAt)),
@@ -1181,157 +1186,6 @@ class _TokenSummaryGrid extends StatelessWidget {
     );
   }
 }
-
-class _TokenHeatmap extends StatelessWidget {
-  const _TokenHeatmap({required this.buckets});
-
-  final List<DailyTokenBucket> buckets;
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context);
-    final weeks = _buildHeatmapWeeks(buckets, DateTime.now());
-    final maxTokens = weeks
-        .expand((week) => week)
-        .fold<int>(0, (peak, cell) => max(peak, cell.tokens ?? 0));
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              l10n.dailyTokenHeatmap,
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-            const SizedBox(height: 12),
-            if (buckets.isEmpty)
-              Text(l10n.noTokenBuckets)
-            else
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                reverse: true,
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    for (final week in weeks)
-                      Padding(
-                        padding: const EdgeInsets.only(right: 3),
-                        child: Column(
-                          children: [
-                            for (final cell in week)
-                              _HeatmapCellWidget(
-                                cell: cell,
-                                maxTokens: maxTokens,
-                              ),
-                          ],
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-            const SizedBox(height: 8),
-            Text(
-              l10n.heatmapLegend,
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _HeatmapCellWidget extends StatelessWidget {
-  const _HeatmapCellWidget({required this.cell, required this.maxTokens});
-
-  final _HeatmapCell cell;
-  final int maxTokens;
-
-  @override
-  Widget build(BuildContext context) {
-    final tokens = cell.tokens;
-    final tile = Container(
-      key: ValueKey('heatmap-${cell.date}'),
-      width: 15,
-      height: 15,
-      margin: const EdgeInsets.only(bottom: 3),
-      decoration: BoxDecoration(
-        color: tokens == null
-            ? Colors.transparent
-            : _heatColor(context, tokens, maxTokens),
-        borderRadius: BorderRadius.circular(3),
-      ),
-    );
-    if (tokens == null) return tile;
-    return Tooltip(message: '${cell.date} · $tokens', child: tile);
-  }
-
-  Color _heatColor(BuildContext context, int tokens, int maxTokens) {
-    final colors = Theme.of(context).colorScheme;
-    if (tokens <= 0 || maxTokens <= 0) return colors.surfaceContainerHighest;
-    final level = (tokens / maxTokens * 4).ceil().clamp(1, 4);
-    return Color.lerp(colors.primaryContainer, colors.primary, level / 4)!;
-  }
-}
-
-class _HeatmapCell {
-  const _HeatmapCell({required this.date, required this.tokens});
-
-  final String date;
-  final int? tokens;
-}
-
-List<List<_HeatmapCell>> _buildHeatmapWeeks(
-  List<DailyTokenBucket> buckets,
-  DateTime now,
-) {
-  final today = DateTime.utc(now.year, now.month, now.day);
-  final cutoff = today.subtract(const Duration(days: 1));
-  final currentWeekStart = today.subtract(Duration(days: today.weekday % 7));
-  final firstDate = currentWeekStart.subtract(const Duration(days: 51 * 7));
-  final totals = <String, int>{};
-  for (final bucket in buckets) {
-    final date = _parseCalendarDate(bucket.startDate);
-    if (date == null || date.isBefore(firstDate) || date.isAfter(cutoff)) {
-      continue;
-    }
-    final key = _calendarDate(date);
-    totals.update(
-      key,
-      (value) => value + max(0, bucket.tokens),
-      ifAbsent: () => max(0, bucket.tokens),
-    );
-  }
-
-  return List.generate(52, (weekIndex) {
-    final weekStart = firstDate.add(Duration(days: weekIndex * 7));
-    return List.generate(7, (dayIndex) {
-      final date = weekStart.add(Duration(days: dayIndex));
-      final key = _calendarDate(date);
-      return _HeatmapCell(
-        date: key,
-        tokens: date.isAfter(cutoff) ? null : totals[key] ?? 0,
-      );
-    }, growable: false);
-  }, growable: false);
-}
-
-DateTime? _parseCalendarDate(String value) {
-  final match = RegExp(r'^(\d{4})-(\d{2})-(\d{2})$').firstMatch(value);
-  if (match == null) return null;
-  final year = int.parse(match.group(1)!);
-  final month = int.parse(match.group(2)!);
-  final day = int.parse(match.group(3)!);
-  final date = DateTime.utc(year, month, day);
-  if (date.year != year || date.month != month || date.day != day) return null;
-  return date;
-}
-
-String _calendarDate(DateTime date) =>
-    '${date.year.toString().padLeft(4, '0')}-'
-    '${date.month.toString().padLeft(2, '0')}-'
-    '${date.day.toString().padLeft(2, '0')}';
 
 String _compactNumber(int? value) {
   if (value == null) return '—';

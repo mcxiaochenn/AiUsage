@@ -128,11 +128,14 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Token activity'), findsOneWidget);
     expect(find.text('Lifetime tokens'), findsOneWidget);
-    expect(find.text('Daily token heatmap'), findsOneWidget);
+    expect(find.text('Token usage chart'), findsOneWidget);
+    expect(find.text('Daily'), findsOneWidget);
+    expect(find.text('Weekly'), findsOneWidget);
+    expect(find.text('Cumulative'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('heatmap ends yesterday and normalizes daily buckets', (
+  testWidgets('token chart switches views and excludes today from daily', (
     tester,
   ) async {
     final today = DateTime.now();
@@ -156,23 +159,44 @@ void main() {
       email: 'profile@example.com',
       loginState: LoginState.signedOut,
     );
-    await tester.pumpWidget(
-      AiUsageApp(
-        controller: AppController.testing(
-          accounts: const [account],
-          profileUsage: profile,
-        ),
-      ),
+    final controller = AppController.testing(
+      accounts: const [account],
+      profileUsage: profile,
     );
+    await tester.pumpWidget(AiUsageApp(controller: controller));
 
     await tester.tap(find.text('History'));
     await tester.pumpAndSettle();
-    expect(find.byTooltip('${_dateKey(yesterday)} · 12'), findsOneWidget);
-    expect(find.byTooltip('${_dateKey(twoDaysAgo)} · 0'), findsOneWidget);
-    expect(find.byTooltip('${_dateKey(threeDaysAgo)} · 0'), findsOneWidget);
-    expect(find.byTooltip('${_dateKey(olderDate)} · 3'), findsOneWidget);
-    expect(find.byTooltip('${_dateKey(today)} · 999'), findsNothing);
+    expect(
+      find.byTooltip('${_dateKey(yesterday)} · 12 tokens'),
+      findsOneWidget,
+    );
+    expect(
+      find.byTooltip('${_dateKey(twoDaysAgo)} · 0 tokens'),
+      findsOneWidget,
+    );
+    expect(
+      find.byTooltip('${_dateKey(threeDaysAgo)} · 0 tokens'),
+      findsOneWidget,
+    );
+    expect(find.byTooltip('${_dateKey(olderDate)} · 3 tokens'), findsOneWidget);
+    expect(find.byTooltip('${_dateKey(today)} · 999 tokens'), findsNothing);
     expect(find.textContaining('ends yesterday'), findsOneWidget);
+
+    await tester.tap(find.text('Weekly'));
+    await tester.pump();
+    final weekStart = _dateKey(
+      yesterday.subtract(Duration(days: yesterday.weekday % 7)),
+    );
+    expect(find.byTooltip('Week of $weekStart · 12 tokens'), findsOneWidget);
+
+    await tester.tap(find.text('Cumulative'));
+    await tester.pump();
+    expect(
+      find.byTooltip('Through week of $weekStart · 15 tokens'),
+      findsOneWidget,
+    );
+    expect(identical(controller.profileUsage, profile), isTrue);
   });
 
   testWidgets('extra credits hide zero balance and show positive balance', (
@@ -287,17 +311,33 @@ void main() {
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
+    final controller = AppController.testing(
+      settings: const MonitorSettings(
+        locale: LocalePreference.simplifiedChinese,
+        demoModeEnabled: true,
+        demoSeed: 7,
+      ),
+    );
     await tester.pumpWidget(
       MediaQuery(
         data: const MediaQueryData(textScaler: TextScaler.linear(2)),
-        child: AiUsageApp(
-          controller: AppController.testing(
-            settings: const MonitorSettings(demoModeEnabled: true, demoSeed: 7),
-          ),
-        ),
+        child: AiUsageApp(controller: controller),
       ),
     );
     await tester.pumpAndSettle();
+    await controller.refresh();
+    await tester.pump();
+    await tester.tap(
+      find.descendant(
+        of: find.byType(NavigationBar),
+        matching: find.byIcon(Icons.show_chart_outlined),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(find.text('Token 使用量图表'), 400);
+    expect(find.text('每日'), findsOneWidget);
+    expect(find.text('每周'), findsOneWidget);
+    expect(find.text('累计'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 }

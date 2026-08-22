@@ -490,13 +490,45 @@ class AppLocalizationsZh extends AppLocalizations {
   String get longestStreak => '最长连续使用';
 
   @override
-  String get dailyTokenHeatmap => '每日 Token 热力图';
+  String get tokenUsageChart => 'Token 使用量图表';
+
+  @override
+  String get daily => '每日';
+
+  @override
+  String get weekly => '每周';
+
+  @override
+  String get cumulative => '累计';
+
+  @override
+  String dailyTokenTooltip(String date, int tokens) {
+    return '$date · $tokens Token';
+  }
+
+  @override
+  String weeklyTokenTooltip(String weekStart, int tokens) {
+    return '$weekStart 当周 · $tokens Token';
+  }
+
+  @override
+  String cumulativeTokenTooltip(String weekStart, int tokens) {
+    return '截至 $weekStart 当周 · $tokens Token';
+  }
+
+  @override
+  String tokenUsageChartSemantics(String view) {
+    return 'Token 使用量图表，$view视图，数据截至昨天。';
+  }
+
+  @override
+  String get lessUsage => '较少';
+
+  @override
+  String get moreUsage => '较多';
 
   @override
   String get noTokenBuckets => 'Profile API 未返回每日统计。';
-
-  @override
-  String get heatmapLegend => '数据截至昨天；颜色由浅到深表示每日 Token 用量由低到高。';
 
   @override
   String get dynamicColor => '动态取色';

@@ -511,14 +511,45 @@ class AppLocalizationsEn extends AppLocalizations {
   String get longestStreak => 'Longest streak';
 
   @override
-  String get dailyTokenHeatmap => 'Daily token heatmap';
+  String get tokenUsageChart => 'Token usage chart';
+
+  @override
+  String get daily => 'Daily';
+
+  @override
+  String get weekly => 'Weekly';
+
+  @override
+  String get cumulative => 'Cumulative';
+
+  @override
+  String dailyTokenTooltip(String date, int tokens) {
+    return '$date · $tokens tokens';
+  }
+
+  @override
+  String weeklyTokenTooltip(String weekStart, int tokens) {
+    return 'Week of $weekStart · $tokens tokens';
+  }
+
+  @override
+  String cumulativeTokenTooltip(String weekStart, int tokens) {
+    return 'Through week of $weekStart · $tokens tokens';
+  }
+
+  @override
+  String tokenUsageChartSemantics(String view) {
+    return 'Token usage chart, $view view, through yesterday.';
+  }
+
+  @override
+  String get lessUsage => 'Less';
+
+  @override
+  String get moreUsage => 'More';
 
   @override
   String get noTokenBuckets => 'The Profile API returned no daily buckets.';
-
-  @override
-  String get heatmapLegend =>
-      'Through yesterday. Lighter to darker cells represent lower to higher daily token usage.';
 
   @override
   String get dynamicColor => 'Dynamic color';

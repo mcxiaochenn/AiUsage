@@ -962,23 +962,71 @@ abstract class AppLocalizations {
   /// **'Longest streak'**
   String get longestStreak;
 
-  /// No description provided for @dailyTokenHeatmap.
+  /// No description provided for @tokenUsageChart.
   ///
   /// In en, this message translates to:
-  /// **'Daily token heatmap'**
-  String get dailyTokenHeatmap;
+  /// **'Token usage chart'**
+  String get tokenUsageChart;
+
+  /// No description provided for @daily.
+  ///
+  /// In en, this message translates to:
+  /// **'Daily'**
+  String get daily;
+
+  /// No description provided for @weekly.
+  ///
+  /// In en, this message translates to:
+  /// **'Weekly'**
+  String get weekly;
+
+  /// No description provided for @cumulative.
+  ///
+  /// In en, this message translates to:
+  /// **'Cumulative'**
+  String get cumulative;
+
+  /// No description provided for @dailyTokenTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'{date} · {tokens} tokens'**
+  String dailyTokenTooltip(String date, int tokens);
+
+  /// No description provided for @weeklyTokenTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Week of {weekStart} · {tokens} tokens'**
+  String weeklyTokenTooltip(String weekStart, int tokens);
+
+  /// No description provided for @cumulativeTokenTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Through week of {weekStart} · {tokens} tokens'**
+  String cumulativeTokenTooltip(String weekStart, int tokens);
+
+  /// No description provided for @tokenUsageChartSemantics.
+  ///
+  /// In en, this message translates to:
+  /// **'Token usage chart, {view} view, through yesterday.'**
+  String tokenUsageChartSemantics(String view);
+
+  /// No description provided for @lessUsage.
+  ///
+  /// In en, this message translates to:
+  /// **'Less'**
+  String get lessUsage;
+
+  /// No description provided for @moreUsage.
+  ///
+  /// In en, this message translates to:
+  /// **'More'**
+  String get moreUsage;
 
   /// No description provided for @noTokenBuckets.
   ///
   /// In en, this message translates to:
   /// **'The Profile API returned no daily buckets.'**
   String get noTokenBuckets;
-
-  /// No description provided for @heatmapLegend.
-  ///
-  /// In en, this message translates to:
-  /// **'Through yesterday. Lighter to darker cells represent lower to higher daily token usage.'**
-  String get heatmapLegend;
 
   /// No description provided for @dynamicColor.
   ///
