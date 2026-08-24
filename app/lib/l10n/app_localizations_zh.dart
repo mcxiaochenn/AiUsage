@@ -682,6 +682,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get overdraftLimit => '透支额度';
 
   @override
+  String get remainingOverdraftLimit => '剩余透支额度';
+
+  @override
   String get tokenPlan => 'Token 套餐';
 
   @override

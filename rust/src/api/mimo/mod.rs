@@ -4,7 +4,7 @@ use std::time::{Duration, Instant};
 use base64::{Engine as _, engine::general_purpose::STANDARD};
 use chrono::{DateTime, Local, NaiveDateTime};
 use reqwest::cookie::{CookieStore, Jar};
-use reqwest::header::COOKIE;
+use reqwest::header::{COOKIE, LOCATION};
 use reqwest::{Client, StatusCode, Url, redirect::Policy};
 use serde_json::Value;
 use sha1::{Digest as _, Sha1};
@@ -61,7 +61,6 @@ impl MimoProvider {
         let login_meta = self.login_metadata(&login_url, None).await?;
         let sid = string_at(&login_meta, &["sid"]).unwrap_or_else(|| "passport".to_string());
         let form = [
-            ("_json", "true".to_string()),
             ("qs", string_at(&login_meta, &["qs"]).unwrap_or_default()),
             ("sid", sid),
             (
@@ -78,6 +77,7 @@ impl MimoProvider {
         let response = self
             .client
             .post("https://account.xiaomi.com/pass/serviceLoginAuth2")
+            .query(&[("_json", "true")])
             .header("User-Agent", "AiUsage/0.1 PassportSDK")
             .form(&form)
             .send()
@@ -265,22 +265,20 @@ impl MimoProvider {
 
     async fn login_url(&self) -> Result<String, String> {
         let response = self
-            .client
+            .api_client
             .get(format!("{API_ROOT}/genLoginUrl"))
             .header("Accept", "application/json")
             .send()
             .await
             .map_err(|_| "mimo_login.transport".to_string())?;
-        let body: Value = response
-            .json()
-            .await
-            .map_err(|_| "mimo_login.invalid_response".to_string())?;
-        string_at(&body, &["data", "loginUrl"])
-            .or_else(|| string_at(&body, &["data", "url"]))
-            .or_else(|| string_at(&body, &["loginUrl"]))
-            .or_else(|| body.get("data").and_then(Value::as_str).map(str::to_string))
-            .filter(|url| allowed_login_url(url))
-            .ok_or_else(|| "mimo_login.invalid_response".to_string())
+        let status = response.status();
+        let location = response
+            .headers()
+            .get(LOCATION)
+            .and_then(|value| value.to_str().ok())
+            .map(str::to_string);
+        let body = response.text().await.unwrap_or_default();
+        parse_login_url_response(status, location.as_deref(), &body)
     }
 
     async fn login_metadata(
@@ -291,6 +289,7 @@ impl MimoProvider {
         let mut request = self
             .client
             .get(login_url)
+            .query(&[("_json", "true")])
             .header("User-Agent", "AiUsage/0.1 PassportSDK");
         if let Some(cookies) = cookies {
             request = request.header(COOKIE, cookies);
@@ -364,12 +363,17 @@ pub(crate) fn parse_token_plan(
     let root: Value = serde_json::from_str(usage_body)
         .map_err(|_| "schema_mismatch: MiMo token plan response is invalid".to_string())?;
     ensure_envelope_success(&root)?;
-    let items = root
+    let items_value = root
         .pointer("/data/monthUsage/items")
         .or_else(|| root.pointer("/data/usage/items"))
         .or_else(|| root.pointer("/usage/items"))
-        .and_then(Value::as_array)
         .ok_or_else(|| "schema_mismatch: MiMo token plan items are missing".to_string())?;
+    if items_value.is_null() {
+        return Ok(Vec::new());
+    }
+    let items = items_value
+        .as_array()
+        .ok_or_else(|| "schema_mismatch: MiMo token plan items are invalid".to_string())?;
     let expires_at = detail_body.and_then(parse_plan_expiry);
     let mut output = Vec::new();
     for item in items {
@@ -516,6 +520,34 @@ fn parse_xiaomi_json(body: &str) -> Result<Value, String> {
     serde_json::from_str(body).map_err(|_| "mimo_login.invalid_response".to_string())
 }
 
+fn parse_login_url_response(
+    status: StatusCode,
+    location: Option<&str>,
+    body: &str,
+) -> Result<String, String> {
+    let candidate = if status.is_redirection() {
+        location.map(str::to_string)
+    } else if status.is_success() {
+        let value: Value =
+            serde_json::from_str(body).map_err(|_| "mimo_login.invalid_response".to_string())?;
+        string_at(&value, &["data", "loginUrl"])
+            .or_else(|| string_at(&value, &["data", "url"]))
+            .or_else(|| string_at(&value, &["loginUrl"]))
+            .or_else(|| {
+                value
+                    .get("data")
+                    .and_then(Value::as_str)
+                    .map(str::to_string)
+            })
+            .or_else(|| value.as_str().map(str::to_string))
+    } else {
+        None
+    };
+    candidate
+        .filter(|url| allowed_login_url(url))
+        .ok_or_else(|| "mimo_login.invalid_response".to_string())
+}
+
 fn allowed_login_url(value: &str) -> bool {
     Url::parse(value).ok().is_some_and(|url| {
         url.scheme() == "https"
@@ -627,6 +659,16 @@ mod tests {
     }
 
     #[test]
+    fn accepts_an_account_without_a_token_plan() {
+        let quotas = parse_token_plan(
+            Some(r#"{"code":0,"data":null}"#),
+            r#"{"code":0,"data":{"monthUsage":{"items":null,"percent":0},"usage":null}}"#,
+        )
+        .unwrap();
+        assert!(quotas.is_empty());
+    }
+
+    #[test]
     fn rejects_cookie_header_injection_and_unknown_login_hosts() {
         assert!(parse_cookie_header("userId=1\r\nHost: attacker").is_err());
         assert!(!allowed_login_url("http://account.xiaomi.com/pass"));
@@ -634,6 +676,59 @@ mod tests {
             "https://account.xiaomi.com.attacker.test"
         ));
         assert!(allowed_login_url("https://account.xiaomi.com/pass"));
+    }
+
+    #[test]
+    fn parses_redirect_and_legacy_json_login_urls() {
+        let redirect = parse_login_url_response(
+            StatusCode::FOUND,
+            Some("https://account.xiaomi.com/pass/serviceLogin?sid=api-platform"),
+            "",
+        )
+        .unwrap();
+        assert_eq!(
+            redirect,
+            "https://account.xiaomi.com/pass/serviceLogin?sid=api-platform"
+        );
+
+        let legacy = parse_login_url_response(
+            StatusCode::OK,
+            None,
+            r#"{"data":{"loginUrl":"https://account.xiaomi.com/pass/serviceLogin?sid=legacy"}}"#,
+        )
+        .unwrap();
+        assert_eq!(
+            legacy,
+            "https://account.xiaomi.com/pass/serviceLogin?sid=legacy"
+        );
+
+        let string_body = parse_login_url_response(
+            StatusCode::OK,
+            None,
+            r#""https://account.xiaomi.com/pass/serviceLogin?sid=string""#,
+        )
+        .unwrap();
+        assert_eq!(
+            string_body,
+            "https://account.xiaomi.com/pass/serviceLogin?sid=string"
+        );
+    }
+
+    #[test]
+    fn rejects_html_and_untrusted_login_redirects() {
+        assert_eq!(
+            parse_login_url_response(StatusCode::OK, None, "<!doctype html>").unwrap_err(),
+            "mimo_login.invalid_response"
+        );
+        assert_eq!(
+            parse_login_url_response(
+                StatusCode::FOUND,
+                Some("https://account.xiaomi.com.attacker.test/pass"),
+                "",
+            )
+            .unwrap_err(),
+            "mimo_login.invalid_response"
+        );
     }
 
     #[test]
@@ -662,5 +757,53 @@ mod tests {
         assert_eq!(error, "mimo_login.missing_pass_token");
         assert!(!error.contains("account-secret"));
         assert!(!error.contains("platform-secret"));
+    }
+
+    #[tokio::test]
+    #[ignore = "requires live MiMo network access"]
+    async fn live_login_url_uses_an_allowed_xiaomi_host() {
+        let provider = MimoProvider::production().unwrap();
+        let login_url = provider.login_url().await.unwrap();
+        assert!(allowed_login_url(&login_url));
+        let metadata = provider.login_metadata(&login_url, None).await.unwrap();
+        assert!(string_at(&metadata, &["sid"]).is_some());
+        assert!(string_at(&metadata, &["_sign"]).is_some());
+    }
+
+    #[tokio::test]
+    #[ignore = "requires AIUSAGE_MIMO_TEST_USERNAME and AIUSAGE_MIMO_TEST_PASSWORD"]
+    async fn live_credentials_reach_session_or_allowed_challenge() {
+        let username = std::env::var("AIUSAGE_MIMO_TEST_USERNAME")
+            .expect("AIUSAGE_MIMO_TEST_USERNAME is required");
+        let password = std::env::var("AIUSAGE_MIMO_TEST_PASSWORD")
+            .expect("AIUSAGE_MIMO_TEST_PASSWORD is required");
+        let provider = MimoProvider::production().unwrap();
+        let result = provider.login(username, password).await.unwrap();
+        if let Some(challenge_url) = result.challenge_url {
+            assert!(allowed_login_url(&challenge_url));
+            return;
+        }
+        let credential = result
+            .credential
+            .expect("mimo_live_login_missing_credential");
+
+        let balance = provider.balance_json(&credential).await;
+        assert!(
+            balance.failure.is_none(),
+            "mimo_live_balance_request_failed"
+        );
+        assert!(!parse_balance(&balance.body).unwrap().is_empty());
+
+        let detail = provider.token_plan_detail_json(&credential).await;
+        let usage = provider.token_plan_usage_json(&credential).await;
+        assert!(
+            detail.failure.is_none() || usage.failure.is_none(),
+            "mimo_live_token_plan_requests_failed"
+        );
+        assert!(
+            !parse_token_plan(Some(&detail.body), &usage.body)
+                .unwrap()
+                .is_empty()
+        );
     }
 }

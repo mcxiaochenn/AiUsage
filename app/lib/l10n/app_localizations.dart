@@ -1322,6 +1322,12 @@ abstract class AppLocalizations {
   /// **'Overdraft limit'**
   String get overdraftLimit;
 
+  /// No description provided for @remainingOverdraftLimit.
+  ///
+  /// In en, this message translates to:
+  /// **'Remaining overdraft'**
+  String get remainingOverdraftLimit;
+
   /// No description provided for @tokenPlan.
   ///
   /// In en, this message translates to:

@@ -713,6 +713,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get overdraftLimit => 'Overdraft limit';
 
   @override
+  String get remainingOverdraftLimit => 'Remaining overdraft';
+
+  @override
   String get tokenPlan => 'Token Plan';
 
   @override

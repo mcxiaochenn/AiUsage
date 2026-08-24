@@ -204,6 +204,7 @@
   "giftBalance": "赠送余额",
   "frozenBalance": "冻结余额",
   "overdraftLimit": "透支额度",
+  "remainingOverdraftLimit": "剩余透支额度",
   "tokenPlan": "Token 套餐",
   "usedOfTotal": "已使用 {used} / {total} {unit}",
   "expiresAt": "到期时间 {time}",

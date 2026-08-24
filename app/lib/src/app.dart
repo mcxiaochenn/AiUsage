@@ -2515,9 +2515,8 @@ String _balanceLabel(BuildContext context, String id) {
   if (id.endsWith(':topped-up')) return l10n.toppedUpBalance;
   if (id.endsWith(':gift')) return l10n.giftBalance;
   if (id.endsWith(':frozen')) return l10n.frozenBalance;
-  if (id.endsWith(':overdraft') || id.endsWith(':remaining-overdraft')) {
-    return l10n.overdraftLimit;
-  }
+  if (id.endsWith(':remaining-overdraft')) return l10n.remainingOverdraftLimit;
+  if (id.endsWith(':overdraft')) return l10n.overdraftLimit;
   return l10n.totalBalance;
 }
 

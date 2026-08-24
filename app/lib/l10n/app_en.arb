@@ -232,6 +232,7 @@
   "giftBalance": "Gift balance",
   "frozenBalance": "Frozen balance",
   "overdraftLimit": "Overdraft limit",
+  "remainingOverdraftLimit": "Remaining overdraft",
   "tokenPlan": "Token Plan",
   "usedOfTotal": "{used} of {total} {unit} used",
   "@usedOfTotal": {"placeholders": {"used": {"type": "String"}, "total": {"type": "String"}, "unit": {"type": "String"}}},
