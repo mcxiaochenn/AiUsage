@@ -14,8 +14,16 @@ concurrency:
 
 jobs:
   android:
-    name: Signed Android test candidates
+    name: Signed Android ${{ matrix.target }} test candidate
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - universal
+          - arm64-v8a
+          - armeabi-v7a
+          - x86_64
     env:
       AIUSAGE_ANDROID_KEYSTORE_PASSWORD: ${{ secrets.AIUSAGE_ANDROID_KEYSTORE_PASSWORD }}
       AIUSAGE_ANDROID_KEY_ALIAS: ${{ secrets.AIUSAGE_ANDROID_KEY_ALIAS }}
@@ -51,23 +59,21 @@ jobs:
           printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/aiusage-main-test.jks"
           chmod 600 "$RUNNER_TEMP/aiusage-main-test.jks"
           echo "AIUSAGE_ANDROID_KEYSTORE_PATH=$RUNNER_TEMP/aiusage-main-test.jks" >> "$GITHUB_ENV"
-      - name: Build and inspect signed Android candidates
+      - name: Build and inspect signed Android candidate
         shell: pwsh
-        run: ./scripts/build_android_release.ps1 -Target all -FlutterRoot $env:FLUTTER_ROOT -RequireSignature
-      - name: Name Android candidates for this commit
+        run: ./scripts/build_android_release.ps1 -Target ${{ matrix.target }} -FlutterRoot $env:FLUTTER_ROOT -RequireSignature
+      - name: Name Android candidate for this commit
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p dist
-          for target in universal arm64-v8a armeabi-v7a x86_64; do
-            cp "app/build/release/AiUsage-android-release-${target}.apk" \
-              "dist/AiUsage-main-${GITHUB_SHA}-android-release-${target}.apk"
-          done
-      - name: Upload Android candidates
+          cp "app/build/release/AiUsage-android-release-${{ matrix.target }}.apk" \
+            "dist/AiUsage-main-${GITHUB_SHA}-android-release-${{ matrix.target }}.apk"
+      - name: Upload Android candidate
         uses: actions/upload-artifact@v4
         with:
-          name: android-main-${{ github.sha }}
-          path: dist/AiUsage-main-${{ github.sha }}-android-release-*.apk
+          name: android-${{ matrix.target }}-main-${{ github.sha }}
+          path: dist/AiUsage-main-${{ github.sha }}-android-release-${{ matrix.target }}.apk
           if-no-files-found: error
           retention-days: 14
 

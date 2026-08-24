@@ -55,7 +55,7 @@ version: 0.2.0
 
 ## main 测试候选构建
 
-每次推送到 `main`，`Main Test Builds` 工作流都会使用正式发布证书构建同一套 Android APK 与 unsigned iOS IPA，但只上传为保留 14 天的 GitHub Actions Artifact，不创建 Release。产物文件名包含对应 commit SHA，适合直接下载后进行覆盖安装测试；它们不是正式发布版本。
+每次推送到 `main`，`Main Test Builds` 工作流都会使用正式发布证书构建同一套 Android APK 与 unsigned iOS IPA，但只上传为保留 14 天的 GitHub Actions Artifact，不创建 Release。Android 的 universal、arm64-v8a、armeabi-v7a、x86_64 四种 APK 会并行构建，优先缩短单个测试包的可下载等待时间；正式 Release 仍保留单 Job 的完整构建流程。产物文件名包含对应 commit SHA，适合直接下载后进行覆盖安装测试；它们不是正式发布版本。
 
 该工作流只响应受信任的 `main` push，绝不在 PR 或 fork 中读取 Android 签名 Secrets。
 
