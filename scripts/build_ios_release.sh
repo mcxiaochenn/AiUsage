@@ -57,10 +57,15 @@ file "$executable" | grep -q 'arm64' || { echo "Runner executable does not conta
 
 rust_archive="$(find "$app_root/build/ios" -name 'libai_usage_core.a' -type f -print -quit)"
 [[ -n "$rust_archive" ]] || { echo "libai_usage_core.a was not produced by Cargokit." >&2; exit 1; }
-nm -gU "$executable" | grep -Eq 'frbgen_|store_dart_post_cobject|wire_' || {
-  echo "Runner does not expose the expected flutter_rust_bridge symbols." >&2
+rust_strings="$(mktemp)"
+strings "$executable" > "$rust_strings"
+if ! grep -Fq 'begin_device_login' "$rust_strings" ||
+   ! grep -Fq 'refresh_deepseek_usage' "$rust_strings"; then
+  rm -f "$rust_strings"
+  echo "Runner does not contain the expected flutter_rust_bridge API payload." >&2
   exit 1
-}
+fi
+rm -f "$rust_strings"
 
 if [[ -d "$runner_app/_CodeSignature" ]]; then
   echo "Runner.app unexpectedly contains a code signature." >&2
