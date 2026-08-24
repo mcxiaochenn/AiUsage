@@ -91,6 +91,11 @@ install(CODE "
 set(INSTALL_BUNDLE_DATA_DIR "${CMAKE_INSTALL_PREFIX}/data")
 set(INSTALL_BUNDLE_LIB_DIR "${CMAKE_INSTALL_PREFIX}/lib")
 
+# Keep the launcher artwork in the Linux bundle so downstream desktop
+# packaging can register it as the application icon.
+install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/runner/resources/aiusage.png"
+  DESTINATION "${INSTALL_BUNDLE_DATA_DIR}/icons")
+
 install(TARGETS ${BINARY_NAME} RUNTIME DESTINATION "${CMAKE_INSTALL_PREFIX}"
   COMPONENT Runtime)
 
