@@ -53,6 +53,12 @@ version: 0.2.0
 
 `-Target` 支持 `all`、`universal`、`arm64-v8a`、`armeabi-v7a`、`x86_64`。脚本会校验包名、版本、commit build number、ABI、`libai_usage_core.so`、禁用的 Debug 资源与签名证书。分 ABI 构建必须使用 `force-version-code-ignoring-abi=true`，禁止 Flutter 给不同 ABI 自动添加 versionCode 偏移。
 
+## main 测试候选构建
+
+每次推送到 `main`，`Main Test Builds` 工作流都会使用正式发布证书构建同一套 Android APK 与 unsigned iOS IPA，但只上传为保留 14 天的 GitHub Actions Artifact，不创建 Release。产物文件名包含对应 commit SHA，适合直接下载后进行覆盖安装测试；它们不是正式发布版本。
+
+该工作流只响应受信任的 `main` push，绝不在 PR 或 fork 中读取 Android 签名 Secrets。
+
 ## iOS unsigned IPA
 
 macOS 上运行：
