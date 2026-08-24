@@ -3,11 +3,11 @@
 ![CI](https://github.com/mcxiaochenn/AiUsage/actions/workflows/ci.yml/badge.svg)
 ![Release](https://img.shields.io/github/v/release/mcxiaochenn/AiUsage)
 ![Status](https://img.shields.io/badge/Android-stable-brightgreen)
-![Version](https://img.shields.io/badge/version-v0.1.0-blue)
+![Version](https://img.shields.io/badge/version-v0.2.0-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
 > [!IMPORTANT]
-> **v0.1.0 Android Stable**：这是 AiUsage 首个正式签名的 Android 稳定版本。Windows、macOS、Linux 和 iOS 仍处于源码级实验支持；OpenAI 内部接口可能随时变化，请勿将本应用作为关键额度告警的唯一来源。
+> **v0.2.0 Android Stable**：AiUsage 现已支持 OpenAI Codex、DeepSeek 和 Xiaomi MiMo。Windows、macOS、Linux 和 iOS 仍处于源码级实验支持；Codex 与 MiMo 的内部接口可能随时变化，请勿将本应用作为关键额度或余额告警的唯一来源。
 
 AiUsage 是一个本地优先的 AI 服务额度监看应用，支持 OpenAI Codex、DeepSeek 和 Xiaomi MiMo。项目使用 Flutter 提供 Android、iOS、Windows、macOS 和 Linux 的统一界面，由 Rust 负责认证边界、Provider API 兼容、数据标准化及 SQLite 缓存。
 
@@ -151,7 +151,7 @@ cd ..
 ./scripts/build_android_release.ps1 -Format appbundle
 ```
 
-Android 构建必须提供有效 `FLUTTER_ROOT` 和 `AIUSAGE_ANDROID_*` 签名环境变量。产物检查要求包含 `libai_usage_core.so`，且不得包含 `kernel_blob.bin`、Vulkan validation layer 或非目标 Flutter engine；正式产物还必须匹配固定证书 SHA-256。当前 Provider 改动通过 43 项 Rust 测试与 20 项 Flutter 测试；Android 产物以本轮实际构建结果为准。
+Android 构建必须提供有效 `FLUTTER_ROOT` 和 `AIUSAGE_ANDROID_*` 签名环境变量。产物检查要求包含 `libai_usage_core.so`，且不得包含 `kernel_blob.bin`、Vulkan validation layer 或非目标 Flutter engine；正式产物还必须匹配固定证书 SHA-256。v0.2.0 通过 46 项离线 Rust 测试、2 项显式启用的 MiMo 联网测试与 20 项 Flutter 测试；Android 产物以发布工作流结果为准。
 
 修改 Rust FFI 公共函数或模型后，需要重新生成 bridge：
 
@@ -170,6 +170,7 @@ flutter_rust_bridge_codegen generate --config-file flutter_rust_bridge.yaml
 | 旧功能基线 arm64 Release APK | 24,385,257 bytes（23.26 MiB） | 不含 `kernel_blob.bin`，包含 Rust 核心 |
 | v0.1.0 arm64 Release APK 候选 | 25,320,930 bytes（24.15 MiB） | 含 `libai_usage_core.so`，通过 ABI、体积和签名检查 |
 | v0.1.0 arm64 Release AAB 候选 | 25,569,773 bytes（24.39 MiB） | 供后续商店提交，使用同一发布证书 |
+| v0.2.0 arm64 Release APK 候选 | 26,778,940 bytes（25.54 MiB） | 三 Provider 版本，真机验证 Codex、DeepSeek 与 MiMo 登录/余额链路 |
 | 当前 Release 应用数据 | 999,424 bytes（约 976 KiB） | 已登录真机完成演示态、详情页与历史页验收后的 PackageManager 统计 |
 
 GitHub Release 提供正式签名的 arm64 APK 和 AAB；直接安装使用 APK，AAB 仅作为后续商店提交候选。下载后可使用同版本 `SHA256SUMS` 文件校验完整性。
@@ -184,16 +185,16 @@ GitHub Release 提供正式签名的 arm64 APK 和 AAB；直接安装使用 APK�
 - Profile Token 统计由账号侧异步生成，可能缺失当天 bucket 或明显滞后，不能作为实时计费依据。
 - `/backend-api/wham/profiles/me` 与 `/v1/me` 均未被本项目视为面向第三方的稳定兼容承诺。
 - Linux 托盘是否显示取决于桌面环境和 AppIndicator 支持。
-- Android Release 已完成新安装与入口检查，但尚未在真实账号登录后连续运行 5 分钟复测数据增长。
+- Android Release 已完成三 Provider 真机登录、缓存、刷新和凭据脱敏验收；尚未覆盖所有账号套餐类型及厂商后台限制。
 - 不实现 Web、从本机浏览器抓取 Cookie、MiMo API Key 余额查询、余额历史图表、云同步、reset credit consume、Thread Usage、费用换算或企业 Admin API。
 
 ## 路线图
 
-- 完成真实账号登录后的 Android 长时间运行与存储复测。
+- 完成 Android 长时间运行、存储增长与 MiMo 会话续签复测。
 - 在真实 macOS、iOS 和 Linux 环境完成平台验收。
 - 补充关键 Flutter controller/widget 测试和应用截图。
 - OpenAI 上游发生变化时，更新兼容研究、fixture 和 provider 层。
-- 在首个稳定候选版本前明确升级与本地数据库迁移策略。
+- 为后续 Provider schema 变化补充脱敏 fixture 与兼容回归测试。
 
 ### PLAN：Android 后台权限检测
 
