@@ -27,15 +27,17 @@ impl HistoryRepository {
         let transaction = self.connection.transaction().map_err(sql_error)?;
         transaction
             .execute(
-                "INSERT INTO accounts (identity_hash, email, plan, last_successful_refresh, updated_at)
-                 VALUES (?1, ?2, ?3, ?4, ?5)
+                "INSERT INTO accounts (identity_hash, provider, email, plan, last_successful_refresh, updated_at)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6)
                  ON CONFLICT(identity_hash) DO UPDATE SET
+                   provider = excluded.provider,
                    email = excluded.email,
                    plan = excluded.plan,
                    last_successful_refresh = excluded.last_successful_refresh,
                    updated_at = excluded.updated_at",
                 params![
                     snapshot.account.identity_hash,
+                    format!("{:?}", snapshot.account.provider),
                     snapshot.account.email,
                     snapshot.account.plan,
                     snapshot.account.last_successful_refresh,
@@ -47,8 +49,8 @@ impl HistoryRepository {
             .execute(
                 "INSERT INTO usage_snapshots
                  (timestamp, account_identity_hash, reset_credits_available, reset_credits_json,
-                  credits_has, credits_unlimited, credits_balance)
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+                  credits_has, credits_unlimited, credits_balance, balances_json, provider_quotas_json)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
                 params![
                     snapshot.fetched_at,
                     snapshot.account.identity_hash,
@@ -63,6 +65,8 @@ impl HistoryRepository {
                         .credits
                         .as_ref()
                         .and_then(|value| value.balance.clone()),
+                    serde_json::to_string(&snapshot.balances).ok(),
+                    serde_json::to_string(&snapshot.provider_quotas).ok(),
                 ],
             )
             .map_err(sql_error)?;
@@ -93,7 +97,8 @@ impl HistoryRepository {
             .connection
             .prepare(
                 "SELECT id, timestamp, reset_credits_available, reset_credits_json,
-                        credits_has, credits_unlimited, credits_balance
+                        credits_has, credits_unlimited, credits_balance, balances_json,
+                        provider_quotas_json
                  FROM usage_snapshots
                  WHERE account_identity_hash = ?1
                  ORDER BY timestamp DESC, id DESC LIMIT 1",
@@ -109,6 +114,8 @@ impl HistoryRepository {
                     row.get::<_, Option<bool>>(4)?,
                     row.get::<_, Option<bool>>(5)?,
                     row.get::<_, Option<String>>(6)?,
+                    row.get::<_, Option<String>>(7)?,
+                    row.get::<_, Option<String>>(8)?,
                 ))
             })
             .optional()
@@ -121,6 +128,8 @@ impl HistoryRepository {
             credits_has,
             credits_unlimited,
             credits_balance,
+            balances_json,
+            provider_quotas_json,
         )) = row
         else {
             return Ok(None);
@@ -149,6 +158,12 @@ impl HistoryRepository {
         Ok(Some(UsageSnapshot {
             account: account.clone(),
             windows,
+            balances: balances_json
+                .and_then(|value| serde_json::from_str(&value).ok())
+                .unwrap_or_default(),
+            provider_quotas: provider_quotas_json
+                .and_then(|value| serde_json::from_str(&value).ok())
+                .unwrap_or_default(),
             reset_credits_available,
             reset_credits: reset_credits_json.and_then(|value| serde_json::from_str(&value).ok()),
             credits: credits_has.map(|has_credits| crate::models::CreditsSnapshot {
@@ -387,6 +402,7 @@ impl HistoryRepository {
                 "PRAGMA foreign_keys = ON;
                  CREATE TABLE IF NOT EXISTS accounts (
                    identity_hash TEXT PRIMARY KEY NOT NULL,
+                   provider TEXT NOT NULL DEFAULT 'Codex',
                    email TEXT,
                    plan TEXT,
                    last_successful_refresh INTEGER,
@@ -401,6 +417,8 @@ impl HistoryRepository {
                    credits_has INTEGER,
                    credits_unlimited INTEGER,
                    credits_balance TEXT,
+                   balances_json TEXT,
+                   provider_quotas_json TEXT,
                    FOREIGN KEY(account_identity_hash) REFERENCES accounts(identity_hash)
                  );
                  CREATE TABLE IF NOT EXISTS quota_windows (
@@ -471,6 +489,8 @@ impl HistoryRepository {
             ("credits_has", "INTEGER"),
             ("credits_unlimited", "INTEGER"),
             ("credits_balance", "TEXT"),
+            ("balances_json", "TEXT"),
+            ("provider_quotas_json", "TEXT"),
         ];
         let existing = self
             .connection
@@ -490,6 +510,23 @@ impl HistoryRepository {
                     )
                     .map_err(sql_error)?;
             }
+        }
+        let account_columns = self
+            .connection
+            .prepare("PRAGMA table_info(accounts)")
+            .and_then(|mut statement| {
+                statement
+                    .query_map([], |row| row.get::<_, String>(1))?
+                    .collect::<Result<Vec<_>, _>>()
+            })
+            .map_err(sql_error)?;
+        if !account_columns.iter().any(|value| value == "provider") {
+            self.connection
+                .execute(
+                    "ALTER TABLE accounts ADD COLUMN provider TEXT NOT NULL DEFAULT 'Codex'",
+                    [],
+                )
+                .map_err(sql_error)?;
         }
         Ok(())
     }
@@ -596,11 +633,14 @@ fn sql_error(error: rusqlite::Error) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::models::{CredentialStatus, LoginState, QuotaWindow};
+    use crate::models::{
+        BalanceMetric, CredentialStatus, LoginState, ProviderKind, ProviderQuotaMetric, QuotaWindow,
+    };
 
     fn snapshot(timestamp: i64) -> UsageSnapshot {
         UsageSnapshot {
             account: AccountInfo {
+                provider: ProviderKind::Codex,
                 identity_hash: "account-hash".to_string(),
                 email: Some("user@example.com".to_string()),
                 plan: Some("pro".to_string()),
@@ -617,6 +657,8 @@ mod tests {
                 reset_at: timestamp + 100,
                 window_seconds: 3600,
             }],
+            balances: Vec::new(),
+            provider_quotas: Vec::new(),
             reset_credits_available: Some(2),
             reset_credits: None,
             credits: None,
@@ -691,6 +733,59 @@ mod tests {
                 .reset_credits_available,
             Some(2)
         );
+        let provider: String = repository
+            .connection
+            .query_row(
+                "SELECT provider FROM accounts WHERE identity_hash = 'account-hash'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(provider, "Codex");
+    }
+
+    #[test]
+    fn provider_balances_and_quotas_round_trip_without_secrets() {
+        let mut repository = HistoryRepository::open(":memory:").unwrap();
+        let mut sample = snapshot(1_700_000_000);
+        sample.account.provider = ProviderKind::Mimo;
+        sample.account.identity_hash = "mimo:hash-only".to_string();
+        sample.windows.clear();
+        sample.balances = vec![BalanceMetric {
+            id: "mimo:total".to_string(),
+            label: "Total balance".to_string(),
+            amount: "12.50".to_string(),
+            currency: Some("CNY".to_string()),
+            primary: true,
+        }];
+        sample.provider_quotas = vec![ProviderQuotaMetric {
+            id: "mimo:plan_total_token".to_string(),
+            title: "Plan tokens".to_string(),
+            used: "100".to_string(),
+            limit: "1000".to_string(),
+            remaining: "900".to_string(),
+            used_percent: 10.0,
+            expires_at: Some(1_800_000_000),
+            unit: "tokens".to_string(),
+        }];
+        repository.record_snapshot(&sample).unwrap();
+
+        let cached = repository
+            .latest_snapshot(&sample.account)
+            .unwrap()
+            .unwrap();
+        assert_eq!(cached.balances[0].amount, "12.50");
+        assert_eq!(cached.provider_quotas[0].remaining, "900");
+        let serialized: String = repository
+            .connection
+            .query_row(
+                "SELECT balances_json || provider_quotas_json FROM usage_snapshots LIMIT 1",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert!(!serialized.contains("serviceToken"));
+        assert!(!serialized.contains("passToken"));
     }
 
     #[test]

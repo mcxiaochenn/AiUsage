@@ -10,10 +10,29 @@ pub struct SecureCredential {
     pub refresh_token: String,
 }
 
+#[derive(Clone, Copy, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
+pub enum ProviderKind {
+    #[default]
+    Codex,
+    DeepSeek,
+    Mimo,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct MimoCredential {
+    pub user_id: String,
+    pub pass_token: String,
+    pub service_token: String,
+    pub service_slh: String,
+    pub service_ph: String,
+}
+
 /// Non-secret account metadata. `identity_hash` is the only account identifier
 /// written to SQLite; it is a SHA-256 digest derived from JWT claims.
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct AccountInfo {
+    #[serde(default)]
+    pub provider: ProviderKind,
     pub identity_hash: String,
     pub email: Option<String>,
     pub plan: Option<String>,
@@ -22,6 +41,27 @@ pub struct AccountInfo {
     pub login_state: LoginState,
     pub last_successful_refresh: Option<i64>,
     pub credential_status: CredentialStatus,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct BalanceMetric {
+    pub id: String,
+    pub label: String,
+    pub amount: String,
+    pub currency: Option<String>,
+    pub primary: bool,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+pub struct ProviderQuotaMetric {
+    pub id: String,
+    pub title: String,
+    pub used: String,
+    pub limit: String,
+    pub remaining: String,
+    pub used_percent: f64,
+    pub expires_at: Option<i64>,
+    pub unit: String,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
@@ -74,6 +114,10 @@ pub struct ResetCredit {
 pub struct UsageSnapshot {
     pub account: AccountInfo,
     pub windows: Vec<QuotaWindow>,
+    #[serde(default)]
+    pub balances: Vec<BalanceMetric>,
+    #[serde(default)]
+    pub provider_quotas: Vec<ProviderQuotaMetric>,
     pub reset_credits_available: Option<i64>,
     pub reset_credits: Option<Vec<ResetCredit>>,
     pub credits: Option<CreditsSnapshot>,
@@ -155,6 +199,14 @@ pub struct UsageResult {
     /// replace its secure-storage value atomically and must never place this in
     /// SQLite or logs.
     pub updated_credential: Option<SecureCredential>,
+    pub updated_mimo_credential: Option<MimoCredential>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+pub struct MimoLoginResult {
+    pub account: Option<AccountInfo>,
+    pub credential: Option<MimoCredential>,
+    pub challenge_url: Option<String>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]

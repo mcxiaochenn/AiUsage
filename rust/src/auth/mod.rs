@@ -11,7 +11,7 @@ use serde_json::Value;
 use sha2::{Digest, Sha256};
 use thiserror::Error;
 
-use crate::models::{AccountInfo, CredentialStatus, LoginState, SecureCredential};
+use crate::models::{AccountInfo, CredentialStatus, LoginState, ProviderKind, SecureCredential};
 
 pub const AUTH_ISSUER: &str = "https://auth.openai.com";
 /// Current upstream value in `codex-rs/login/src/auth/manager.rs`. It is kept
@@ -184,6 +184,7 @@ pub fn account_from_credential(credential: &SecureCredential) -> Result<AccountI
         .ok_or(AuthError::Decode)?;
 
     Ok(AccountInfo {
+        provider: ProviderKind::Codex,
         identity_hash: identity_hash(identity_source),
         email,
         plan,
@@ -390,6 +391,10 @@ fn identity_hash(source: &str) -> String {
         .iter()
         .map(|byte| format!("{byte:02x}"))
         .collect()
+}
+
+pub(crate) fn provider_identity_hash(provider: &str, source: &str) -> String {
+    identity_hash(&format!("{provider}\0{source}"))
 }
 
 fn flexible_seconds(value: &Value) -> Option<i64> {

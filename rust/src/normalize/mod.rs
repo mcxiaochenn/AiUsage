@@ -65,6 +65,8 @@ impl RawWhamUsage {
         UsageSnapshot {
             account,
             windows,
+            balances: Vec::new(),
+            provider_quotas: Vec::new(),
             reset_credits_available: self
                 .value
                 .get("rate_limit_reset_credits")
@@ -317,10 +319,11 @@ fn server_label(value: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::models::{CredentialStatus, LoginState};
+    use crate::models::{CredentialStatus, LoginState, ProviderKind};
 
     fn account() -> AccountInfo {
         AccountInfo {
+            provider: ProviderKind::Codex,
             identity_hash: "account-hash".to_string(),
             email: Some("user@example.com".to_string()),
             plan: None,
