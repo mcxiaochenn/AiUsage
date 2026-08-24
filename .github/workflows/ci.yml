@@ -65,8 +65,10 @@ jobs:
     name: Android arm64 package
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
+      - name: Checkout full history
         uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
       - name: Set up Java
         uses: actions/setup-java@v5
         with:
@@ -100,4 +102,26 @@ jobs:
           echo "AIUSAGE_ANDROID_KEY_PASSWORD=aiusage-ci-only" >> "$GITHUB_ENV"
       - name: Build and inspect arm64 APK
         shell: pwsh
-        run: ./scripts/build_android_release.ps1 -Format apk -FlutterRoot $env:FLUTTER_ROOT
+        run: ./scripts/build_android_release.ps1 -Target arm64-v8a -FlutterRoot $env:FLUTTER_ROOT
+
+  ios-smoke:
+    name: iOS unsigned package
+    runs-on: macos-15
+    steps:
+      - name: Checkout full history
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - name: Set up Flutter
+        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
+        with:
+          channel: stable
+          flutter-version: 3.47.1
+          cache: true
+      - name: Install iOS Rust target
+        run: rustup target add aarch64-apple-ios
+      - name: Restore dependencies
+        working-directory: app
+        run: flutter pub get
+      - name: Build and inspect unsigned IPA
+        run: ./scripts/build_ios_release.sh

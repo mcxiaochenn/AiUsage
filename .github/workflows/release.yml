@@ -1,4 +1,4 @@
-name: Android Release
+name: Mobile Release
 
 on:
   push:
@@ -6,40 +6,56 @@ on:
       - 'v*.*.*'
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   quality:
     name: Quality gate
     uses: ./.github/workflows/ci.yml
 
-  release:
-    name: Publish signed Android release
+  validate:
+    name: Validate release metadata
     needs: quality
     runs-on: ubuntu-latest
-    env:
-      AIUSAGE_ANDROID_KEYSTORE_PASSWORD: ${{ secrets.AIUSAGE_ANDROID_KEYSTORE_PASSWORD }}
-      AIUSAGE_ANDROID_KEY_ALIAS: ${{ secrets.AIUSAGE_ANDROID_KEY_ALIAS }}
-      AIUSAGE_ANDROID_KEY_PASSWORD: ${{ secrets.AIUSAGE_ANDROID_KEY_PASSWORD }}
-      AIUSAGE_ANDROID_CERT_SHA256: ${{ vars.AIUSAGE_ANDROID_CERT_SHA256 }}
-      GH_TOKEN: ${{ github.token }}
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      build-number: ${{ steps.version.outputs.build-number }}
     steps:
-      - name: Checkout tag
+      - name: Checkout tag with full history
         uses: actions/checkout@v6
         with:
           fetch-depth: 0
-      - name: Validate release version
+      - name: Validate tag and version
+        id: version
         shell: bash
         run: |
           set -euo pipefail
           tag="$GITHUB_REF_NAME"
           [[ "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "Invalid release tag: $tag"; exit 1; }
           version="${tag#v}"
-          app_version="$(sed -n 's/^version: \([0-9][0-9.]*\)+.*/\1/p' app/pubspec.yaml)"
-          rust_version="$(sed -n 's/^version = "\([0-9][0-9.]*\)"/\1/p' rust/Cargo.toml | head -n 1)"
+          app_version="$(sed -nE 's/^version:[[:space:]]*([0-9]+\.[0-9]+\.[0-9]+)[[:space:]]*$/\1/p' app/pubspec.yaml)"
           [[ "$app_version" == "$version" ]] || { echo "Flutter version $app_version does not match $tag"; exit 1; }
-          [[ "$rust_version" == "$version" ]] || { echo "Rust version $rust_version does not match $tag"; exit 1; }
+          [[ "$(git rev-parse --is-shallow-repository)" == "false" ]] || { echo "Release checkout is shallow"; exit 1; }
+          build_number="$(git rev-list --count HEAD)"
+          [[ "$build_number" =~ ^[1-9][0-9]*$ ]] || { echo "Invalid commit count: $build_number"; exit 1; }
           test -f "docs/releases/$tag.md" || { echo "Missing release notes for $tag"; exit 1; }
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "build-number=$build_number" >> "$GITHUB_OUTPUT"
+
+  android:
+    name: Signed Android variants
+    needs: validate
+    runs-on: ubuntu-latest
+    env:
+      AIUSAGE_ANDROID_KEYSTORE_PASSWORD: ${{ secrets.AIUSAGE_ANDROID_KEYSTORE_PASSWORD }}
+      AIUSAGE_ANDROID_KEY_ALIAS: ${{ secrets.AIUSAGE_ANDROID_KEY_ALIAS }}
+      AIUSAGE_ANDROID_KEY_PASSWORD: ${{ secrets.AIUSAGE_ANDROID_KEY_PASSWORD }}
+      AIUSAGE_ANDROID_CERT_SHA256: ${{ vars.AIUSAGE_ANDROID_CERT_SHA256 }}
+    steps:
+      - name: Checkout tag with full history
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
       - name: Set up Java
         uses: actions/setup-java@v5
         with:
@@ -65,21 +81,85 @@ jobs:
           printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/aiusage-release.jks"
           chmod 600 "$RUNNER_TEMP/aiusage-release.jks"
           echo "AIUSAGE_ANDROID_KEYSTORE_PATH=$RUNNER_TEMP/aiusage-release.jks" >> "$GITHUB_ENV"
-      - name: Build signed APK
+      - name: Build and inspect signed APKs
         shell: pwsh
-        run: ./scripts/build_android_release.ps1 -Format apk -FlutterRoot $env:FLUTTER_ROOT -RequireSignature
-      - name: Build signed AAB
-        shell: pwsh
-        run: ./scripts/build_android_release.ps1 -Format appbundle -FlutterRoot $env:FLUTTER_ROOT -RequireSignature
-      - name: Prepare release assets
+        run: ./scripts/build_android_release.ps1 -Target all -FlutterRoot $env:FLUTTER_ROOT -RequireSignature
+      - name: Upload Android assets
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-release
+          path: app/build/release/AiUsage-android-release-*.apk
+          if-no-files-found: error
+          retention-days: 7
+
+  ios:
+    name: Unsigned iOS IPA
+    needs: validate
+    runs-on: macos-15
+    steps:
+      - name: Checkout tag with full history
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - name: Set up Flutter
+        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
+        with:
+          channel: stable
+          flutter-version: 3.47.1
+          cache: true
+      - name: Install iOS Rust target
+        run: rustup target add aarch64-apple-ios
+      - name: Restore dependencies
+        working-directory: app
+        run: flutter pub get
+      - name: Build and inspect unsigned IPA
+        run: ./scripts/build_ios_release.sh
+      - name: Upload iOS asset
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-release
+          path: app/build/release/AiUsage-ios-release-unsigned.ipa
+          if-no-files-found: error
+          retention-days: 7
+
+  publish:
+    name: Publish mobile release
+    needs:
+      - validate
+      - android
+      - ios
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Checkout release notes
+        uses: actions/checkout@v6
+      - name: Download release assets
+        uses: actions/download-artifact@v4
+        with:
+          pattern: '*-release'
+          path: dist
+          merge-multiple: true
+      - name: Verify asset matrix and checksums
         shell: bash
         run: |
           set -euo pipefail
-          version="${GITHUB_REF_NAME#v}"
-          mkdir -p dist
-          cp app/build/app/outputs/flutter-apk/app-release.apk "dist/AiUsage-v${version}-android-arm64.apk"
-          cp app/build/app/outputs/bundle/release/app-release.aab "dist/AiUsage-v${version}-android-arm64.aab"
-          (cd dist && sha256sum AiUsage-* > "AiUsage-v${version}-SHA256SUMS.txt")
+          expected=(
+            AiUsage-android-release-universal.apk
+            AiUsage-android-release-arm64-v8a.apk
+            AiUsage-android-release-armeabi-v7a.apk
+            AiUsage-android-release-x86_64.apk
+            AiUsage-ios-release-unsigned.ipa
+          )
+          for asset in "${expected[@]}"; do
+            test -f "dist/$asset" || { echo "Missing release asset: $asset"; exit 1; }
+          done
+          [[ "$(find dist -maxdepth 1 -type f | wc -l | tr -d ' ')" == "${#expected[@]}" ]] || {
+            echo "Unexpected files in release asset directory"; find dist -maxdepth 1 -type f; exit 1;
+          }
+          (cd dist && sha256sum "${expected[@]}" > AiUsage-SHA256SUMS.txt)
       - name: Create GitHub Release
         shell: bash
         run: |
