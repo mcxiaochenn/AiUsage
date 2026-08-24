@@ -84,10 +84,14 @@ pushd "$staging" >/dev/null
 ditto -c -k --sequesterRsrc Payload "$artifact"
 popd >/dev/null
 
-unzip -l "$artifact" | grep -q 'Payload/Runner.app/Info.plist' || {
+ipa_listing="$(mktemp)"
+unzip -l "$artifact" > "$ipa_listing"
+if ! grep -Fq 'Payload/Runner.app/Info.plist' "$ipa_listing"; then
+  rm -f "$ipa_listing"
   echo "IPA Payload layout is invalid." >&2
   exit 1
-}
+fi
+rm -f "$ipa_listing"
 
 printf 'Artifact: %s\nVersion: %s\nBuild: %s\nBundle: %s\n' \
   "$artifact" "$version_name" "$build_number" "$bundle_id"
