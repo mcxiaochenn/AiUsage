@@ -96,6 +96,8 @@ jobs:
     name: Unsigned iOS IPA
     needs: validate
     runs-on: macos-15
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.3.app/Contents/Developer
     steps:
       - name: Checkout tag with full history
         uses: actions/checkout@v6

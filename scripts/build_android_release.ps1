@@ -112,7 +112,8 @@ if (-not $SkipBuild) {
             }
         } elseif ($Target -in $supportedAbis) {
             & $flutterBin build apk --release --target-platform $targetPlatforms[$Target] `
-                --build-name $versionName --build-number $buildNumber --no-pub
+                --build-name $versionName --build-number $buildNumber `
+                -P "aiusageTargetAbi=$Target" --no-pub
             if ($LASTEXITCODE -ne 0) { throw "Flutter $Target APK build failed with exit code $LASTEXITCODE." }
             Copy-Item -LiteralPath 'build\app\outputs\flutter-apk\app-release.apk' `
                 -Destination (Join-Path $outputRoot "AiUsage-android-release-$Target.apk") -Force

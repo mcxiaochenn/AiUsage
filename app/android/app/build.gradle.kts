@@ -16,6 +16,11 @@ val releaseSigningValues =
         releaseKeyPassword,
     )
 val releaseSigningConfigured = releaseSigningValues.all { !it.isNullOrBlank() }
+val requestedReleaseAbi = providers.gradleProperty("aiusageTargetAbi").orNull
+val supportedReleaseAbis = setOf("armeabi-v7a", "arm64-v8a", "x86_64")
+if (requestedReleaseAbi != null && requestedReleaseAbi !in supportedReleaseAbis) {
+    throw GradleException("Unsupported aiusageTargetAbi: $requestedReleaseAbi")
+}
 val releaseBuildRequested =
     gradle.startParameter.taskNames.any { taskName ->
         taskName.contains("release", ignoreCase = true)
@@ -66,6 +71,22 @@ android {
             if (releaseSigningConfigured) {
                 signingConfig = signingConfigs.getByName("aiUsageRelease")
             }
+            if (requestedReleaseAbi != null) {
+                ndk {
+                    abiFilters += requestedReleaseAbi
+                }
+            }
+        }
+    }
+}
+
+androidComponents {
+    if (requestedReleaseAbi != null) {
+        onVariants(selector().withBuildType("release")) { variant ->
+            val excludedAbis = supportedReleaseAbis - requestedReleaseAbi
+            variant.packaging.jniLibs.excludes.addAll(
+                excludedAbis.map { abi -> "lib/$abi/**" },
+            )
         }
     }
 }

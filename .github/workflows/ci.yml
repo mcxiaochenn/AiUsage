@@ -107,6 +107,8 @@ jobs:
   ios-smoke:
     name: iOS unsigned package
     runs-on: macos-15
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.3.app/Contents/Developer
     steps:
       - name: Checkout full history
         uses: actions/checkout@v6
