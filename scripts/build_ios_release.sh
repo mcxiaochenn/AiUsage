@@ -81,7 +81,7 @@ ditto "$runner_app" "$staging/Payload/Runner.app"
 artifact="$output_root/AiUsage-ios-release-unsigned.ipa"
 rm -f "$artifact"
 pushd "$staging" >/dev/null
-ditto -c -k --sequesterRsrc Payload "$artifact"
+ditto -c -k --sequesterRsrc --keepParent Payload "$artifact"
 popd >/dev/null
 
 ipa_listing="$(mktemp)"
