@@ -361,7 +361,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get stateStale => '无法刷新。';
 
   @override
-  String get stateAuthExpired => '登录已过期，请重新添加账户。';
+  String get stateAuthExpired => '凭据已过期，请重新添加账户。';
 
   @override
   String get stateOffline => '当前似乎处于离线状态。';
@@ -627,7 +627,22 @@ class AppLocalizationsZh extends AppLocalizations {
   String get deepSeekApiKey => 'DeepSeek API Key';
 
   @override
-  String get accountAliasOptional => '别名（可选）';
+  String get accountAliasOptional => '自定义名称（可选）';
+
+  @override
+  String get customAccountName => '自定义账户名称';
+
+  @override
+  String get renameAccount => '重命名账户';
+
+  @override
+  String get save => '保存';
+
+  @override
+  String get apiKeyFingerprint => 'API Key 指纹';
+
+  @override
+  String get mimoAccount => '小米账户';
 
   @override
   String get deepSeekKeyHint => '保存前会通过 DeepSeek 官方余额 API 验证；Key 仅写入系统安全存储。';
@@ -711,4 +726,48 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get credentialSourceXiaomiWeb => '小米官方网页验证';
+
+  @override
+  String get appearanceAndLanguage => '外观与语言';
+
+  @override
+  String get appearanceAndLanguageDescription => '主题、动态取色和语言';
+
+  @override
+  String get monitoringAndNotifications => '监控与通知';
+
+  @override
+  String get monitoringAndNotificationsDescription => '刷新、额度显示、通知和后台任务';
+
+  @override
+  String get dataAndDiagnostics => '数据与诊断';
+
+  @override
+  String get dataAndDiagnosticsDescription => '演示数据、本地隐私与同步记录';
+
+  @override
+  String get about => '关于';
+
+  @override
+  String get aboutDescription => '版本、作者与项目链接';
+
+  @override
+  String get author => '作者';
+
+  @override
+  String get license => '许可证';
+
+  @override
+  String get sourceCode => '源代码';
+
+  @override
+  String get feedback => '问题反馈';
+
+  @override
+  String get versionUnavailable => '版本信息不可用';
+
+  @override
+  String appVersion(String version) {
+    return '版本 $version';
+  }
 }

@@ -376,7 +376,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get stateStale => 'Unable to refresh.';
 
   @override
-  String get stateAuthExpired => 'Sign-in expired. Add the account again.';
+  String get stateAuthExpired => 'Credential expired. Add the account again.';
 
   @override
   String get stateOffline => 'You appear to be offline.';
@@ -655,7 +655,22 @@ class AppLocalizationsEn extends AppLocalizations {
   String get deepSeekApiKey => 'DeepSeek API Key';
 
   @override
-  String get accountAliasOptional => 'Alias (optional)';
+  String get accountAliasOptional => 'Custom name (optional)';
+
+  @override
+  String get customAccountName => 'Custom account name';
+
+  @override
+  String get renameAccount => 'Rename account';
+
+  @override
+  String get save => 'Save';
+
+  @override
+  String get apiKeyFingerprint => 'API Key fingerprint';
+
+  @override
+  String get mimoAccount => 'Xiaomi account';
 
   @override
   String get deepSeekKeyHint =>
@@ -744,4 +759,51 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get credentialSourceXiaomiWeb => 'Xiaomi official web verification';
+
+  @override
+  String get appearanceAndLanguage => 'Appearance & language';
+
+  @override
+  String get appearanceAndLanguageDescription =>
+      'Theme, dynamic color, and language';
+
+  @override
+  String get monitoringAndNotifications => 'Monitoring & notifications';
+
+  @override
+  String get monitoringAndNotificationsDescription =>
+      'Refresh, quota display, notifications, and background tasks';
+
+  @override
+  String get dataAndDiagnostics => 'Data & diagnostics';
+
+  @override
+  String get dataAndDiagnosticsDescription =>
+      'Demo data, local privacy, and sync records';
+
+  @override
+  String get about => 'About';
+
+  @override
+  String get aboutDescription => 'Version, author, and project links';
+
+  @override
+  String get author => 'Author';
+
+  @override
+  String get license => 'License';
+
+  @override
+  String get sourceCode => 'Source code';
+
+  @override
+  String get feedback => 'Feedback';
+
+  @override
+  String get versionUnavailable => 'Version information unavailable';
+
+  @override
+  String appVersion(String version) {
+    return 'Version $version';
+  }
 }

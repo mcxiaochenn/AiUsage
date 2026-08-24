@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
 
@@ -33,8 +34,8 @@ class AppController extends ChangeNotifier {
     final controller = AppController();
     controller._loading = false;
     controller._accounts = accounts;
-    controller._selectedAccountId = accounts.firstOrNull?.identityHash;
     controller._settings = settings;
+    controller._restoreSelection();
     controller._usage = usage;
     controller._profileUsage = profileUsage;
     controller._accountDetailsByAccount.addAll(accountDetails);
@@ -47,7 +48,9 @@ class AppController extends ChangeNotifier {
   Timer? _foregroundTimer;
 
   List<StoredAccount> _accounts = const [];
+  ProviderKind? _selectedProvider;
   String? _selectedAccountId;
+  ProviderKind? _selectedDemoProvider;
   String? _selectedDemoAccountId;
   UsageResult? _usage;
   MonitorSettings _settings = const MonitorSettings();
@@ -64,16 +67,35 @@ class AppController extends ChangeNotifier {
 
   List<StoredAccount> get accounts =>
       _settings.demoModeEnabled ? _demoAccounts : List.unmodifiable(_accounts);
+  List<ProviderKind> get availableProviders => _providersFor(accounts);
+  ProviderKind? get selectedProvider => _settings.demoModeEnabled
+      ? _selectedDemoProvider ?? _demoAccounts.first.provider
+      : _selectedProvider;
+  List<StoredAccount> get currentProviderAccounts {
+    final provider = selectedProvider;
+    if (provider == null) return const [];
+    return accounts
+        .where((item) => item.provider == provider)
+        .toList(growable: false);
+  }
+
   StoredAccount? get selectedAccount => _settings.demoModeEnabled
       ? _demoAccounts.cast<StoredAccount?>().firstWhere(
           (item) =>
-              item?.identityHash ==
-              (_selectedDemoAccountId ?? _demoAccounts.first.identityHash),
-          orElse: () => _demoAccounts.first,
+              item?.identityHash == _selectedDemoAccountId &&
+              item?.provider == selectedProvider,
+          orElse: () => _demoAccounts.firstWhere(
+            (item) => item.provider == selectedProvider,
+          ),
         )
       : _accounts.cast<StoredAccount?>().firstWhere(
-          (item) => item?.identityHash == _selectedAccountId,
-          orElse: () => null,
+          (item) =>
+              item?.identityHash == _selectedAccountId &&
+              item?.provider == selectedProvider,
+          orElse: () => _accounts
+              .where((item) => item.provider == selectedProvider)
+              .cast<StoredAccount?>()
+              .firstOrNull,
         );
   UsageResult? get usage => _settings.demoModeEnabled
       ? _demoUsageFor(selectedAccount?.provider ?? ProviderKind.codex)
@@ -114,7 +136,7 @@ class AppController extends ChangeNotifier {
       await core.initializeCore(databasePath: databasePath);
       _settings = await _vault.loadSettings();
       _accounts = await _vault.loadAccounts();
-      _selectedAccountId = _accounts.firstOrNull?.identityHash;
+      _restoreSelection();
       await _preloadAccountDetailsCaches();
       _scheduleForegroundRefresh();
       await _backgroundScheduler.configure(
@@ -135,12 +157,60 @@ class AppController extends ChangeNotifier {
 
   Future<void> selectAccount(String identityHash) async {
     if (_settings.demoModeEnabled) {
-      _selectedDemoAccountId = identityHash;
+      final account = _demoAccounts
+          .where((item) => item.identityHash == identityHash)
+          .firstOrNull;
+      if (account == null) return;
+      _selectedDemoProvider = account.provider;
+      _selectedDemoAccountId = account.identityHash;
       notifyListeners();
       return;
     }
-    if (_selectedAccountId == identityHash) return;
+    final account = _accounts
+        .where((item) => item.identityHash == identityHash)
+        .firstOrNull;
+    if (account == null) return;
+    if (_selectedAccountId == identityHash &&
+        _selectedProvider == account.provider) {
+      return;
+    }
+    _selectedProvider = account.provider;
     _selectedAccountId = identityHash;
+    await _persistSelection();
+    _usage = null;
+    _profileUsage = null;
+    _profileError = null;
+    notifyListeners();
+    await loadCached();
+    unawaited(refresh());
+  }
+
+  Future<void> selectProvider(ProviderKind provider) async {
+    if (_settings.demoModeEnabled) {
+      _selectedDemoProvider = provider;
+      final account = _demoAccounts
+          .where((item) => item.provider == provider)
+          .firstOrNull;
+      _selectedDemoAccountId = account?.identityHash;
+      notifyListeners();
+      return;
+    }
+    final providerAccounts = _accounts
+        .where((item) => item.provider == provider)
+        .toList(growable: false);
+    if (providerAccounts.isEmpty) return;
+    final remembered = _settings.selectedAccountByProvider[provider.name];
+    final account = providerAccounts.firstWhere(
+      (item) => item.identityHash == remembered,
+      orElse: () => providerAccounts.first,
+    );
+    if (_selectedProvider == provider &&
+        _selectedAccountId == account.identityHash) {
+      return;
+    }
+    _selectedProvider = provider;
+    _selectedAccountId = account.identityHash;
+    await _persistSelection();
     _usage = null;
     _profileUsage = null;
     _profileError = null;
@@ -185,7 +255,12 @@ class AppController extends ChangeNotifier {
         );
       }
       if (result.snapshot != null) {
-        await _vault.updateAccount(result.snapshot!.account);
+        await _vault.updateAccount(
+          result.snapshot!.account,
+          avatarUrl: result.updatedCredential == null
+              ? account.avatarUrl
+              : _avatarUrlFromCredential(result.updatedCredential!),
+        );
         _replaceAccount(result.snapshot!.account, account, result);
         if (_settings.notificationsEnabled) {
           await _notifications.inspectSnapshot(
@@ -233,22 +308,31 @@ class AppController extends ChangeNotifier {
   Future<void> cancelDeviceLogin(String loginId) =>
       core.cancelDeviceLogin(loginId: loginId);
 
-  Future<void> importAccount(Uint8List content) async {
+  Future<void> importAccount(Uint8List content, {String? displayName}) async {
     final completed = await core.importCodexAuthJson(content: content);
-    await acceptLogin(completed, credentialSource: CredentialSource.authJson);
+    await acceptLogin(
+      completed,
+      credentialSource: CredentialSource.authJson,
+      displayName: displayName,
+    );
   }
 
   Future<void> acceptLogin(
     DeviceCodeLoginComplete completed, {
     required CredentialSource credentialSource,
+    String? displayName,
   }) async {
     await _vault.saveSignedIn(
       completed.account,
       completed.credential,
       credentialSource,
+      displayName: _normalizedName(displayName),
+      avatarUrl: _avatarUrlFromCredential(completed.credential),
     );
     _accounts = await _vault.loadAccounts();
+    _selectedProvider = ProviderKind.codex;
     _selectedAccountId = completed.account.identityHash;
+    await _persistSelection();
     _usage = null;
     notifyListeners();
     await refresh();
@@ -278,7 +362,9 @@ class AppController extends ChangeNotifier {
           : alias.trim(),
     );
     _accounts = await _vault.loadAccounts();
+    _selectedProvider = ProviderKind.deepSeek;
     _selectedAccountId = snapshot.account.identityHash;
+    await _persistSelection();
     _usage = result;
     notifyListeners();
   }
@@ -286,6 +372,7 @@ class AppController extends ChangeNotifier {
   Future<MimoLoginResult> beginMimoAccount({
     required String username,
     required String password,
+    String? displayName,
   }) async {
     final result = await core.beginMimoLogin(
       username: username.trim(),
@@ -295,7 +382,8 @@ class AppController extends ChangeNotifier {
       await _acceptMimoLogin(
         result,
         source: CredentialSource.xiaomiPassword,
-        displayName: username.trim(),
+        displayName: displayName,
+        accountHint: username.trim(),
       );
     }
     return result;
@@ -304,18 +392,26 @@ class AppController extends ChangeNotifier {
   Future<void> completeMimoWebAccount({
     required String accountCookie,
     required String platformCookie,
+    String? displayName,
+    String? accountHint,
   }) async {
     final result = await core.completeMimoWebLogin(
       accountCookie: accountCookie,
       platformCookie: platformCookie,
     );
-    await _acceptMimoLogin(result, source: CredentialSource.xiaomiWeb);
+    await _acceptMimoLogin(
+      result,
+      source: CredentialSource.xiaomiWeb,
+      displayName: displayName,
+      accountHint: accountHint,
+    );
   }
 
   Future<void> _acceptMimoLogin(
     MimoLoginResult result, {
     required CredentialSource source,
     String? displayName,
+    String? accountHint,
   }) async {
     final account = result.account;
     final credential = result.credential;
@@ -326,10 +422,15 @@ class AppController extends ChangeNotifier {
       account,
       credential,
       credentialSource: source,
-      displayName: displayName,
+      displayName: _normalizedName(displayName),
+      accountHint: accountHint?.trim().isNotEmpty == true
+          ? accountHint!.trim()
+          : credential.userId,
     );
     _accounts = await _vault.loadAccounts();
+    _selectedProvider = ProviderKind.mimo;
     _selectedAccountId = account.identityHash;
+    await _persistSelection();
     _usage = null;
     notifyListeners();
     await refresh();
@@ -351,13 +452,18 @@ class AppController extends ChangeNotifier {
     _accountDetailsLoadingAccounts.remove(identityHash);
     _accountDetailsErrors.remove(identityHash);
     _accounts = await _vault.loadAccounts();
-    if (_selectedAccountId == identityHash) {
-      _selectedAccountId = _accounts.firstOrNull?.identityHash;
-      _usage = null;
-      _profileUsage = null;
-    }
+    _restoreSelection();
+    await _persistSelection();
+    _usage = null;
+    _profileUsage = null;
     notifyListeners();
     await loadCached();
+  }
+
+  Future<void> renameAccount(String identityHash, String? displayName) async {
+    await _vault.renameAccount(identityHash, displayName);
+    _accounts = await _vault.loadAccounts();
+    notifyListeners();
   }
 
   Future<List<HistoryPoint>> history(Duration period) async {
@@ -495,6 +601,10 @@ class AppController extends ChangeNotifier {
                   account,
                   displayName: item.displayName,
                   credentialSource: item.credentialSource,
+                  avatarUrl: result.updatedCredential == null
+                      ? item.avatarUrl
+                      : _avatarUrlFromCredential(result.updatedCredential!),
+                  mimoAccountHint: item.mimoAccountHint,
                 ).withCredentials(
                   codexCredential:
                       result.updatedCredential ?? previous.credential,
@@ -514,6 +624,79 @@ class AppController extends ChangeNotifier {
       Duration(minutes: _settings.refreshMinutes),
       (_) => unawaited(refresh(trigger: SyncTrigger.foregroundTimer)),
     );
+  }
+
+  void _restoreSelection() {
+    final providers = _providersFor(_accounts);
+    if (providers.isEmpty) {
+      _selectedProvider = null;
+      _selectedAccountId = null;
+      return;
+    }
+    final provider = providers.contains(_settings.selectedProvider)
+        ? _settings.selectedProvider!
+        : providers.first;
+    final remembered = _settings.selectedAccountByProvider[provider.name];
+    final account = _accounts.firstWhere(
+      (item) => item.provider == provider && item.identityHash == remembered,
+      orElse: () => _accounts.firstWhere((item) => item.provider == provider),
+    );
+    _selectedProvider = provider;
+    _selectedAccountId = account.identityHash;
+  }
+
+  Future<void> _persistSelection() async {
+    final provider = _selectedProvider;
+    final accountId = _selectedAccountId;
+    if (provider == null || accountId == null) return;
+    final selected = Map<String, String>.from(
+      _settings.selectedAccountByProvider,
+    )..[provider.name] = accountId;
+    _settings = _settings.copyWith(
+      selectedProvider: provider,
+      selectedAccountByProvider: Map.unmodifiable(selected),
+    );
+    await _vault.saveSettings(_settings);
+  }
+
+  List<ProviderKind> _providersFor(Iterable<StoredAccount> values) => [
+    for (final provider in ProviderKind.values)
+      if (values.any((item) => item.provider == provider)) provider,
+  ];
+
+  String? _normalizedName(String? value) {
+    final normalized = value?.trim();
+    return normalized == null || normalized.isEmpty ? null : normalized;
+  }
+
+  String? _avatarUrlFromCredential(SecureCredential credential) {
+    try {
+      final parts = credential.idToken.split('.');
+      if (parts.length < 2) return null;
+      final payload = utf8.decode(
+        base64Url.decode(base64Url.normalize(parts[1])),
+      );
+      final claims = jsonDecode(payload) as Map<String, dynamic>;
+      final profile = claims['https://api.openai.com/profile'];
+      final candidates = <Object?>[
+        claims['picture'],
+        claims['image_url'],
+        claims['avatar_url'],
+        if (profile is Map) profile['picture'],
+        if (profile is Map) profile['image_url'],
+        if (profile is Map) profile['avatar_url'],
+      ];
+      for (final candidate in candidates) {
+        if (candidate is! String) continue;
+        final uri = Uri.tryParse(candidate.trim());
+        if (uri != null && uri.scheme == 'https' && uri.host.isNotEmpty) {
+          return uri.toString();
+        }
+      }
+    } catch (_) {
+      // An identity token without a profile image must not interrupt login.
+    }
+    return null;
   }
 
   List<StoredAccount> get _demoAccounts {
@@ -725,8 +908,4 @@ class AppController extends ChangeNotifier {
     _foregroundTimer?.cancel();
     super.dispose();
   }
-}
-
-extension _ListFirstOrNull<T> on List<T> {
-  T? get firstOrNull => isEmpty ? null : first;
 }

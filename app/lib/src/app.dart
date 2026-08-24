@@ -10,6 +10,7 @@ import 'package:flutter_riverpod/legacy.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'app_controller.dart';
@@ -67,6 +68,22 @@ class _MonitorRouterState extends ConsumerState<_MonitorRouter>
             const _AppShell(selectedIndex: 3, child: SettingsPage()),
       ),
       GoRoute(
+        path: '/settings/appearance',
+        builder: (context, state) => const _SettingsAppearanceRoute(),
+      ),
+      GoRoute(
+        path: '/settings/monitoring',
+        builder: (context, state) => const _SettingsMonitoringRoute(),
+      ),
+      GoRoute(
+        path: '/settings/data',
+        builder: (context, state) => const _SettingsDataRoute(),
+      ),
+      GoRoute(
+        path: '/settings/about',
+        builder: (context, state) => const _AboutRoute(),
+      ),
+      GoRoute(
         path: '/account-details',
         builder: (context, state) => const _AccountDetailsRoute(),
       ),
@@ -77,7 +94,7 @@ class _MonitorRouterState extends ConsumerState<_MonitorRouter>
       GoRoute(
         path: '/mimo-login',
         builder: (context, state) =>
-            _MimoChallengePage(challengeUrl: state.extra! as String),
+            _MimoChallengePage(args: state.extra! as _MimoChallengeArgs),
       ),
     ],
   );
@@ -188,12 +205,12 @@ class _AppShellState extends ConsumerState<_AppShell> {
             ? Text(l10n.appTitle)
             : controller.accounts.isEmpty
             ? Text(l10n.appTitle)
-            : _AccountDropdown(controller: controller, expanded: true),
+            : _ProviderDropdown(controller: controller, expanded: true),
         actions: [
           if (desktop && controller.accounts.isNotEmpty)
             SizedBox(
               width: 260,
-              child: _AccountDropdown(controller: controller),
+              child: _ProviderDropdown(controller: controller),
             ),
           IconButton(
             tooltip: l10n.refresh,
@@ -399,10 +416,22 @@ class _DiagnosticsRoute extends ConsumerWidget {
   }
 }
 
-class _MimoChallengePage extends ConsumerStatefulWidget {
-  const _MimoChallengePage({required this.challengeUrl});
+class _MimoChallengeArgs {
+  const _MimoChallengeArgs({
+    required this.challengeUrl,
+    this.displayName,
+    this.accountHint,
+  });
 
   final String challengeUrl;
+  final String? displayName;
+  final String? accountHint;
+}
+
+class _MimoChallengePage extends ConsumerStatefulWidget {
+  const _MimoChallengePage({required this.args});
+
+  final _MimoChallengeArgs args;
 
   @override
   ConsumerState<_MimoChallengePage> createState() => _MimoChallengePageState();
@@ -435,7 +464,9 @@ class _MimoChallengePageState extends ConsumerState<_MimoChallengePage> {
             ),
           Expanded(
             child: InAppWebView(
-              initialUrlRequest: URLRequest(url: WebUri(widget.challengeUrl)),
+              initialUrlRequest: URLRequest(
+                url: WebUri(widget.args.challengeUrl),
+              ),
               initialSettings: InAppWebViewSettings(
                 javaScriptEnabled: true,
                 thirdPartyCookiesEnabled: true,
@@ -486,6 +517,8 @@ class _MimoChallengePageState extends ConsumerState<_MimoChallengePage> {
           .completeMimoWebAccount(
             accountCookie: header(accountCookies),
             platformCookie: header(platformCookies),
+            displayName: widget.args.displayName,
+            accountHint: widget.args.accountHint,
           );
       if (mounted) _popOrGo(context, '/accounts');
     } catch (error) {
@@ -511,8 +544,8 @@ void _popOrGo(BuildContext context, String fallbackPath) {
   }
 }
 
-class _AccountDropdown extends StatelessWidget {
-  const _AccountDropdown({required this.controller, this.expanded = false});
+class _ProviderDropdown extends StatelessWidget {
+  const _ProviderDropdown({required this.controller, this.expanded = false});
 
   final AppController controller;
   final bool expanded;
@@ -521,21 +554,21 @@ class _AccountDropdown extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     return DropdownButtonHideUnderline(
-      child: DropdownButton<String>(
+      child: DropdownButton<ProviderKind>(
         isExpanded: expanded,
-        value: controller.selectedAccount?.identityHash,
-        hint: Text(l10n.account),
-        items: controller.accounts
+        value: controller.selectedProvider,
+        hint: Text(l10n.provider),
+        items: controller.availableProviders
             .map(
-              (account) => DropdownMenuItem(
-                value: account.identityHash,
+              (provider) => DropdownMenuItem(
+                value: provider,
                 child: Row(
                   children: [
-                    Icon(_providerIcon(account.provider), size: 18),
+                    _ProviderAvatar(provider: provider, radius: 12),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        _accountDisplayName(context, account),
+                        _providerLabel(context, provider),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -546,7 +579,7 @@ class _AccountDropdown extends StatelessWidget {
             )
             .toList(),
         onChanged: (value) {
-          if (value != null) unawaited(controller.selectAccount(value));
+          if (value != null) unawaited(controller.selectProvider(value));
         },
       ),
     );
@@ -602,7 +635,10 @@ class DashboardPage extends ConsumerWidget {
               message: l10n.noUsageSnapshotMessage,
             )
           else ...[
-            _AccountHeader(snapshot: snapshot),
+            _AccountHeader(
+              snapshot: snapshot,
+              account: controller.selectedAccount,
+            ),
             const SizedBox(height: 12),
             if (controller.demoMode)
               Padding(
@@ -634,9 +670,10 @@ class DashboardPage extends ConsumerWidget {
 }
 
 class _AccountHeader extends StatelessWidget {
-  const _AccountHeader({required this.snapshot});
+  const _AccountHeader({required this.snapshot, required this.account});
 
   final UsageSnapshot snapshot;
+  final StoredAccount? account;
 
   @override
   Widget build(BuildContext context) {
@@ -648,10 +685,12 @@ class _AccountHeader extends StatelessWidget {
         padding: const EdgeInsets.all(16),
         child: Row(
           children: [
-            CircleAvatar(
+            _ProviderAvatar(
+              provider: snapshot.account.provider,
+              account: account,
+              radius: 24,
               backgroundColor: colors.primary,
               foregroundColor: colors.onPrimary,
-              child: Icon(_providerIcon(snapshot.account.provider)),
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -1007,19 +1046,26 @@ class AccountsPage extends ConsumerWidget {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        Text(l10n.accounts, style: Theme.of(context).textTheme.headlineSmall),
+        Text(
+          controller.selectedProvider == null
+              ? l10n.accounts
+              : '${_providerLabel(context, controller.selectedProvider!)} · ${l10n.accounts}',
+          style: Theme.of(context).textTheme.headlineSmall,
+        ),
         const SizedBox(height: 8),
-        if (controller.accounts.isEmpty)
+        if (controller.currentProviderAccounts.isEmpty)
           _EmptyState(
             icon: Icons.person_off_outlined,
             title: l10n.noAccounts,
             message: l10n.noAccountsMessage,
           ),
-        ...controller.accounts.map(
+        ...controller.currentProviderAccounts.map(
           (account) => Card(
             child: ListTile(
-              leading: CircleAvatar(
-                child: Icon(_providerIcon(account.provider)),
+              leading: _ProviderAvatar(
+                provider: account.provider,
+                account: account,
+                radius: 20,
               ),
               title: Text(_accountDisplayName(context, account)),
               subtitle: Text(
@@ -1045,18 +1091,17 @@ class AccountsPage extends ConsumerWidget {
                     icon: const Icon(Icons.info_outline),
                   ),
                   if (!controller.demoMode)
+                    IconButton(
+                      tooltip: l10n.renameAccount,
+                      onPressed: () =>
+                          _renameAccount(context, controller, account),
+                      icon: const Icon(Icons.edit_outlined),
+                    ),
+                  if (!controller.demoMode)
                     PopupMenuButton<String>(
                       onSelected: (value) =>
                           _accountAction(context, controller, account, value),
                       itemBuilder: (context) => [
-                        PopupMenuItem(
-                          value: 'refresh',
-                          child: Text(l10n.refresh),
-                        ),
-                        PopupMenuItem(
-                          value: 'logout',
-                          child: Text(l10n.logout),
-                        ),
                         PopupMenuItem(
                           value: 'remove',
                           child: Text(l10n.removeAccount),
@@ -1085,11 +1130,6 @@ class AccountsPage extends ConsumerWidget {
     String action,
   ) async {
     switch (action) {
-      case 'refresh':
-        await controller.selectAccount(account.identityHash);
-      case 'logout':
-        await controller.selectAccount(account.identityHash);
-        await controller.logoutSelected();
       case 'remove':
         final l10n = AppLocalizations.of(context);
         final confirmed = await showDialog<bool>(
@@ -1113,6 +1153,19 @@ class AccountsPage extends ConsumerWidget {
           await controller.removeAccount(account.identityHash);
         }
     }
+  }
+
+  Future<void> _renameAccount(
+    BuildContext context,
+    AppController controller,
+    StoredAccount account,
+  ) async {
+    final value = await _showAccountNameDialog(
+      context,
+      initialValue: account.displayName,
+    );
+    if (value == null) return;
+    await controller.renameAccount(account.identityHash, value);
   }
 }
 
@@ -1171,13 +1224,23 @@ class _AccountDetailsPageState extends ConsumerState<AccountDetailsPage> {
         Card(
           child: Column(
             children: [
+              ListTile(
+                leading: _ProviderAvatar(
+                  provider: account.provider,
+                  account: account,
+                  radius: 24,
+                ),
+                title: Text(_accountDisplayName(context, account)),
+                subtitle: Text(_providerLabel(context, account.provider)),
+              ),
+              const Divider(height: 1),
               _DetailTile(
                 label: l10n.provider,
                 value: _providerLabel(context, account.provider),
               ),
               _DetailTile(
-                label: l10n.email,
-                value: account.email ?? account.displayName ?? l10n.unavailable,
+                label: _accountIdentifierLabel(context, account),
+                value: _accountIdentifierValue(context, account),
               ),
               _DetailTile(
                 label: l10n.plan,
@@ -1465,8 +1528,84 @@ String _syncTriggerLabel(BuildContext context, SyncTrigger trigger) {
   };
 }
 
-class SettingsPage extends ConsumerWidget {
+class SettingsPage extends StatelessWidget {
   const SettingsPage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        Text(l10n.settings, style: Theme.of(context).textTheme.headlineSmall),
+        const SizedBox(height: 8),
+        _SettingsEntry(
+          icon: Icons.palette_outlined,
+          title: l10n.appearanceAndLanguage,
+          subtitle: l10n.appearanceAndLanguageDescription,
+          onTap: () => context.push('/settings/appearance'),
+        ),
+        _SettingsEntry(
+          icon: Icons.notifications_active_outlined,
+          title: l10n.monitoringAndNotifications,
+          subtitle: l10n.monitoringAndNotificationsDescription,
+          onTap: () => context.push('/settings/monitoring'),
+        ),
+        _SettingsEntry(
+          icon: Icons.storage_outlined,
+          title: l10n.dataAndDiagnostics,
+          subtitle: l10n.dataAndDiagnosticsDescription,
+          onTap: () => context.push('/settings/data'),
+        ),
+        _SettingsEntry(
+          icon: Icons.info_outline,
+          title: l10n.about,
+          subtitle: l10n.aboutDescription,
+          onTap: () => context.push('/settings/about'),
+        ),
+      ],
+    );
+  }
+}
+
+class _SettingsEntry extends StatelessWidget {
+  const _SettingsEntry({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => Card(
+    child: ListTile(
+      leading: Icon(icon),
+      title: Text(title),
+      subtitle: Text(subtitle),
+      trailing: const Icon(Icons.chevron_right),
+      onTap: onTap,
+    ),
+  );
+}
+
+class _SettingsAppearanceRoute extends StatelessWidget {
+  const _SettingsAppearanceRoute();
+
+  @override
+  Widget build(BuildContext context) => _SecondaryPageScaffold(
+    parentPath: '/settings',
+    title: AppLocalizations.of(context).appearanceAndLanguage,
+    child: const _AppearanceSettingsPage(),
+  );
+}
+
+class _AppearanceSettingsPage extends ConsumerWidget {
+  const _AppearanceSettingsPage();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -1476,19 +1615,17 @@ class SettingsPage extends ConsumerWidget {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        Text(l10n.settings, style: Theme.of(context).textTheme.headlineSmall),
-        const SizedBox(height: 8),
         Card(
           child: Column(
             children: [
               ListTile(title: Text(l10n.theme)),
               RadioGroup<ThemePreference>(
                 groupValue: settings.theme,
-                onChanged: (selection) {
-                  if (selection != null) {
+                onChanged: (value) {
+                  if (value != null) {
                     unawaited(
                       controller.updateSettings(
-                        settings.copyWith(theme: selection),
+                        settings.copyWith(theme: value),
                       ),
                     );
                   }
@@ -1523,11 +1660,11 @@ class SettingsPage extends ConsumerWidget {
               ListTile(title: Text(l10n.language)),
               RadioGroup<LocalePreference>(
                 groupValue: settings.locale,
-                onChanged: (selection) {
-                  if (selection != null) {
+                onChanged: (value) {
+                  if (value != null) {
                     unawaited(
                       controller.updateSettings(
-                        settings.copyWith(locale: selection),
+                        settings.copyWith(locale: value),
                       ),
                     );
                   }
@@ -1545,6 +1682,33 @@ class SettingsPage extends ConsumerWidget {
             ],
           ),
         ),
+      ],
+    );
+  }
+}
+
+class _SettingsMonitoringRoute extends StatelessWidget {
+  const _SettingsMonitoringRoute();
+
+  @override
+  Widget build(BuildContext context) => _SecondaryPageScaffold(
+    parentPath: '/settings',
+    title: AppLocalizations.of(context).monitoringAndNotifications,
+    child: const _MonitoringSettingsPage(),
+  );
+}
+
+class _MonitoringSettingsPage extends ConsumerWidget {
+  const _MonitoringSettingsPage();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final controller = ref.watch(appControllerProvider);
+    final settings = controller.settings;
+    final l10n = AppLocalizations.of(context);
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
         Card(
           child: Column(
             children: [
@@ -1554,11 +1718,11 @@ class SettingsPage extends ConsumerWidget {
               ),
               RadioGroup<int>(
                 groupValue: settings.refreshMinutes,
-                onChanged: (selection) {
-                  if (selection != null) {
+                onChanged: (value) {
+                  if (value != null) {
                     unawaited(
                       controller.updateSettings(
-                        settings.copyWith(refreshMinutes: selection),
+                        settings.copyWith(refreshMinutes: value),
                       ),
                     );
                   }
@@ -1604,16 +1768,6 @@ class SettingsPage extends ConsumerWidget {
                 ),
               ),
               SwitchListTile(
-                title: Text(l10n.demoMode),
-                subtitle: Text(l10n.demoModeDescription),
-                value: settings.demoModeEnabled,
-                onChanged: (value) => unawaited(
-                  controller.updateSettings(
-                    settings.copyWith(demoModeEnabled: value),
-                  ),
-                ),
-              ),
-              SwitchListTile(
                 title: Text(l10n.backgroundRefresh),
                 subtitle: Text(l10n.backgroundRefreshDescription),
                 value: settings.backgroundRefreshEnabled,
@@ -1626,14 +1780,55 @@ class SettingsPage extends ConsumerWidget {
                   );
                 },
               ),
-              ListTile(
-                leading: const Icon(Icons.monitor_heart_outlined),
-                title: Text(l10n.diagnostics),
-                subtitle: Text(l10n.diagnosticsDescription),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () => context.push('/diagnostics'),
-              ),
             ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _SettingsDataRoute extends StatelessWidget {
+  const _SettingsDataRoute();
+
+  @override
+  Widget build(BuildContext context) => _SecondaryPageScaffold(
+    parentPath: '/settings',
+    title: AppLocalizations.of(context).dataAndDiagnostics,
+    child: const _DataSettingsPage(),
+  );
+}
+
+class _DataSettingsPage extends ConsumerWidget {
+  const _DataSettingsPage();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final controller = ref.watch(appControllerProvider);
+    final settings = controller.settings;
+    final l10n = AppLocalizations.of(context);
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        Card(
+          child: SwitchListTile(
+            title: Text(l10n.demoMode),
+            subtitle: Text(l10n.demoModeDescription),
+            value: settings.demoModeEnabled,
+            onChanged: (value) => unawaited(
+              controller.updateSettings(
+                settings.copyWith(demoModeEnabled: value),
+              ),
+            ),
+          ),
+        ),
+        Card(
+          child: ListTile(
+            leading: const Icon(Icons.monitor_heart_outlined),
+            title: Text(l10n.diagnostics),
+            subtitle: Text(l10n.diagnosticsDescription),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => context.push('/diagnostics'),
           ),
         ),
         const SizedBox(height: 8),
@@ -1641,67 +1836,166 @@ class SettingsPage extends ConsumerWidget {
       ],
     );
   }
+}
 
-  Future<bool> _confirmBackgroundRefresh(BuildContext context) async {
+class _AboutRoute extends StatelessWidget {
+  const _AboutRoute();
+
+  @override
+  Widget build(BuildContext context) => _SecondaryPageScaffold(
+    parentPath: '/settings',
+    title: AppLocalizations.of(context).about,
+    child: const _AboutPage(),
+  );
+}
+
+class _AboutPage extends StatelessWidget {
+  const _AboutPage();
+
+  static final _repository = Uri.parse(
+    'https://github.com/mcxiaochenn/AiUsage',
+  );
+  static final _issues = Uri.parse(
+    'https://github.com/mcxiaochenn/AiUsage/issues',
+  );
+
+  @override
+  Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    var confirmed = false;
-    return await showDialog<bool>(
-          context: context,
-          builder: (context) => StatefulBuilder(
-            builder: (context, setState) => AlertDialog(
-              title: Text(l10n.backgroundWarningTitle),
-              content: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(l10n.backgroundWarningMessage),
-                    const SizedBox(height: 12),
-                    Wrap(
-                      spacing: 8,
-                      children: [
-                        OutlinedButton(
-                          onPressed: () => unawaited(
-                            const SystemSettingsService()
-                                .openApplicationDetails(),
-                          ),
-                          child: Text(l10n.appSettings),
-                        ),
-                        OutlinedButton(
-                          onPressed: () => unawaited(
-                            const SystemSettingsService().openBatterySettings(),
-                          ),
-                          child: Text(l10n.batterySettings),
-                        ),
-                      ],
+    return FutureBuilder<PackageInfo>(
+      future: PackageInfo.fromPlatform(),
+      builder: (context, snapshot) {
+        final version = snapshot.data == null
+            ? l10n.versionUnavailable
+            : '${snapshot.data!.version} (${snapshot.data!.buildNumber})';
+        return ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            Card(
+              child: Column(
+                children: [
+                  const SizedBox(height: 20),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(18),
+                    child: Image.asset(
+                      'assets/branding/aiusage_icon_dark.png',
+                      width: 68,
+                      height: 68,
                     ),
-                    CheckboxListTile(
-                      contentPadding: EdgeInsets.zero,
-                      value: confirmed,
-                      onChanged: (value) =>
-                          setState(() => confirmed = value ?? false),
-                      title: Text(l10n.backgroundConfirmed),
-                    ),
-                  ],
-                ),
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    'AiUsage',
+                    style: Theme.of(context).textTheme.headlineSmall,
+                  ),
+                  const SizedBox(height: 4),
+                  Text(l10n.appVersion(version)),
+                  const SizedBox(height: 20),
+                ],
               ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context, false),
-                  child: Text(l10n.cancel),
-                ),
-                FilledButton(
-                  onPressed: confirmed
-                      ? () => Navigator.pop(context, true)
-                      : null,
-                  child: Text(l10n.enable),
-                ),
-              ],
             ),
-          ),
-        ) ??
-        false;
+            Card(
+              child: Column(
+                children: [
+                  _DetailTile(
+                    label: l10n.author,
+                    value: '辰渊尘 ChenDusk / mcxiaochenn',
+                  ),
+                  _DetailTile(label: l10n.license, value: 'MIT'),
+                ],
+              ),
+            ),
+            Card(
+              child: Column(
+                children: [
+                  ListTile(
+                    leading: const Icon(Icons.code_outlined),
+                    title: Text(l10n.sourceCode),
+                    trailing: const Icon(Icons.open_in_new),
+                    onTap: () => unawaited(
+                      launchUrl(
+                        _repository,
+                        mode: LaunchMode.externalApplication,
+                      ),
+                    ),
+                  ),
+                  ListTile(
+                    leading: const Icon(Icons.bug_report_outlined),
+                    title: Text(l10n.feedback),
+                    trailing: const Icon(Icons.open_in_new),
+                    onTap: () => unawaited(
+                      launchUrl(_issues, mode: LaunchMode.externalApplication),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        );
+      },
+    );
   }
+}
+
+Future<bool> _confirmBackgroundRefresh(BuildContext context) async {
+  final l10n = AppLocalizations.of(context);
+  var confirmed = false;
+  return await showDialog<bool>(
+        context: context,
+        builder: (context) => StatefulBuilder(
+          builder: (context, setState) => AlertDialog(
+            title: Text(l10n.backgroundWarningTitle),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(l10n.backgroundWarningMessage),
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 8,
+                    children: [
+                      OutlinedButton(
+                        onPressed: () => unawaited(
+                          const SystemSettingsService()
+                              .openApplicationDetails(),
+                        ),
+                        child: Text(l10n.appSettings),
+                      ),
+                      OutlinedButton(
+                        onPressed: () => unawaited(
+                          const SystemSettingsService().openBatterySettings(),
+                        ),
+                        child: Text(l10n.batterySettings),
+                      ),
+                    ],
+                  ),
+                  CheckboxListTile(
+                    contentPadding: EdgeInsets.zero,
+                    value: confirmed,
+                    onChanged: (value) =>
+                        setState(() => confirmed = value ?? false),
+                    title: Text(l10n.backgroundConfirmed),
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: Text(l10n.cancel),
+              ),
+              FilledButton(
+                onPressed: confirmed
+                    ? () => Navigator.pop(context, true)
+                    : null,
+                child: Text(l10n.enable),
+              ),
+            ],
+          ),
+        ),
+      ) ??
+      false;
 }
 
 class DiagnosticsPage extends ConsumerStatefulWidget {
@@ -1872,6 +2166,7 @@ class _DeviceLoginDialog extends ConsumerStatefulWidget {
 
 class _DeviceLoginDialogState extends ConsumerState<_DeviceLoginDialog>
     with WidgetsBindingObserver {
+  final _alias = TextEditingController();
   DeviceCodeLoginStart? _start;
   Timer? _pollTimer;
   Timer? _countdownTimer;
@@ -1901,6 +2196,7 @@ class _DeviceLoginDialogState extends ConsumerState<_DeviceLoginDialog>
     if (!_finished && loginId != null) {
       unawaited(ref.read(appControllerProvider).cancelDeviceLogin(loginId));
     }
+    _alias.dispose();
     super.dispose();
   }
 
@@ -1963,7 +2259,11 @@ class _DeviceLoginDialogState extends ConsumerState<_DeviceLoginDialog>
       _countdownTimer?.cancel();
       await ref
           .read(appControllerProvider)
-          .acceptLogin(complete, credentialSource: CredentialSource.deviceCode);
+          .acceptLogin(
+            complete,
+            credentialSource: CredentialSource.deviceCode,
+            displayName: _alias.text,
+          );
       if (mounted) Navigator.pop(context);
     } catch (error) {
       if (mounted) setState(() => _error = '$error');
@@ -2027,6 +2327,14 @@ class _DeviceLoginDialogState extends ConsumerState<_DeviceLoginDialog>
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  TextField(
+                    controller: _alias,
+                    decoration: InputDecoration(
+                      labelText: l10n.accountAliasOptional,
+                    ),
+                    textInputAction: TextInputAction.done,
+                  ),
+                  const SizedBox(height: 12),
                   Text(l10n.completeBrowserSignIn),
                   const SizedBox(height: 16),
                   SelectableText(
@@ -2144,7 +2452,7 @@ class _ProviderChoices extends StatelessWidget {
       children: [
         for (final provider in ProviderKind.values)
           ListTile(
-            leading: Icon(_providerIcon(provider)),
+            leading: _ProviderAvatar(provider: provider, radius: 18),
             title: Text(_providerLabel(context, provider)),
             subtitle: provider == ProviderKind.mimo
                 ? Text(l10n.mimoInternalApiWarning)
@@ -2257,6 +2565,7 @@ class _MimoLoginDialog extends StatefulWidget {
 class _MimoLoginDialogState extends State<_MimoLoginDialog> {
   final _username = TextEditingController();
   final _password = TextEditingController();
+  final _alias = TextEditingController();
   bool _obscure = true;
   bool _saving = false;
   String? _error;
@@ -2265,6 +2574,7 @@ class _MimoLoginDialogState extends State<_MimoLoginDialog> {
   void dispose() {
     _username.dispose();
     _password.dispose();
+    _alias.dispose();
     super.dispose();
   }
 
@@ -2283,6 +2593,13 @@ class _MimoLoginDialogState extends State<_MimoLoginDialog> {
                 controller: _username,
                 keyboardType: TextInputType.emailAddress,
                 decoration: InputDecoration(labelText: l10n.mimoUsername),
+              ),
+              TextField(
+                controller: _alias,
+                maxLength: 48,
+                decoration: InputDecoration(
+                  labelText: l10n.accountAliasOptional,
+                ),
               ),
               TextField(
                 controller: _password,
@@ -2339,14 +2656,27 @@ class _MimoLoginDialogState extends State<_MimoLoginDialog> {
       _error = null;
     });
     try {
+      final username = _username.text;
+      final alias = _alias.text;
       final result = await ProviderScope.containerOf(context)
           .read(appControllerProvider)
-          .beginMimoAccount(username: _username.text, password: _password.text);
+          .beginMimoAccount(
+            username: username,
+            password: _password.text,
+            displayName: alias,
+          );
       _password.clear();
       if (!mounted) return;
       Navigator.pop(context);
       if (result.challengeUrl != null) {
-        await context.push('/mimo-login', extra: result.challengeUrl!);
+        await context.push(
+          '/mimo-login',
+          extra: _MimoChallengeArgs(
+            challengeUrl: result.challengeUrl!,
+            displayName: alias,
+            accountHint: username,
+          ),
+        );
       }
     } catch (error) {
       _password.clear();
@@ -2387,6 +2717,8 @@ class _LoginMethodChoices extends StatelessWidget {
 Future<void> _importAuthJson(BuildContext context) async {
   try {
     final l10n = AppLocalizations.of(context);
+    final displayName = await _showAccountNameDialog(context);
+    if (!context.mounted || displayName == null) return;
     final typeGroup = XTypeGroup(
       label: l10n.authFileLabel,
       extensions: const ['json'],
@@ -2400,9 +2732,9 @@ Future<void> _importAuthJson(BuildContext context) async {
     }
     final bytes = await file.readAsBytes();
     if (!context.mounted) return;
-    await ProviderScope.containerOf(
-      context,
-    ).read(appControllerProvider).importAccount(bytes);
+    await ProviderScope.containerOf(context)
+        .read(appControllerProvider)
+        .importAccount(bytes, displayName: displayName);
     if (!context.mounted) return;
     ScaffoldMessenger.of(
       context,
@@ -2412,6 +2744,42 @@ Future<void> _importAuthJson(BuildContext context) async {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(_authImportErrorMessage(context, error))),
     );
+  }
+}
+
+Future<String?> _showAccountNameDialog(
+  BuildContext context, {
+  String? initialValue,
+}) async {
+  final controller = TextEditingController(text: initialValue ?? '');
+  try {
+    return await showDialog<String>(
+      context: context,
+      builder: (context) {
+        final l10n = AppLocalizations.of(context);
+        return AlertDialog(
+          title: Text(l10n.customAccountName),
+          content: TextField(
+            controller: controller,
+            autofocus: true,
+            maxLength: 48,
+            decoration: InputDecoration(labelText: l10n.accountAliasOptional),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text(l10n.cancel),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, controller.text),
+              child: Text(l10n.save),
+            ),
+          ],
+        );
+      },
+    );
+  } finally {
+    controller.dispose();
   }
 }
 
@@ -2493,16 +2861,99 @@ String _providerLabel(BuildContext context, ProviderKind provider) =>
       ProviderKind.mimo => AppLocalizations.of(context).providerMimo,
     };
 
-IconData _providerIcon(ProviderKind provider) => switch (provider) {
-  ProviderKind.codex => Icons.auto_awesome,
-  ProviderKind.deepSeek => Icons.water_drop_outlined,
-  ProviderKind.mimo => Icons.memory_outlined,
-};
+class _ProviderAvatar extends StatelessWidget {
+  const _ProviderAvatar({
+    required this.provider,
+    this.account,
+    this.radius = 20,
+    this.backgroundColor,
+    this.foregroundColor,
+  });
+
+  final ProviderKind provider;
+  final StoredAccount? account;
+  final double radius;
+  final Color? backgroundColor;
+  final Color? foregroundColor;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final background =
+        backgroundColor ??
+        switch (provider) {
+          ProviderKind.codex => colors.primaryContainer,
+          ProviderKind.deepSeek => const Color(0xFF1976D2),
+          ProviderKind.mimo => const Color(0xFFFF6900),
+        };
+    final foreground =
+        foregroundColor ??
+        switch (provider) {
+          ProviderKind.codex => colors.onPrimaryContainer,
+          ProviderKind.deepSeek || ProviderKind.mimo => Colors.white,
+        };
+    final avatarUrl = provider == ProviderKind.codex
+        ? account?.avatarUrl
+        : null;
+    final fallback = provider == ProviderKind.codex
+        ? Text(
+            _accountInitials(account),
+            style: TextStyle(color: foreground, fontWeight: FontWeight.w700),
+          )
+        : Text(
+            provider == ProviderKind.deepSeek ? 'DS' : 'Mi',
+            style: TextStyle(color: foreground, fontWeight: FontWeight.w800),
+          );
+    return CircleAvatar(
+      radius: radius,
+      backgroundColor: background,
+      foregroundColor: foreground,
+      foregroundImage: avatarUrl == null ? null : NetworkImage(avatarUrl),
+      onForegroundImageError: avatarUrl == null ? null : (_, _) {},
+      child: fallback,
+    );
+  }
+}
+
+String _accountInitials(StoredAccount? account) {
+  final source = account?.email ?? account?.displayName ?? 'C';
+  final trimmed = source.trim();
+  return trimmed.isEmpty ? 'C' : trimmed.substring(0, 1).toUpperCase();
+}
 
 String _accountDisplayName(BuildContext context, StoredAccount account) =>
     account.displayName ??
     account.email ??
+    account.mimoAccountHint ??
     _providerLabel(context, account.provider);
+
+String _accountIdentifierLabel(BuildContext context, StoredAccount account) {
+  final l10n = AppLocalizations.of(context);
+  return switch (account.provider) {
+    ProviderKind.codex => l10n.email,
+    ProviderKind.deepSeek => l10n.apiKeyFingerprint,
+    ProviderKind.mimo => l10n.mimoAccount,
+  };
+}
+
+String _accountIdentifierValue(BuildContext context, StoredAccount account) {
+  final l10n = AppLocalizations.of(context);
+  return switch (account.provider) {
+    ProviderKind.codex => account.email ?? l10n.unavailable,
+    ProviderKind.deepSeek => _maskedApiKey(account.apiKey) ?? l10n.unavailable,
+    ProviderKind.mimo =>
+      account.mimoAccountHint ??
+          account.mimoCredential?.userId ??
+          l10n.unavailable,
+  };
+}
+
+String? _maskedApiKey(String? value) {
+  final key = value?.trim();
+  if (key == null || key.isEmpty) return null;
+  if (key.length <= 10) return '${key.substring(0, 2)}…';
+  return '${key.substring(0, 6)}…${key.substring(key.length - 4)}';
+}
 
 String _providerAccountLabel(BuildContext context, AccountInfo account) =>
     account.email ?? _providerLabel(context, account.provider);

@@ -46,6 +46,21 @@ void main() {
     expect(migrated.backgroundRefreshEnabled, isFalse);
   });
 
+  test('provider and per-provider account selections persist in settings', () {
+    const settings = MonitorSettings(
+      selectedProvider: ProviderKind.deepSeek,
+      selectedAccountByProvider: {
+        'codex': 'codex-account',
+        'deepSeek': 'deepseek-account',
+      },
+    );
+
+    final restored = MonitorSettings.fromJson(settings.toJson());
+    expect(restored.selectedProvider, ProviderKind.deepSeek);
+    expect(restored.selectedAccountByProvider['codex'], 'codex-account');
+    expect(restored.selectedAccountByProvider['deepSeek'], 'deepseek-account');
+  });
+
   test('demo mode provides synthetic data for every provider', () async {
     final controller = AppController.testing(
       settings: const MonitorSettings(demoModeEnabled: true, demoSeed: 7),
@@ -255,6 +270,76 @@ void main() {
       find.textContaining('Browser authorization (Device Code)'),
       findsOneWidget,
     );
+  });
+
+  testWidgets('account page filters accounts to the selected provider', (
+    tester,
+  ) async {
+    const codex = StoredAccount(
+      identityHash: 'codex-account',
+      displayName: 'Codex only',
+      loginState: LoginState.signedOut,
+    );
+    const deepSeek = StoredAccount(
+      identityHash: 'deepseek-account',
+      provider: ProviderKind.deepSeek,
+      displayName: 'DeepSeek only',
+      loginState: LoginState.signedIn,
+      credentialSource: CredentialSource.apiKey,
+    );
+    await tester.pumpWidget(
+      AiUsageApp(
+        controller: AppController.testing(
+          accounts: const [codex, deepSeek],
+          settings: const MonitorSettings(
+            selectedProvider: ProviderKind.deepSeek,
+            selectedAccountByProvider: {'deepSeek': 'deepseek-account'},
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Accounts'));
+    await tester.pumpAndSettle();
+    expect(find.text('DeepSeek only'), findsOneWidget);
+    expect(find.text('Codex only'), findsNothing);
+  });
+
+  testWidgets('provider account details show a masked DeepSeek API key', (
+    tester,
+  ) async {
+    const account = StoredAccount(
+      identityHash: 'deepseek-account',
+      provider: ProviderKind.deepSeek,
+      displayName: 'DeepSeek main',
+      loginState: LoginState.signedIn,
+      apiKey: 'sk-test-secret-9876',
+      credentialSource: CredentialSource.apiKey,
+    );
+    await tester.pumpWidget(
+      AiUsageApp(controller: AppController.testing(accounts: const [account])),
+    );
+
+    await tester.tap(find.text('Accounts'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byIcon(Icons.info_outline));
+    await tester.pumpAndSettle();
+    expect(find.text('API Key fingerprint'), findsOneWidget);
+    expect(find.text('sk-tes…9876'), findsOneWidget);
+    expect(find.text('sk-test-secret-9876'), findsNothing);
+  });
+
+  testWidgets('settings exposes four categorized secondary entries', (
+    tester,
+  ) async {
+    await tester.pumpWidget(AiUsageApp(controller: AppController.testing()));
+    await tester.tap(find.text('Settings'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Appearance & language'), findsOneWidget);
+    expect(find.text('Monitoring & notifications'), findsOneWidget);
+    expect(find.text('Data & diagnostics'), findsOneWidget);
+    expect(find.text('About'), findsOneWidget);
   });
 
   testWidgets('complete demo mode renders quota credits and token profile', (

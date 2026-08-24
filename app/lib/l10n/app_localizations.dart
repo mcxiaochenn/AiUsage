@@ -719,7 +719,7 @@ abstract class AppLocalizations {
   /// No description provided for @stateAuthExpired.
   ///
   /// In en, this message translates to:
-  /// **'Sign-in expired. Add the account again.'**
+  /// **'Credential expired. Add the account again.'**
   String get stateAuthExpired;
 
   /// No description provided for @stateOffline.
@@ -1217,8 +1217,38 @@ abstract class AppLocalizations {
   /// No description provided for @accountAliasOptional.
   ///
   /// In en, this message translates to:
-  /// **'Alias (optional)'**
+  /// **'Custom name (optional)'**
   String get accountAliasOptional;
+
+  /// No description provided for @customAccountName.
+  ///
+  /// In en, this message translates to:
+  /// **'Custom account name'**
+  String get customAccountName;
+
+  /// No description provided for @renameAccount.
+  ///
+  /// In en, this message translates to:
+  /// **'Rename account'**
+  String get renameAccount;
+
+  /// No description provided for @save.
+  ///
+  /// In en, this message translates to:
+  /// **'Save'**
+  String get save;
+
+  /// No description provided for @apiKeyFingerprint.
+  ///
+  /// In en, this message translates to:
+  /// **'API Key fingerprint'**
+  String get apiKeyFingerprint;
+
+  /// No description provided for @mimoAccount.
+  ///
+  /// In en, this message translates to:
+  /// **'Xiaomi account'**
+  String get mimoAccount;
 
   /// No description provided for @deepSeekKeyHint.
   ///
@@ -1375,6 +1405,90 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Xiaomi official web verification'**
   String get credentialSourceXiaomiWeb;
+
+  /// No description provided for @appearanceAndLanguage.
+  ///
+  /// In en, this message translates to:
+  /// **'Appearance & language'**
+  String get appearanceAndLanguage;
+
+  /// No description provided for @appearanceAndLanguageDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Theme, dynamic color, and language'**
+  String get appearanceAndLanguageDescription;
+
+  /// No description provided for @monitoringAndNotifications.
+  ///
+  /// In en, this message translates to:
+  /// **'Monitoring & notifications'**
+  String get monitoringAndNotifications;
+
+  /// No description provided for @monitoringAndNotificationsDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Refresh, quota display, notifications, and background tasks'**
+  String get monitoringAndNotificationsDescription;
+
+  /// No description provided for @dataAndDiagnostics.
+  ///
+  /// In en, this message translates to:
+  /// **'Data & diagnostics'**
+  String get dataAndDiagnostics;
+
+  /// No description provided for @dataAndDiagnosticsDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Demo data, local privacy, and sync records'**
+  String get dataAndDiagnosticsDescription;
+
+  /// No description provided for @about.
+  ///
+  /// In en, this message translates to:
+  /// **'About'**
+  String get about;
+
+  /// No description provided for @aboutDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Version, author, and project links'**
+  String get aboutDescription;
+
+  /// No description provided for @author.
+  ///
+  /// In en, this message translates to:
+  /// **'Author'**
+  String get author;
+
+  /// No description provided for @license.
+  ///
+  /// In en, this message translates to:
+  /// **'License'**
+  String get license;
+
+  /// No description provided for @sourceCode.
+  ///
+  /// In en, this message translates to:
+  /// **'Source code'**
+  String get sourceCode;
+
+  /// No description provided for @feedback.
+  ///
+  /// In en, this message translates to:
+  /// **'Feedback'**
+  String get feedback;
+
+  /// No description provided for @versionUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Version information unavailable'**
+  String get versionUnavailable;
+
+  /// No description provided for @appVersion.
+  ///
+  /// In en, this message translates to:
+  /// **'Version {version}'**
+  String appVersion(String version);
 }
 
 class _AppLocalizationsDelegate

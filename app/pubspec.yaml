@@ -53,6 +53,7 @@ dependencies:
   flutter_local_notifications: ^22.3.0
   workmanager: ^0.10.9
   dynamic_color: ^1.8.1
+  package_info_plus: ^10.2.1
   # 6.1.5 的 Android 子包仍引用 AGP 9 已移除的 proguard-android.txt。
   # beta.3 已切换到 proguard-android-optimize.txt；正式版跟进后可去掉预览约束。
   flutter_inappwebview: 6.2.0-beta.3
@@ -69,6 +70,7 @@ dev_dependencies:
   flutter_lints: ^6.0.0
   build_runner: ^2.7.0
   freezed: ^3.1.0
+  flutter_launcher_icons: ^0.14.4
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
@@ -83,6 +85,7 @@ flutter:
   uses-material-design: true
 
   assets:
+    - assets/branding/aiusage_icon_dark.png
     # Reuses the platform-runner icons so the desktop tray has no separate
     # branding asset to maintain.
     - windows/runner/resources/app_icon.ico
@@ -113,3 +116,20 @@ flutter:
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: assets/branding/aiusage_icon_dark.png
+  adaptive_icon_background: '#06121E'
+  adaptive_icon_foreground: assets/branding/aiusage_icon_dark.png
+  windows:
+    generate: true
+    image_path: assets/branding/aiusage_icon_dark.png
+    icon_size: 256
+  macos:
+    generate: true
+    image_path: assets/branding/aiusage_icon_dark.png
+  linux:
+    generate: true
+    image_path: assets/branding/aiusage_icon_dark.png

@@ -49,12 +49,19 @@ class SecureAccountVault {
   Future<void> saveSignedIn(
     AccountInfo account,
     SecureCredential credential,
-    CredentialSource credentialSource,
-  ) async {
+    CredentialSource credentialSource, {
+    String? displayName,
+    String? avatarUrl,
+  }) async {
     final accounts = await loadAccounts();
+    final existing = accounts
+        .where((item) => item.identityHash == account.identityHash)
+        .firstOrNull;
     final updated = StoredAccount.fromAccount(
       account,
+      displayName: displayName ?? existing?.displayName,
       credentialSource: credentialSource,
+      avatarUrl: avatarUrl ?? existing?.avatarUrl,
     ).withCredential(credential);
     final next = <StoredAccount>[
       updated,
@@ -73,9 +80,12 @@ class SecureAccountVault {
     String? displayName,
   }) async {
     final accounts = await loadAccounts();
+    final existing = accounts
+        .where((item) => item.identityHash == account.identityHash)
+        .firstOrNull;
     final updated = StoredAccount.fromAccount(
       account,
-      displayName: displayName,
+      displayName: displayName ?? existing?.displayName,
       credentialSource: CredentialSource.apiKey,
     ).withApiKey(apiKey);
     await _storage.write(
@@ -93,12 +103,17 @@ class SecureAccountVault {
     MimoCredential credential, {
     required CredentialSource credentialSource,
     String? displayName,
+    String? accountHint,
   }) async {
     final accounts = await loadAccounts();
+    final existing = accounts
+        .where((item) => item.identityHash == account.identityHash)
+        .firstOrNull;
     final updated = StoredAccount.fromAccount(
       account,
-      displayName: displayName,
+      displayName: displayName ?? existing?.displayName,
       credentialSource: credentialSource,
+      mimoAccountHint: accountHint ?? existing?.mimoAccountHint,
     ).withMimoCredential(credential);
     await updateMimoCredential(updated.identityHash, credential);
     await _writeIndex([
@@ -132,7 +147,7 @@ class SecureAccountVault {
     }),
   );
 
-  Future<void> updateAccount(AccountInfo account) async {
+  Future<void> updateAccount(AccountInfo account, {String? avatarUrl}) async {
     final accounts = await loadAccounts();
     final next = accounts
         .map(
@@ -141,6 +156,8 @@ class SecureAccountVault {
                   account,
                   displayName: item.displayName,
                   credentialSource: item.credentialSource,
+                  avatarUrl: avatarUrl ?? item.avatarUrl,
+                  mimoAccountHint: item.mimoAccountHint,
                 )._withSecret(item._secret)
               : item,
         )
@@ -165,6 +182,22 @@ class SecureAccountVault {
     await _writeIndex(
       accounts.where((item) => item.identityHash != identityHash).toList(),
     );
+  }
+
+  Future<void> renameAccount(String identityHash, String? displayName) async {
+    final accounts = await loadAccounts();
+    final normalized = displayName?.trim();
+    final next = accounts
+        .map(
+          (item) => item.identityHash == identityHash
+              ? item.copyWith(
+                  displayName: normalized,
+                  clearDisplayName: normalized == null || normalized.isEmpty,
+                )
+              : item,
+        )
+        .toList(growable: false);
+    await _writeIndex(next);
   }
 
   Future<MonitorSettings> loadSettings() async {
@@ -235,6 +268,8 @@ class StoredAccount {
     this.plan,
     this.workspaceId,
     this.isFedramp = false,
+    this.avatarUrl,
+    this.mimoAccountHint,
     required this.loginState,
     this.lastSuccessfulRefresh,
     this.credential,
@@ -250,6 +285,8 @@ class StoredAccount {
   final String? plan;
   final String? workspaceId;
   final bool isFedramp;
+  final String? avatarUrl;
+  final String? mimoAccountHint;
   final LoginState loginState;
   final int? lastSuccessfulRefresh;
   final SecureCredential? credential;
@@ -261,6 +298,8 @@ class StoredAccount {
     AccountInfo account, {
     String? displayName,
     CredentialSource credentialSource = CredentialSource.unknown,
+    String? avatarUrl,
+    String? mimoAccountHint,
   }) => StoredAccount(
     identityHash: account.identityHash,
     provider: account.provider,
@@ -269,6 +308,8 @@ class StoredAccount {
     plan: account.plan,
     workspaceId: account.workspaceId,
     isFedramp: account.isFedramp,
+    avatarUrl: avatarUrl,
+    mimoAccountHint: mimoAccountHint,
     loginState: account.loginState,
     lastSuccessfulRefresh: account.lastSuccessfulRefresh,
     credentialSource: credentialSource,
@@ -283,6 +324,8 @@ class StoredAccount {
         plan: json['plan'] as String?,
         workspaceId: json['workspace_id'] as String?,
         isFedramp: json['is_fedramp'] as bool? ?? false,
+        avatarUrl: json['avatar_url'] as String?,
+        mimoAccountHint: json['mimo_account_hint'] as String?,
         loginState: LoginState.values.byName(
           json['login_state'] as String? ?? LoginState.signedOut.name,
         ),
@@ -314,6 +357,8 @@ class StoredAccount {
     plan: plan,
     workspaceId: workspaceId,
     isFedramp: isFedramp,
+    avatarUrl: avatarUrl,
+    mimoAccountHint: mimoAccountHint,
     loginState: value == null ? LoginState.signedOut : LoginState.signedIn,
     lastSuccessfulRefresh: lastSuccessfulRefresh,
     credential: value,
@@ -369,6 +414,8 @@ class StoredAccount {
     plan: plan,
     workspaceId: workspaceId,
     isFedramp: isFedramp,
+    avatarUrl: avatarUrl,
+    mimoAccountHint: mimoAccountHint,
     loginState: hasSecret ? LoginState.signedIn : LoginState.signedOut,
     lastSuccessfulRefresh: lastSuccessfulRefresh,
     credential: credential,
@@ -379,6 +426,33 @@ class StoredAccount {
 
   StoredAccount signedOut() => withCredential(null);
 
+  StoredAccount copyWith({
+    String? displayName,
+    bool clearDisplayName = false,
+    String? avatarUrl,
+    bool clearAvatarUrl = false,
+    String? mimoAccountHint,
+    bool clearMimoAccountHint = false,
+  }) => StoredAccount(
+    identityHash: identityHash,
+    provider: provider,
+    displayName: clearDisplayName ? null : displayName ?? this.displayName,
+    email: email,
+    plan: plan,
+    workspaceId: workspaceId,
+    isFedramp: isFedramp,
+    avatarUrl: clearAvatarUrl ? null : avatarUrl ?? this.avatarUrl,
+    mimoAccountHint: clearMimoAccountHint
+        ? null
+        : mimoAccountHint ?? this.mimoAccountHint,
+    loginState: loginState,
+    lastSuccessfulRefresh: lastSuccessfulRefresh,
+    credential: credential,
+    apiKey: apiKey,
+    mimoCredential: mimoCredential,
+    credentialSource: credentialSource,
+  );
+
   Map<String, Object?> toMetadata() => {
     'identity_hash': identityHash,
     'provider': provider.name,
@@ -387,6 +461,8 @@ class StoredAccount {
     'plan': plan,
     'workspace_id': workspaceId,
     'is_fedramp': isFedramp,
+    'avatar_url': avatarUrl,
+    'mimo_account_hint': mimoAccountHint,
     'login_state': loginState.name,
     'last_successful_refresh': lastSuccessfulRefresh,
     'credential_source': credentialSource.name,
@@ -439,6 +515,8 @@ class MonitorSettings {
     this.demoModeEnabled = false,
     this.demoSeed = 0,
     this.backgroundRefreshEnabled = false,
+    this.selectedProvider,
+    this.selectedAccountByProvider = const {},
   });
 
   final ThemePreference theme;
@@ -450,6 +528,8 @@ class MonitorSettings {
   final bool demoModeEnabled;
   final int demoSeed;
   final bool backgroundRefreshEnabled;
+  final ProviderKind? selectedProvider;
+  final Map<String, String> selectedAccountByProvider;
 
   factory MonitorSettings.fromJson(Map<String, dynamic> json) =>
       MonitorSettings(
@@ -470,6 +550,12 @@ class MonitorSettings {
         demoSeed: json['demo_seed'] as int? ?? 0,
         backgroundRefreshEnabled:
             json['background_refresh_enabled'] as bool? ?? false,
+        selectedProvider: _selectedProviderFromJson(
+          json['selected_provider'] as String?,
+        ),
+        selectedAccountByProvider: _selectedAccountsFromJson(
+          json['selected_account_by_provider'],
+        ),
       );
 
   MonitorSettings copyWith({
@@ -482,6 +568,8 @@ class MonitorSettings {
     bool? demoModeEnabled,
     int? demoSeed,
     bool? backgroundRefreshEnabled,
+    ProviderKind? selectedProvider,
+    Map<String, String>? selectedAccountByProvider,
   }) => MonitorSettings(
     theme: theme ?? this.theme,
     locale: locale ?? this.locale,
@@ -493,6 +581,9 @@ class MonitorSettings {
     demoSeed: demoSeed ?? this.demoSeed,
     backgroundRefreshEnabled:
         backgroundRefreshEnabled ?? this.backgroundRefreshEnabled,
+    selectedProvider: selectedProvider ?? this.selectedProvider,
+    selectedAccountByProvider:
+        selectedAccountByProvider ?? this.selectedAccountByProvider,
   );
 
   Map<String, Object> toJson() => {
@@ -505,5 +596,24 @@ class MonitorSettings {
     'demo_mode_enabled': demoModeEnabled,
     'demo_seed': demoSeed,
     'background_refresh_enabled': backgroundRefreshEnabled,
+    if (selectedProvider != null) 'selected_provider': selectedProvider!.name,
+    'selected_account_by_provider': selectedAccountByProvider,
   };
+}
+
+ProviderKind? _selectedProviderFromJson(String? value) {
+  if (value == null) return null;
+  for (final provider in ProviderKind.values) {
+    if (provider.name == value) return provider;
+  }
+  return null;
+}
+
+Map<String, String> _selectedAccountsFromJson(Object? value) {
+  if (value is! Map) return const {};
+  return Map.unmodifiable({
+    for (final entry in value.entries)
+      if (entry.key is String && entry.value is String)
+        entry.key as String: entry.value as String,
+  });
 }
