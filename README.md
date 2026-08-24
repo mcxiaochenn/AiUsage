@@ -9,13 +9,15 @@
 > [!IMPORTANT]
 > **v0.1.0 Android Stable**：这是 AiUsage 首个正式签名的 Android 稳定版本。Windows、macOS、Linux 和 iOS 仍处于源码级实验支持；OpenAI 内部接口可能随时变化，请勿将本应用作为关键额度告警的唯一来源。
 
-AiUsage 是一个本地优先的 OpenAI Codex 套餐额度监看应用 MVP。项目使用 Flutter 提供 Android、iOS、Windows、macOS 和 Linux 的统一界面，由 Rust 负责 OAuth、Usage API 兼容、数据标准化及 SQLite 历史。
+AiUsage 是一个本地优先的 AI 服务额度监看应用，支持 OpenAI Codex、DeepSeek 和 Xiaomi MiMo。项目使用 Flutter 提供 Android、iOS、Windows、macOS 和 Linux 的统一界面，由 Rust 负责认证边界、Provider API 兼容、数据标准化及 SQLite 缓存。
 
-**English summary:** AiUsage is a local-first Android monitor for OpenAI Codex usage limits. Version 0.1.0 is the first stable, signed Android release; other platform projects remain experimental. Credentials stay in platform secure storage, while the Rust core normalizes quota data and keeps history locally. This unofficial project relies on undocumented endpoints used by the official Codex client.
+**English summary:** AiUsage is a local-first Android monitor for OpenAI Codex quotas, DeepSeek balances, and Xiaomi MiMo balances and Token Plans. Credentials stay in platform secure storage, while the Rust core normalizes provider data and caches it locally. Codex and MiMo integrations rely partly on undocumented upstream endpoints.
 
 ## 已实现功能
 
 - 支持浏览器 Device Code OAuth，以及由用户通过系统文件选择器主动导入 Codex OAuth `auth.json`。
+- 支持使用 DeepSeek API Key 调用官方余额接口，按 CNY/USD 分别展示总余额、赠送余额和充值余额，不做汇率换算。
+- 支持使用小米账号密码一次登录 MiMo；密码不持久化，安全验证转入小米官方网页，展示按量余额和 Token Plan。
 - 支持多个账号；重复导入同一账号时更新已有安全凭据。
 - 支持 English、简体中文和跟随系统语言。
 - access token 临近过期或 Usage 请求返回 401 时，最多刷新并重试一次。
@@ -52,8 +54,8 @@ AiUsage 是一个本地优先的 OpenAI Codex 套餐额度监看应用 MVP。项
 Flutter UI / AppController
         ↓ flutter_rust_bridge
 Rust application bridge
-        ├─ Device Code OAuth / auth.json import / token refresh
-        ├─ Codex Usage / Profile / account details compatibility layer
+        ├─ typed Codex OAuth / DeepSeek API Key / MiMo session credentials
+        ├─ Codex Usage / DeepSeek balance / MiMo console compatibility layer
         ├─ raw response normalization
         └─ SQLite cache, seven-day quota history and redacted diagnostics
 ```
@@ -67,6 +69,8 @@ app/                         Flutter UI、生命周期与平台能力
 rust/                        Rust domain core
   src/auth/                  Device Code OAuth 与 token refresh
   src/api/codex/             未公开 Usage API 的兼容层
+  src/api/deepseek/          DeepSeek 官方余额 API
+  src/api/mimo/              MiMo 登录、续签、余额与 Token Plan 兼容层
   src/normalize/             Raw response -> 稳定 UsageSnapshot
   src/history/               SQLite 缓存、历史与清理
   src/bridge/                暴露给 Flutter 的应用服务
@@ -76,11 +80,12 @@ Flutter 不解析 OpenAI 原始 JSON。跨 FFI 只传递稳定模型，例如 `U
 
 ## 安全与隐私
 
-- OAuth `access_token`、`refresh_token` 和 `id_token` 仅通过 `flutter_secure_storage` 持久化。
+- Codex OAuth Token、DeepSeek API Key、MiMo `userId + passToken` 及必要平台 Cookie 仅通过 `flutter_secure_storage` 持久化。
 - `auth.json` 只在用户主动选择文件后读取，限制为 1 MiB；仅在内存中解析，不复制原文件、不写 SQLite、不记录 Token。
 - API Key-only、缺少身份信息或格式异常的文件会被拒绝；应用不会自动扫描 `~/.codex/auth.json`。
 - Android 使用 Keystore；iOS/macOS 使用 Keychain；Windows 使用系统保护存储；Linux 使用 Secret Service。
-- Rust 只在单次调用的内存边界中接收凭据；`Authorization`、OAuth Token、原始账户 ID 和安全存储内容不会写入 SQLite 或诊断。
+- MiMo 原始密码及其一次性派生值仅参与当次登录并在 Rust 内存中主动清零；长期保存的 `passToken` 权限近似账号登录会话，必须像密码一样保护。
+- Rust 只在单次调用的内存边界中接收凭据；`Authorization`、API Key、OAuth Token、Cookie、原始小米用户 ID 和安全存储内容不会写入 SQLite 或诊断。
 - 诊断最多保存 200 条，每条原始响应正文上限 64 KiB；JSON 中的 Token 与 ID 字段会脱敏，非 JSON 响应检测到凭据特征时整段丢弃。原始响应仍可能包含邮箱、套餐等账户资料，UI 默认折叠。
 - SQLite 保存 identity hash、非机密账号信息、标准化 quota、Profile 缓存、账户资料和诊断；额度快照启动时清理七天前记录，删除账户时清理其关联数据。
 - 429 尊重 `Retry-After`，5xx 只做有限指数退避，错误时保留陈旧缓存。
@@ -95,6 +100,16 @@ Flutter 不解析 OpenAI 原始 JSON。跨 FFI 只传递稳定模型，例如 `U
 - OpenAI account details：`https://api.openai.com/v1/me`
 
 这些接口是官方客户端当前使用的实现，**不是 OpenAI 面向第三方承诺稳定的公开 API**。端点、请求头、OAuth 参数或响应结构可能随时变化。
+
+## Provider 支持与接口稳定性
+
+| Provider | 认证 | 展示内容 | 接口稳定性 |
+| --- | --- | --- | --- |
+| OpenAI Codex | Device Code OAuth / `auth.json` | quota、Credits、Reset Credits、Profile Token 统计 | 使用官方客户端内部接口，可能变化 |
+| DeepSeek | API Key | CNY/USD 总余额、赠送余额、充值余额、可用状态 | [官方余额 API](https://api-docs.deepseek.com/zh-cn/api/get-user-balance/) |
+| Xiaomi MiMo | 小米账号密码；挑战时使用官方网页 | 按量余额、现金/赠送/冻结/透支字段、Token Plan | 未公开控制台 API，可能随时变化 |
+
+MiMo 登录只允许访问固定 HTTPS 小米域名，不注入密码、不忽略证书错误。平台 Cookie 过期时，AiUsage 使用安全存储中的 `userId + passToken` 串行续签并只重试一次；若上游再次要求 CAPTCHA、短信或 MFA，则停止后台重试并要求用户重新登录。更多实现与风险说明见 [Provider 凭据与兼容性](docs/provider-integrations.md)。
 
 ## 开发环境
 
@@ -136,7 +151,7 @@ cd ..
 ./scripts/build_android_release.ps1 -Format appbundle
 ```
 
-Android 构建必须提供有效 `FLUTTER_ROOT` 和 `AIUSAGE_ANDROID_*` 签名环境变量。产物检查要求包含 `libai_usage_core.so`，且不得包含 `kernel_blob.bin`、Vulkan validation layer 或非目标 Flutter engine；正式产物还必须匹配固定证书 SHA-256。本轮 Rust 格式、Clippy、35 个单元测试、Flutter analyze、16 个 Widget tests、Android arm64 APK/AAB 构建及签名检查均已通过。
+Android 构建必须提供有效 `FLUTTER_ROOT` 和 `AIUSAGE_ANDROID_*` 签名环境变量。产物检查要求包含 `libai_usage_core.so`，且不得包含 `kernel_blob.bin`、Vulkan validation layer 或非目标 Flutter engine；正式产物还必须匹配固定证书 SHA-256。当前 Provider 改动通过 43 项 Rust 测试与 20 项 Flutter 测试；Android 产物以本轮实际构建结果为准。
 
 修改 Rust FFI 公共函数或模型后，需要重新生成 bridge：
 
@@ -164,13 +179,13 @@ GitHub Release 提供正式签名的 arm64 APK 和 AAB；直接安装使用 APK�
 - 当前没有自动更新器或应用商店发布；用户需要从 GitHub Release 手动下载安装包。
 - 完整重命名后的包 ID 为 `dev.chendusk.aiusage`；不迁移旧包 `dev.codexusage.monitor` 的凭据、设置或历史，两者可暂时共存。
 - OpenAI 调整内部接口后，登录或额度查询可能失效，需要更新 compatibility layer。
-- 第三方浏览器可能禁止向验证码输入框粘贴；应用提供复制、重新打开和重新申请验证码，但不会使用 WebView、无障碍或自动填充绕过限制。
+- Codex Device Code 登录使用系统浏览器；第三方浏览器可能禁止粘贴验证码，应用不会使用无障碍或自动填充绕过限制。MiMo 仅在小米要求 CAPTCHA、短信或 MFA 时使用受域名限制的官方内嵌网页。
 - iOS 和 Android 后台调度默认关闭且属于 best effort，不能保证固定刷新周期；各厂商自启动/电池限制当前只能由用户在系统设置中确认。
 - Profile Token 统计由账号侧异步生成，可能缺失当天 bucket 或明显滞后，不能作为实时计费依据。
 - `/backend-api/wham/profiles/me` 与 `/v1/me` 均未被本项目视为面向第三方的稳定兼容承诺。
 - Linux 托盘是否显示取决于桌面环境和 AppIndicator 支持。
 - Android Release 已完成新安装与入口检查，但尚未在真实账号登录后连续运行 5 分钟复测数据增长。
-- 不实现 Web、API Key 登录、其他 AI Provider、云同步、reset credit consume、Thread Usage、费用计算或企业 Admin API。
+- 不实现 Web、从本机浏览器抓取 Cookie、MiMo API Key 余额查询、余额历史图表、云同步、reset credit consume、Thread Usage、费用换算或企业 Admin API。
 
 ## 路线图
 
