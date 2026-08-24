@@ -4,8 +4,8 @@
 use crate::bridge;
 use crate::models::{
     AccountDetails, AccountInfo, DeviceCodeLoginComplete, DeviceCodeLoginPoll,
-    DeviceCodeLoginStart, HistoryPoint, ProfileUsage, SecureCredential, SyncLogEntry, SyncTrigger,
-    UsageResult,
+    DeviceCodeLoginStart, HistoryPoint, MimoCredential, MimoLoginResult, ProfileUsage,
+    SecureCredential, SyncLogEntry, SyncTrigger, UsageResult,
 };
 
 pub fn initialize_core(database_path: String) -> Result<(), String> {
@@ -30,6 +30,28 @@ pub fn import_codex_auth_json(content: Vec<u8>) -> Result<DeviceCodeLoginComplet
 
 pub async fn refresh_usage(credential: SecureCredential, trigger: SyncTrigger) -> UsageResult {
     bridge::refresh_usage(credential, trigger).await
+}
+
+pub async fn refresh_deepseek_usage(api_key: String, trigger: SyncTrigger) -> UsageResult {
+    bridge::refresh_deepseek_usage(api_key, trigger).await
+}
+
+pub async fn begin_mimo_login(
+    username: String,
+    password: String,
+) -> Result<MimoLoginResult, String> {
+    bridge::begin_mimo_login(username, password).await
+}
+
+pub fn complete_mimo_web_login(
+    account_cookie: String,
+    platform_cookie: String,
+) -> Result<MimoLoginResult, String> {
+    bridge::complete_mimo_web_login(account_cookie, platform_cookie)
+}
+
+pub async fn refresh_mimo_usage(credential: MimoCredential, trigger: SyncTrigger) -> UsageResult {
+    bridge::refresh_mimo_usage(credential, trigger).await
 }
 
 pub async fn fetch_profile_usage(

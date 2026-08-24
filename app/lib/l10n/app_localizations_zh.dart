@@ -603,4 +603,109 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get syncPageLoad => '页面加载';
+
+  @override
+  String get chooseProvider => '选择 Provider';
+
+  @override
+  String get provider => 'Provider';
+
+  @override
+  String get providerCodex => 'OpenAI Codex';
+
+  @override
+  String get providerDeepSeek => 'DeepSeek';
+
+  @override
+  String get providerMimo => '小米 MiMo';
+
+  @override
+  String get providerAccountsMessage =>
+      '可监控 Codex 额度、DeepSeek 余额或小米 MiMo 余额与 Token 套餐。';
+
+  @override
+  String get deepSeekApiKey => 'DeepSeek API Key';
+
+  @override
+  String get accountAliasOptional => '别名（可选）';
+
+  @override
+  String get deepSeekKeyHint => '保存前会通过 DeepSeek 官方余额 API 验证；Key 仅写入系统安全存储。';
+
+  @override
+  String get addDeepSeek => '添加 DeepSeek 账户';
+
+  @override
+  String get mimoUsername => '小米账号';
+
+  @override
+  String get mimoPassword => '密码';
+
+  @override
+  String get mimoSecurityHint =>
+      '密码仅用于本次登录且不会保存。AiUsage 会保存具有账号登录权限的小米会话 Token。';
+
+  @override
+  String get addMimo => '添加小米 MiMo 账户';
+
+  @override
+  String get mimoChallengeTitle => '完成小米安全验证';
+
+  @override
+  String get mimoChallengeMessage => '请在小米官方页面完成验证码、短信或 MFA。AiUsage 不会绕过账号风控。';
+
+  @override
+  String get mimoLoginIncomplete => '小米登录未返回可用的 MiMo 会话。';
+
+  @override
+  String get saveAndVerify => '验证并保存';
+
+  @override
+  String get totalBalance => '总余额';
+
+  @override
+  String get cashBalance => '现金余额';
+
+  @override
+  String get grantedBalance => '赠送余额';
+
+  @override
+  String get toppedUpBalance => '充值余额';
+
+  @override
+  String get giftBalance => '赠送余额';
+
+  @override
+  String get frozenBalance => '冻结余额';
+
+  @override
+  String get overdraftLimit => '透支额度';
+
+  @override
+  String get tokenPlan => 'Token 套餐';
+
+  @override
+  String usedOfTotal(String used, String total, String unit) {
+    return '已使用 $used / $total $unit';
+  }
+
+  @override
+  String expiresAt(String time) {
+    return '到期时间 $time';
+  }
+
+  @override
+  String get providerNoHistory => '该 Provider 暂无 Token 历史统计。';
+
+  @override
+  String get mimoInternalApiWarning => 'MiMo 数据来自未公开的控制台 API，上游可能随时调整。';
+
+  @override
+  String get credentialSourceApiKey => 'API Key';
+
+  @override
+  String get credentialSourceXiaomiPassword => '小米账号密码登录';
+
+  @override
+  String get credentialSourceXiaomiWeb => '小米官方网页验证';
 }

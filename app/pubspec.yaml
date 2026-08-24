@@ -53,6 +53,9 @@ dependencies:
   flutter_local_notifications: ^22.3.0
   workmanager: ^0.10.9
   dynamic_color: ^1.8.1
+  # 6.1.5 的 Android 子包仍引用 AGP 9 已移除的 proguard-android.txt。
+  # beta.3 已切换到 proguard-android-optimize.txt；正式版跟进后可去掉预览约束。
+  flutter_inappwebview: 6.2.0-beta.3
 
 dev_dependencies:
   flutter_test:

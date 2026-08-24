@@ -48,6 +48,7 @@ class AppController extends ChangeNotifier {
 
   List<StoredAccount> _accounts = const [];
   String? _selectedAccountId;
+  String? _selectedDemoAccountId;
   UsageResult? _usage;
   MonitorSettings _settings = const MonitorSettings();
   bool _loading = true;
@@ -62,14 +63,21 @@ class AppController extends ChangeNotifier {
   String? _profileError;
 
   List<StoredAccount> get accounts =>
-      _settings.demoModeEnabled ? [_demoAccount] : List.unmodifiable(_accounts);
+      _settings.demoModeEnabled ? _demoAccounts : List.unmodifiable(_accounts);
   StoredAccount? get selectedAccount => _settings.demoModeEnabled
-      ? _demoAccount
+      ? _demoAccounts.cast<StoredAccount?>().firstWhere(
+          (item) =>
+              item?.identityHash ==
+              (_selectedDemoAccountId ?? _demoAccounts.first.identityHash),
+          orElse: () => _demoAccounts.first,
+        )
       : _accounts.cast<StoredAccount?>().firstWhere(
           (item) => item?.identityHash == _selectedAccountId,
           orElse: () => null,
         );
-  UsageResult? get usage => _settings.demoModeEnabled ? _demoUsage : _usage;
+  UsageResult? get usage => _settings.demoModeEnabled
+      ? _demoUsageFor(selectedAccount?.provider ?? ProviderKind.codex)
+      : _usage;
   ProfileUsage? get profileUsage =>
       _settings.demoModeEnabled ? _demoProfile : _profileUsage;
   AccountDetails? get accountDetails {
@@ -126,7 +134,11 @@ class AppController extends ChangeNotifier {
   }
 
   Future<void> selectAccount(String identityHash) async {
-    if (_settings.demoModeEnabled) return;
+    if (_settings.demoModeEnabled) {
+      _selectedDemoAccountId = identityHash;
+      notifyListeners();
+      return;
+    }
     if (_selectedAccountId == identityHash) return;
     _selectedAccountId = identityHash;
     _usage = null;
@@ -154,15 +166,11 @@ class AppController extends ChangeNotifier {
   Future<void> refresh({SyncTrigger trigger = SyncTrigger.manual}) async {
     if (_settings.demoModeEnabled) return;
     final account = selectedAccount;
-    final credential = account?.credential;
-    if (account == null || credential == null || _refreshing) return;
+    if (account == null || !account.hasCredential || _refreshing) return;
     _refreshing = true;
     notifyListeners();
     try {
-      final result = await core.refreshUsage(
-        credential: credential,
-        trigger: trigger,
-      );
+      final result = await _refreshProvider(account, trigger);
       _usage = result;
       if (result.updatedCredential != null) {
         await _vault.updateCredential(
@@ -170,12 +178,15 @@ class AppController extends ChangeNotifier {
           result.updatedCredential!,
         );
       }
+      if (result.updatedMimoCredential != null) {
+        await _vault.updateMimoCredential(
+          account.identityHash,
+          result.updatedMimoCredential!,
+        );
+      }
       if (result.snapshot != null) {
         await _vault.updateAccount(result.snapshot!.account);
-        _replaceAccount(
-          result.snapshot!.account,
-          result.updatedCredential ?? credential,
-        );
+        _replaceAccount(result.snapshot!.account, account, result);
         if (_settings.notificationsEnabled) {
           await _notifications.inspectSnapshot(
             result.snapshot!,
@@ -195,6 +206,24 @@ class AppController extends ChangeNotifier {
       notifyListeners();
     }
   }
+
+  Future<UsageResult> _refreshProvider(
+    StoredAccount account,
+    SyncTrigger trigger,
+  ) => switch (account.provider) {
+    ProviderKind.codex => core.refreshUsage(
+      credential: account.credential!,
+      trigger: trigger,
+    ),
+    ProviderKind.deepSeek => core.refreshDeepseekUsage(
+      apiKey: account.apiKey!,
+      trigger: trigger,
+    ),
+    ProviderKind.mimo => core.refreshMimoUsage(
+      credential: account.mimoCredential!,
+      trigger: trigger,
+    ),
+  };
 
   Future<DeviceCodeLoginStart> beginAddAccount() => core.beginDeviceLogin();
 
@@ -220,6 +249,87 @@ class AppController extends ChangeNotifier {
     );
     _accounts = await _vault.loadAccounts();
     _selectedAccountId = completed.account.identityHash;
+    _usage = null;
+    notifyListeners();
+    await refresh();
+  }
+
+  Future<void> addDeepSeekAccount({
+    required String apiKey,
+    String? alias,
+  }) async {
+    final normalizedKey = apiKey.trim();
+    if (normalizedKey.isEmpty) {
+      throw const FormatException('deepseek.empty_key');
+    }
+    final result = await core.refreshDeepseekUsage(
+      apiKey: normalizedKey,
+      trigger: SyncTrigger.manual,
+    );
+    final snapshot = result.snapshot;
+    if (snapshot == null || result.state != UsageState.fresh) {
+      throw StateError(result.message ?? 'deepseek.validation_failed');
+    }
+    await _vault.saveDeepSeek(
+      snapshot.account,
+      normalizedKey,
+      displayName: (alias == null || alias.trim().isEmpty)
+          ? null
+          : alias.trim(),
+    );
+    _accounts = await _vault.loadAccounts();
+    _selectedAccountId = snapshot.account.identityHash;
+    _usage = result;
+    notifyListeners();
+  }
+
+  Future<MimoLoginResult> beginMimoAccount({
+    required String username,
+    required String password,
+  }) async {
+    final result = await core.beginMimoLogin(
+      username: username.trim(),
+      password: password,
+    );
+    if (result.account != null && result.credential != null) {
+      await _acceptMimoLogin(
+        result,
+        source: CredentialSource.xiaomiPassword,
+        displayName: username.trim(),
+      );
+    }
+    return result;
+  }
+
+  Future<void> completeMimoWebAccount({
+    required String accountCookie,
+    required String platformCookie,
+  }) async {
+    final result = await core.completeMimoWebLogin(
+      accountCookie: accountCookie,
+      platformCookie: platformCookie,
+    );
+    await _acceptMimoLogin(result, source: CredentialSource.xiaomiWeb);
+  }
+
+  Future<void> _acceptMimoLogin(
+    MimoLoginResult result, {
+    required CredentialSource source,
+    String? displayName,
+  }) async {
+    final account = result.account;
+    final credential = result.credential;
+    if (account == null || credential == null) {
+      throw StateError('mimo.login_incomplete');
+    }
+    await _vault.saveMimo(
+      account,
+      credential,
+      credentialSource: source,
+      displayName: displayName,
+    );
+    _accounts = await _vault.loadAccounts();
+    _selectedAccountId = account.identityHash;
     _usage = null;
     notifyListeners();
     await refresh();
@@ -265,7 +375,11 @@ class AppController extends ChangeNotifier {
     if (_settings.demoModeEnabled || _profileLoading) return;
     final account = selectedAccount;
     final credential = account?.credential;
-    if (account == null || credential == null) return;
+    if (account == null ||
+        account.provider != ProviderKind.codex ||
+        credential == null) {
+      return;
+    }
     _profileLoading = true;
     _profileError = null;
     notifyListeners();
@@ -298,7 +412,7 @@ class AppController extends ChangeNotifier {
       return;
     }
     final credential = account.credential;
-    if (credential == null) return;
+    if (account.provider != ProviderKind.codex || credential == null) return;
     _accountDetailsLoadingAccounts.add(identityHash);
     _accountDetailsErrors.remove(identityHash);
     notifyListeners();
@@ -369,14 +483,25 @@ class AppController extends ChangeNotifier {
     notifyListeners();
   }
 
-  void _replaceAccount(AccountInfo account, SecureCredential credential) {
+  void _replaceAccount(
+    AccountInfo account,
+    StoredAccount previous,
+    UsageResult result,
+  ) {
     _accounts = _accounts
         .map(
           (item) => item.identityHash == account.identityHash
               ? StoredAccount.fromAccount(
                   account,
+                  displayName: item.displayName,
                   credentialSource: item.credentialSource,
-                ).withCredential(credential)
+                ).withCredentials(
+                  codexCredential:
+                      result.updatedCredential ?? previous.credential,
+                  apiKey: previous.apiKey,
+                  mimoCredential:
+                      result.updatedMimoCredential ?? previous.mimoCredential,
+                )
               : item,
         )
         .toList(growable: false);
@@ -391,31 +516,132 @@ class AppController extends ChangeNotifier {
     );
   }
 
-  StoredAccount get _demoAccount {
+  List<StoredAccount> get _demoAccounts {
     final random = Random(_settings.demoSeed);
-    return StoredAccount(
-      identityHash: 'demo-account',
-      email: 'demo${100 + random.nextInt(900)}@example.com',
-      plan: ['plus', 'pro'][random.nextInt(2)],
-      loginState: LoginState.signedIn,
-      lastSuccessfulRefresh: DateTime.now().millisecondsSinceEpoch ~/ 1000,
-      credential: const SecureCredential(
-        idToken: 'demo',
-        accessToken: 'demo',
-        refreshToken: 'demo',
+    final refreshedAt = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+    return [
+      StoredAccount(
+        identityHash: 'demo-codex',
+        provider: ProviderKind.codex,
+        email: 'demo${100 + random.nextInt(900)}@example.com',
+        plan: ['plus', 'pro'][random.nextInt(2)],
+        loginState: LoginState.signedIn,
+        lastSuccessfulRefresh: refreshedAt,
+        credential: const SecureCredential(
+          idToken: 'demo',
+          accessToken: 'demo',
+          refreshToken: 'demo',
+        ),
       ),
-    );
+      StoredAccount(
+        identityHash: 'demo-deepseek',
+        provider: ProviderKind.deepSeek,
+        displayName: 'DeepSeek Demo',
+        plan: 'API',
+        loginState: LoginState.signedIn,
+        lastSuccessfulRefresh: refreshedAt,
+        apiKey: 'demo',
+        credentialSource: CredentialSource.apiKey,
+      ),
+      StoredAccount(
+        identityHash: 'demo-mimo',
+        provider: ProviderKind.mimo,
+        displayName: 'MiMo Demo',
+        plan: 'Token Plan',
+        loginState: LoginState.signedIn,
+        lastSuccessfulRefresh: refreshedAt,
+        mimoCredential: const MimoCredential(
+          userId: 'demo',
+          passToken: 'demo',
+          serviceToken: 'demo',
+          serviceSlh: '',
+          servicePh: '',
+        ),
+        credentialSource: CredentialSource.xiaomiPassword,
+      ),
+    ];
   }
 
-  UsageResult get _demoUsage {
+  UsageResult _demoUsageFor(ProviderKind provider) {
     final random = Random(_settings.demoSeed);
     final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
-    final account = _demoAccount.account;
+    final account = _demoAccounts
+        .firstWhere((item) => item.provider == provider)
+        .account;
+    if (provider == ProviderKind.deepSeek) {
+      return UsageResult(
+        state: UsageState.fresh,
+        showingCachedData: false,
+        snapshot: UsageSnapshot(
+          account: account,
+          windows: const [],
+          balances: const [
+            BalanceMetric(
+              id: 'deepseek:CNY:total',
+              label: 'Total balance',
+              amount: '88.20',
+              currency: 'CNY',
+              primary: true,
+            ),
+            BalanceMetric(
+              id: 'deepseek:CNY:granted',
+              label: 'Granted balance',
+              amount: '8.20',
+              currency: 'CNY',
+              primary: false,
+            ),
+          ],
+          providerQuotas: const [],
+          fetchedAt: now,
+        ),
+      );
+    }
+    if (provider == ProviderKind.mimo) {
+      return UsageResult(
+        state: UsageState.fresh,
+        showingCachedData: false,
+        snapshot: UsageSnapshot(
+          account: account,
+          windows: const [],
+          balances: const [
+            BalanceMetric(
+              id: 'mimo:total',
+              label: 'Total balance',
+              amount: '42.00',
+              currency: 'CNY',
+              primary: true,
+            ),
+            BalanceMetric(
+              id: 'mimo:gift',
+              label: 'Gift balance',
+              amount: '12.00',
+              currency: 'CNY',
+              primary: false,
+            ),
+          ],
+          providerQuotas: [
+            ProviderQuotaMetric(
+              id: 'mimo:plan_total_token',
+              title: 'Plan tokens',
+              used: '240000',
+              limit: '1000000',
+              remaining: '760000',
+              usedPercent: 24,
+              expiresAt: now + 14 * 86400,
+              unit: 'tokens',
+            ),
+          ],
+          fetchedAt: now,
+        ),
+      );
+    }
     return UsageResult(
       state: UsageState.fresh,
       showingCachedData: false,
       snapshot: UsageSnapshot(
         account: account,
+        balances: const [],
+        providerQuotas: const [],
         windows: [
           QuotaWindow(
             id: 'codex:primary',
@@ -489,7 +715,7 @@ class AppController extends ChangeNotifier {
       createdAt:
           now.subtract(const Duration(days: 486)).millisecondsSinceEpoch ~/
           1000,
-      email: _demoAccount.email,
+      email: _demoAccounts.first.email,
       fetchedAt: now.millisecondsSinceEpoch ~/ 1000,
     );
   }

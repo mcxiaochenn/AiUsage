@@ -5,6 +5,7 @@ import 'package:ai_usage/src/services/secure_account_vault.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -26,6 +27,13 @@ void main() {
       }).credentialSource,
       CredentialSource.unknown,
     );
+    expect(
+      StoredAccount.fromMetadata(const {
+        'identity_hash': 'old-account',
+        'login_state': 'signedIn',
+      }).provider,
+      ProviderKind.codex,
+    );
   });
 
   test('new privacy and battery-sensitive settings default off', () {
@@ -38,10 +46,30 @@ void main() {
     expect(migrated.backgroundRefreshEnabled, isFalse);
   });
 
+  test('demo mode provides synthetic data for every provider', () async {
+    final controller = AppController.testing(
+      settings: const MonitorSettings(demoModeEnabled: true, demoSeed: 7),
+    );
+    expect(controller.accounts.map((item) => item.provider).toSet(), {
+      ProviderKind.codex,
+      ProviderKind.deepSeek,
+      ProviderKind.mimo,
+    });
+    await controller.selectAccount('demo-deepseek');
+    expect(controller.usage!.snapshot!.balances, isNotEmpty);
+    await controller.selectAccount('demo-mimo');
+    expect(controller.usage!.snapshot!.providerQuotas, isNotEmpty);
+  });
+
   testWidgets('empty dashboard offers account login', (tester) async {
     await tester.pumpWidget(AiUsageApp(controller: AppController.testing()));
 
-    expect(find.text('Add a Codex account'), findsOneWidget);
+    expect(
+      find.text(
+        'Monitor Codex quotas, DeepSeek balances, or Xiaomi MiMo balances and Token Plans.',
+      ),
+      findsOneWidget,
+    );
   });
 
   testWidgets('Simplified Chinese can be selected explicitly', (tester) async {
@@ -55,7 +83,130 @@ void main() {
       ),
     );
 
-    expect(find.text('添加 Codex 账户'), findsOneWidget);
+    expect(
+      find.text('可监控 Codex 额度、DeepSeek 余额或小米 MiMo 余额与 Token 套餐。'),
+      findsOneWidget,
+    );
+  });
+
+  test('provider credentials round-trip only through secure storage', () async {
+    FlutterSecureStorage.setMockInitialValues({});
+    final vault = SecureAccountVault();
+    const deepSeek = AccountInfo(
+      provider: ProviderKind.deepSeek,
+      identityHash: 'deepseek-hash',
+      plan: 'API',
+      isFedramp: false,
+      loginState: LoginState.signedIn,
+      credentialStatus: CredentialStatus.available,
+    );
+    await vault.saveDeepSeek(
+      deepSeek,
+      'test-key-not-real',
+      displayName: 'Main',
+    );
+    final loaded = (await vault.loadAccounts()).single;
+    expect(loaded.provider, ProviderKind.deepSeek);
+    expect(loaded.apiKey, 'test-key-not-real');
+    expect(
+      loaded.toMetadata().toString(),
+      isNot(contains('test-key-not-real')),
+    );
+
+    const mimo = AccountInfo(
+      provider: ProviderKind.mimo,
+      identityHash: 'mimo-hash',
+      plan: 'MiMo',
+      isFedramp: false,
+      loginState: LoginState.signedIn,
+      credentialStatus: CredentialStatus.available,
+    );
+    const session = MimoCredential(
+      userId: 'user-test',
+      passToken: 'pass-test',
+      serviceToken: 'service-test',
+      serviceSlh: 'slh-test',
+      servicePh: 'ph-test',
+    );
+    await vault.saveMimo(
+      mimo,
+      session,
+      credentialSource: CredentialSource.xiaomiPassword,
+    );
+    final mimoLoaded = (await vault.loadAccounts()).first;
+    expect(mimoLoaded.mimoCredential, session);
+    expect(mimoLoaded.toMetadata().toString(), isNot(contains('pass-test')));
+  });
+
+  testWidgets('add account offers all three providers', (tester) async {
+    await tester.pumpWidget(AiUsageApp(controller: AppController.testing()));
+    await tester.tap(find.byType(FilledButton).first);
+    await tester.pumpAndSettle();
+
+    expect(find.text('OpenAI Codex'), findsOneWidget);
+    expect(find.text('DeepSeek'), findsOneWidget);
+    expect(find.text('Xiaomi MiMo'), findsOneWidget);
+  });
+
+  testWidgets('DeepSeek renders separate currencies and has no token history', (
+    tester,
+  ) async {
+    const info = AccountInfo(
+      provider: ProviderKind.deepSeek,
+      identityHash: 'deepseek-account',
+      plan: 'API',
+      isFedramp: false,
+      loginState: LoginState.signedIn,
+      credentialStatus: CredentialStatus.available,
+    );
+    const account = StoredAccount(
+      provider: ProviderKind.deepSeek,
+      identityHash: 'deepseek-account',
+      displayName: 'DeepSeek main',
+      plan: 'API',
+      loginState: LoginState.signedIn,
+      credentialSource: CredentialSource.apiKey,
+    );
+    final controller = AppController.testing(
+      accounts: const [account],
+      usage: const UsageResult(
+        snapshot: UsageSnapshot(
+          account: info,
+          windows: [],
+          balances: [
+            BalanceMetric(
+              id: 'deepseek:CNY:total',
+              label: 'Total balance',
+              amount: '12.50',
+              currency: 'CNY',
+              primary: true,
+            ),
+            BalanceMetric(
+              id: 'deepseek:USD:total',
+              label: 'Total balance',
+              amount: '3.25',
+              currency: 'USD',
+              primary: true,
+            ),
+          ],
+          providerQuotas: [],
+          fetchedAt: 1,
+        ),
+        state: UsageState.fresh,
+        showingCachedData: false,
+      ),
+    );
+    await tester.pumpWidget(AiUsageApp(controller: controller));
+    await tester.pumpAndSettle();
+
+    expect(find.text('12.50 CNY'), findsOneWidget);
+    expect(find.text('3.25 USD'), findsOneWidget);
+    await tester.tap(find.byIcon(Icons.show_chart_outlined));
+    await tester.pumpAndSettle();
+    expect(
+      find.text('This provider does not currently expose Token history.'),
+      findsOneWidget,
+    );
   });
 
   testWidgets('mobile app bar handles a long account without overflow', (
@@ -278,7 +429,7 @@ void main() {
 
     await tester.tap(find.text('Accounts'));
     await tester.pumpAndSettle();
-    await tester.tap(find.byIcon(Icons.info_outline));
+    await tester.tap(find.byIcon(Icons.info_outline).first);
     await tester.pumpAndSettle();
 
     expect(find.byType(AppBar), findsOneWidget);
@@ -376,6 +527,7 @@ AppController _controllerWithCredits({
 }) {
   const accountInfo = AccountInfo(
     identityHash: 'credits-account',
+    provider: ProviderKind.codex,
     email: 'credits@example.com',
     plan: 'plus',
     isFedramp: false,
@@ -394,6 +546,8 @@ AppController _controllerWithCredits({
       snapshot: UsageSnapshot(
         account: accountInfo,
         windows: const [],
+        balances: const [],
+        providerQuotas: const [],
         credits: CreditsSnapshot(
           hasCredits: hasCredits,
           unlimited: unlimited,

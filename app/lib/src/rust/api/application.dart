@@ -35,6 +35,38 @@ Future<UsageResult> refreshUsage({
   trigger: trigger,
 );
 
+Future<UsageResult> refreshDeepseekUsage({
+  required String apiKey,
+  required SyncTrigger trigger,
+}) => RustLib.instance.api.crateApiApplicationRefreshDeepseekUsage(
+  apiKey: apiKey,
+  trigger: trigger,
+);
+
+Future<MimoLoginResult> beginMimoLogin({
+  required String username,
+  required String password,
+}) => RustLib.instance.api.crateApiApplicationBeginMimoLogin(
+  username: username,
+  password: password,
+);
+
+Future<MimoLoginResult> completeMimoWebLogin({
+  required String accountCookie,
+  required String platformCookie,
+}) => RustLib.instance.api.crateApiApplicationCompleteMimoWebLogin(
+  accountCookie: accountCookie,
+  platformCookie: platformCookie,
+);
+
+Future<UsageResult> refreshMimoUsage({
+  required MimoCredential credential,
+  required SyncTrigger trigger,
+}) => RustLib.instance.api.crateApiApplicationRefreshMimoUsage(
+  credential: credential,
+  trigger: trigger,
+);
+
 Future<ProfileUsage> fetchProfileUsage({
   required SecureCredential credential,
   required SyncTrigger trigger,

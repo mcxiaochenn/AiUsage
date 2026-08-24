@@ -30,6 +30,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   AccountInfo dco_decode_account_info(dynamic raw);
 
   @protected
+  BalanceMetric dco_decode_balance_metric(dynamic raw);
+
+  @protected
   bool dco_decode_bool(dynamic raw);
 
   @protected
@@ -48,6 +51,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   PlatformInt64 dco_decode_box_autoadd_i_64(dynamic raw);
+
+  @protected
+  MimoCredential dco_decode_box_autoadd_mimo_credential(dynamic raw);
 
   @protected
   ProfileUsage dco_decode_box_autoadd_profile_usage(dynamic raw);
@@ -89,6 +95,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   PlatformInt64 dco_decode_i_64(dynamic raw);
 
   @protected
+  List<BalanceMetric> dco_decode_list_balance_metric(dynamic raw);
+
+  @protected
   List<DailyTokenBucket> dco_decode_list_daily_token_bucket(dynamic raw);
 
   @protected
@@ -99,6 +108,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   Uint8List dco_decode_list_prim_u_8_strict(dynamic raw);
+
+  @protected
+  List<ProviderQuotaMetric> dco_decode_list_provider_quota_metric(dynamic raw);
 
   @protected
   List<QuotaWindow> dco_decode_list_quota_window(dynamic raw);
@@ -113,10 +125,19 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   LoginState dco_decode_login_state(dynamic raw);
 
   @protected
+  MimoCredential dco_decode_mimo_credential(dynamic raw);
+
+  @protected
+  MimoLoginResult dco_decode_mimo_login_result(dynamic raw);
+
+  @protected
   String? dco_decode_opt_String(dynamic raw);
 
   @protected
   AccountDetails? dco_decode_opt_box_autoadd_account_details(dynamic raw);
+
+  @protected
+  AccountInfo? dco_decode_opt_box_autoadd_account_info(dynamic raw);
 
   @protected
   CreditsSnapshot? dco_decode_opt_box_autoadd_credits_snapshot(dynamic raw);
@@ -127,6 +148,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   PlatformInt64? dco_decode_opt_box_autoadd_i_64(dynamic raw);
+
+  @protected
+  MimoCredential? dco_decode_opt_box_autoadd_mimo_credential(dynamic raw);
 
   @protected
   ProfileUsage? dco_decode_opt_box_autoadd_profile_usage(dynamic raw);
@@ -142,6 +166,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   ProfileUsage dco_decode_profile_usage(dynamic raw);
+
+  @protected
+  ProviderKind dco_decode_provider_kind(dynamic raw);
+
+  @protected
+  ProviderQuotaMetric dco_decode_provider_quota_metric(dynamic raw);
 
   @protected
   QuotaWindow dco_decode_quota_window(dynamic raw);
@@ -186,6 +216,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   AccountInfo sse_decode_account_info(SseDeserializer deserializer);
 
   @protected
+  BalanceMetric sse_decode_balance_metric(SseDeserializer deserializer);
+
+  @protected
   bool sse_decode_bool(SseDeserializer deserializer);
 
   @protected
@@ -208,6 +241,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   PlatformInt64 sse_decode_box_autoadd_i_64(SseDeserializer deserializer);
+
+  @protected
+  MimoCredential sse_decode_box_autoadd_mimo_credential(
+    SseDeserializer deserializer,
+  );
 
   @protected
   ProfileUsage sse_decode_box_autoadd_profile_usage(
@@ -261,6 +299,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   PlatformInt64 sse_decode_i_64(SseDeserializer deserializer);
 
   @protected
+  List<BalanceMetric> sse_decode_list_balance_metric(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   List<DailyTokenBucket> sse_decode_list_daily_token_bucket(
     SseDeserializer deserializer,
   );
@@ -277,6 +320,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   Uint8List sse_decode_list_prim_u_8_strict(SseDeserializer deserializer);
 
   @protected
+  List<ProviderQuotaMetric> sse_decode_list_provider_quota_metric(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   List<QuotaWindow> sse_decode_list_quota_window(SseDeserializer deserializer);
 
   @protected
@@ -291,10 +339,21 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   LoginState sse_decode_login_state(SseDeserializer deserializer);
 
   @protected
+  MimoCredential sse_decode_mimo_credential(SseDeserializer deserializer);
+
+  @protected
+  MimoLoginResult sse_decode_mimo_login_result(SseDeserializer deserializer);
+
+  @protected
   String? sse_decode_opt_String(SseDeserializer deserializer);
 
   @protected
   AccountDetails? sse_decode_opt_box_autoadd_account_details(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  AccountInfo? sse_decode_opt_box_autoadd_account_info(
     SseDeserializer deserializer,
   );
 
@@ -311,6 +370,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   PlatformInt64? sse_decode_opt_box_autoadd_i_64(SseDeserializer deserializer);
+
+  @protected
+  MimoCredential? sse_decode_opt_box_autoadd_mimo_credential(
+    SseDeserializer deserializer,
+  );
 
   @protected
   ProfileUsage? sse_decode_opt_box_autoadd_profile_usage(
@@ -334,6 +398,14 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   ProfileUsage sse_decode_profile_usage(SseDeserializer deserializer);
+
+  @protected
+  ProviderKind sse_decode_provider_kind(SseDeserializer deserializer);
+
+  @protected
+  ProviderQuotaMetric sse_decode_provider_quota_metric(
+    SseDeserializer deserializer,
+  );
 
   @protected
   QuotaWindow sse_decode_quota_window(SseDeserializer deserializer);
@@ -383,6 +455,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_account_info(AccountInfo self, SseSerializer serializer);
 
   @protected
+  void sse_encode_balance_metric(BalanceMetric self, SseSerializer serializer);
+
+  @protected
   void sse_encode_bool(bool self, SseSerializer serializer);
 
   @protected
@@ -412,6 +487,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_box_autoadd_i_64(
     PlatformInt64 self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_mimo_credential(
+    MimoCredential self,
     SseSerializer serializer,
   );
 
@@ -482,6 +563,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_i_64(PlatformInt64 self, SseSerializer serializer);
 
   @protected
+  void sse_encode_list_balance_metric(
+    List<BalanceMetric> self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_list_daily_token_bucket(
     List<DailyTokenBucket> self,
     SseSerializer serializer,
@@ -499,6 +586,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_list_prim_u_8_strict(
     Uint8List self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_provider_quota_metric(
+    List<ProviderQuotaMetric> self,
     SseSerializer serializer,
   );
 
@@ -524,11 +617,29 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_login_state(LoginState self, SseSerializer serializer);
 
   @protected
+  void sse_encode_mimo_credential(
+    MimoCredential self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_mimo_login_result(
+    MimoLoginResult self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_opt_String(String? self, SseSerializer serializer);
 
   @protected
   void sse_encode_opt_box_autoadd_account_details(
     AccountDetails? self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_opt_box_autoadd_account_info(
+    AccountInfo? self,
     SseSerializer serializer,
   );
 
@@ -547,6 +658,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_opt_box_autoadd_i_64(
     PlatformInt64? self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_opt_box_autoadd_mimo_credential(
+    MimoCredential? self,
     SseSerializer serializer,
   );
 
@@ -576,6 +693,15 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_profile_usage(ProfileUsage self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_provider_kind(ProviderKind self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_provider_quota_metric(
+    ProviderQuotaMetric self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_quota_window(QuotaWindow self, SseSerializer serializer);

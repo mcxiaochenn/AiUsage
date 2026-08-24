@@ -4,6 +4,7 @@ import 'package:dynamic_color/dynamic_color.dart';
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
 import 'package:flutter/services.dart';
@@ -72,6 +73,11 @@ class _MonitorRouterState extends ConsumerState<_MonitorRouter>
       GoRoute(
         path: '/diagnostics',
         builder: (context, state) => const _DiagnosticsRoute(),
+      ),
+      GoRoute(
+        path: '/mimo-login',
+        builder: (context, state) =>
+            _MimoChallengePage(challengeUrl: state.extra! as String),
       ),
     ],
   );
@@ -393,6 +399,110 @@ class _DiagnosticsRoute extends ConsumerWidget {
   }
 }
 
+class _MimoChallengePage extends ConsumerStatefulWidget {
+  const _MimoChallengePage({required this.challengeUrl});
+
+  final String challengeUrl;
+
+  @override
+  ConsumerState<_MimoChallengePage> createState() => _MimoChallengePageState();
+}
+
+class _MimoChallengePageState extends ConsumerState<_MimoChallengePage> {
+  bool _capturing = false;
+  String? _error;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    return _SecondaryPageScaffold(
+      parentPath: '/accounts',
+      title: l10n.mimoChallengeTitle,
+      child: Column(
+        children: [
+          MaterialBanner(
+            content: Text(l10n.mimoChallengeMessage),
+            actions: const [SizedBox.shrink()],
+          ),
+          if (_capturing) const LinearProgressIndicator(),
+          if (_error != null)
+            Padding(
+              padding: const EdgeInsets.all(8),
+              child: Text(
+                _error!,
+                style: TextStyle(color: Theme.of(context).colorScheme.error),
+              ),
+            ),
+          Expanded(
+            child: InAppWebView(
+              initialUrlRequest: URLRequest(url: WebUri(widget.challengeUrl)),
+              initialSettings: InAppWebViewSettings(
+                javaScriptEnabled: true,
+                thirdPartyCookiesEnabled: true,
+                useShouldOverrideUrlLoading: true,
+              ),
+              shouldOverrideUrlLoading: (controller, action) async {
+                final uri = action.request.url;
+                if (uri == null) return NavigationActionPolicy.CANCEL;
+                if (uri.scheme == 'https' && _isAllowedMimoHost(uri.host)) {
+                  return NavigationActionPolicy.ALLOW;
+                }
+                await launchUrl(
+                  Uri.parse(uri.toString()),
+                  mode: LaunchMode.externalApplication,
+                );
+                return NavigationActionPolicy.CANCEL;
+              },
+              onLoadStop: (controller, url) async {
+                if (url?.host == 'platform.xiaomimimo.com') {
+                  await _captureSession();
+                }
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _captureSession() async {
+    if (_capturing) return;
+    setState(() {
+      _capturing = true;
+      _error = null;
+    });
+    try {
+      final manager = CookieManager.instance();
+      final accountCookies = await manager.getCookies(
+        url: WebUri('https://account.xiaomi.com/'),
+      );
+      final platformCookies = await manager.getCookies(
+        url: WebUri('https://platform.xiaomimimo.com/'),
+      );
+      String header(List<Cookie> cookies) =>
+          cookies.map((cookie) => '${cookie.name}=${cookie.value}').join('; ');
+      await ref
+          .read(appControllerProvider)
+          .completeMimoWebAccount(
+            accountCookie: header(accountCookies),
+            platformCookie: header(platformCookies),
+          );
+      if (mounted) _popOrGo(context, '/accounts');
+    } catch (error) {
+      if (mounted) setState(() => _error = error.toString());
+    } finally {
+      if (mounted) setState(() => _capturing = false);
+    }
+  }
+}
+
+bool _isAllowedMimoHost(String host) =>
+    host == 'account.xiaomi.com' ||
+    host.endsWith('.account.xiaomi.com') ||
+    host == 'platform.xiaomimimo.com' ||
+    host.endsWith('.xiaomimimo.com') ||
+    host == 'sts.api.io.mi.com';
+
 void _popOrGo(BuildContext context, String fallbackPath) {
   if (context.canPop()) {
     context.pop();
@@ -419,10 +529,18 @@ class _AccountDropdown extends StatelessWidget {
             .map(
               (account) => DropdownMenuItem(
                 value: account.identityHash,
-                child: Text(
-                  account.email ?? l10n.unknownAccount,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+                child: Row(
+                  children: [
+                    Icon(_providerIcon(account.provider), size: 18),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        _accountDisplayName(context, account),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             )
@@ -448,8 +566,8 @@ class DashboardPage extends ConsumerWidget {
     if (controller.accounts.isEmpty) {
       return _EmptyState(
         icon: Icons.monitor_heart_outlined,
-        title: l10n.addCodexAccount,
-        message: l10n.addCodexAccountMessage,
+        title: l10n.addAccount,
+        message: l10n.providerAccountsMessage,
         action: FilledButton.icon(
           onPressed: () => _showAddAccount(context),
           icon: const Icon(Icons.person_add_alt_1),
@@ -533,9 +651,7 @@ class _AccountHeader extends StatelessWidget {
             CircleAvatar(
               backgroundColor: colors.primary,
               foregroundColor: colors.onPrimary,
-              child: Text(
-                (snapshot.account.email ?? '?').characters.first.toUpperCase(),
-              ),
+              child: Icon(_providerIcon(snapshot.account.provider)),
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -543,10 +659,13 @@ class _AccountHeader extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    snapshot.account.email ?? l10n.unknownAccount,
+                    _providerAccountLabel(context, snapshot.account),
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
-                  Text(snapshot.account.plan ?? l10n.unknownPlan),
+                  Text(
+                    '${_providerLabel(context, snapshot.account.provider)} · '
+                    '${snapshot.account.plan ?? l10n.unknownPlan}',
+                  ),
                 ],
               ),
             ),
@@ -571,7 +690,9 @@ class _OverviewGrid extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final cards = <Widget>[
-      if (snapshot.windows.isEmpty)
+      if (snapshot.windows.isEmpty &&
+          snapshot.balances.isEmpty &&
+          snapshot.providerQuotas.isEmpty)
         Card(
           child: Padding(
             padding: const EdgeInsets.all(20),
@@ -580,6 +701,12 @@ class _OverviewGrid extends StatelessWidget {
         )
       else
         ...snapshot.windows.map((window) => _QuotaWindowCard(window: window)),
+      ..._balanceCards(
+        snapshot.balances,
+      ).map((metrics) => _ProviderBalanceCard(metrics: metrics)),
+      ...snapshot.providerQuotas.map(
+        (quota) => _ProviderQuotaCard(quota: quota),
+      ),
       if (snapshot.credits case final credits? when _shouldShowCredits(credits))
         _CreditsCard(credits: credits),
       if (showResetCredits && snapshot.resetCreditsAvailable != null)
@@ -666,6 +793,109 @@ class _QuotaWindowCard extends StatelessWidget {
       );
     },
   );
+}
+
+List<List<BalanceMetric>> _balanceCards(List<BalanceMetric> metrics) {
+  final grouped = <String, List<BalanceMetric>>{};
+  for (final metric in metrics) {
+    (grouped[metric.currency ?? ''] ??= []).add(metric);
+  }
+  return grouped.values.toList(growable: false);
+}
+
+class _ProviderBalanceCard extends StatelessWidget {
+  const _ProviderBalanceCard({required this.metrics});
+
+  final List<BalanceMetric> metrics;
+
+  @override
+  Widget build(BuildContext context) {
+    BalanceMetric? primary;
+    for (final metric in metrics) {
+      if (metric.primary) {
+        primary = metric;
+        break;
+      }
+    }
+    primary ??= metrics.isEmpty ? null : metrics.first;
+    final currency = primary?.currency ?? '';
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.account_balance_wallet_outlined),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    _balanceLabel(context, primary?.id ?? 'total'),
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Text(
+              '${primary?.amount ?? '—'}${currency.isEmpty ? '' : ' $currency'}',
+              style: Theme.of(context).textTheme.headlineSmall,
+            ),
+            const SizedBox(height: 8),
+            for (final metric in metrics.where((item) => !item.primary))
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Row(
+                  children: [
+                    Expanded(child: Text(_balanceLabel(context, metric.id))),
+                    Text(
+                      '${metric.amount}${currency.isEmpty ? '' : ' $currency'}',
+                    ),
+                  ],
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ProviderQuotaCard extends StatelessWidget {
+  const _ProviderQuotaCard({required this.quota});
+
+  final ProviderQuotaMetric quota;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final used = quota.usedPercent.clamp(0, 100).toDouble();
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              quota.id.startsWith('mimo:') ? l10n.tokenPlan : quota.title,
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            const SizedBox(height: 8),
+            Text(l10n.usedOfTotal(quota.used, quota.limit, quota.unit)),
+            const SizedBox(height: 12),
+            LinearProgressIndicator(value: used / 100, minHeight: 10),
+            const SizedBox(height: 8),
+            Text('${quota.remaining} ${quota.unit}'),
+            if (quota.expiresAt != null)
+              Text(l10n.expiresAt(_absoluteTime(context, quota.expiresAt!))),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 class _CreditsCard extends StatelessWidget {
@@ -789,13 +1019,11 @@ class AccountsPage extends ConsumerWidget {
           (account) => Card(
             child: ListTile(
               leading: CircleAvatar(
-                child: Text(
-                  (account.email ?? '?').characters.first.toUpperCase(),
-                ),
+                child: Icon(_providerIcon(account.provider)),
               ),
-              title: Text(account.email ?? l10n.unknownAccount),
+              title: Text(_accountDisplayName(context, account)),
               subtitle: Text(
-                '${account.plan ?? l10n.unknownPlan} · ${_loginStateLabel(context, account.loginState)}\n'
+                '${_providerLabel(context, account.provider)} · ${account.plan ?? l10n.unknownPlan} · ${_loginStateLabel(context, account.loginState)}\n'
                 '${l10n.lastSuccessfulRefresh(account.lastSuccessfulRefresh == null ? l10n.never : _absoluteTime(context, account.lastSuccessfulRefresh!))}\n'
                 '${l10n.credentialSource}: ${_credentialSourceLabel(context, account, demo: controller.demoMode)}',
               ),
@@ -944,8 +1172,12 @@ class _AccountDetailsPageState extends ConsumerState<AccountDetailsPage> {
           child: Column(
             children: [
               _DetailTile(
+                label: l10n.provider,
+                value: _providerLabel(context, account.provider),
+              ),
+              _DetailTile(
                 label: l10n.email,
-                value: account.email ?? l10n.unknownAccount,
+                value: account.email ?? account.displayName ?? l10n.unavailable,
               ),
               _DetailTile(
                 label: l10n.plan,
@@ -969,32 +1201,44 @@ class _AccountDetailsPageState extends ConsumerState<AccountDetailsPage> {
                     ? l10n.never
                     : _absoluteTime(context, account.lastSuccessfulRefresh!),
               ),
-              _DetailTile(
-                label: l10n.fedramp,
-                value: account.isFedramp ? l10n.yes : l10n.no,
-              ),
-              _DetailTile(
-                label: l10n.registrationTime,
-                value: details == null
-                    ? l10n.unavailable
-                    : _absoluteTime(context, details.createdAt),
-              ),
-              _DetailTile(
-                label: l10n.registeredDays,
-                value: registeredDays == null
-                    ? l10n.unavailable
-                    : l10n.daysCount(registeredDays.clamp(0, 1 << 30)),
-              ),
-              _DetailTile(
-                label: l10n.accountDetailsFetchedAt,
-                value: details == null
-                    ? l10n.unavailable
-                    : _absoluteTime(context, details.fetchedAt),
-              ),
+              if (account.provider == ProviderKind.codex) ...[
+                _DetailTile(
+                  label: l10n.fedramp,
+                  value: account.isFedramp ? l10n.yes : l10n.no,
+                ),
+                _DetailTile(
+                  label: l10n.registrationTime,
+                  value: details == null
+                      ? l10n.unavailable
+                      : _absoluteTime(context, details.createdAt),
+                ),
+                _DetailTile(
+                  label: l10n.registeredDays,
+                  value: registeredDays == null
+                      ? l10n.unavailable
+                      : l10n.daysCount(registeredDays.clamp(0, 1 << 30)),
+                ),
+                _DetailTile(
+                  label: l10n.accountDetailsFetchedAt,
+                  value: details == null
+                      ? l10n.unavailable
+                      : _absoluteTime(context, details.fetchedAt),
+                ),
+              ],
             ],
           ),
         ),
-        if (controller.accountDetailsLoading && details == null)
+        if (account.provider == ProviderKind.mimo)
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Text(
+              l10n.mimoInternalApiWarning,
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          ),
+        if (account.provider == ProviderKind.codex &&
+            controller.accountDetailsLoading &&
+            details == null)
           const LinearProgressIndicator(),
         if (controller.accountDetailsError != null)
           Card(
@@ -1062,7 +1306,8 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
   @override
   Widget build(BuildContext context) {
     final controller = ref.watch(appControllerProvider);
-    final selectedId = controller.selectedAccount?.identityHash;
+    final selected = controller.selectedAccount;
+    final selectedId = selected?.identityHash;
     if (!controller.demoMode &&
         selectedId != null &&
         selectedId != _requestedAccount) {
@@ -1073,6 +1318,13 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
     }
     final profile = controller.profileUsage;
     final l10n = AppLocalizations.of(context);
+    if (selected != null && selected.provider != ProviderKind.codex) {
+      return _EmptyState(
+        icon: Icons.query_stats_outlined,
+        title: _providerLabel(context, selected.provider),
+        message: l10n.providerNoHistory,
+      );
+    }
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
@@ -1831,6 +2083,35 @@ Future<void> _showDeviceLogin(BuildContext context) => showDialog<void>(
 
 Future<void> _showAddAccount(BuildContext context) async {
   final mobile = MediaQuery.sizeOf(context).width < 600;
+  final provider = mobile
+      ? await showModalBottomSheet<String>(
+          context: context,
+          showDragHandle: true,
+          builder: (context) => const _ProviderChoices(),
+        )
+      : await showDialog<String>(
+          context: context,
+          builder: (context) => SimpleDialog(
+            title: Text(AppLocalizations.of(context).chooseProvider),
+            children: const [_ProviderChoices()],
+          ),
+        );
+  if (!context.mounted || provider == null) return;
+  if (provider == 'deepseek') {
+    await showDialog<void>(
+      context: context,
+      builder: (context) => const _DeepSeekLoginDialog(),
+    );
+    return;
+  }
+  if (provider == 'mimo') {
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const _MimoLoginDialog(),
+    );
+    return;
+  }
   final method = mobile
       ? await showModalBottomSheet<String>(
           context: context,
@@ -1840,7 +2121,7 @@ Future<void> _showAddAccount(BuildContext context) async {
       : await showDialog<String>(
           context: context,
           builder: (context) => SimpleDialog(
-            title: Text(AppLocalizations.of(context).addAccount),
+            title: Text(AppLocalizations.of(context).providerCodex),
             children: const [_LoginMethodChoices()],
           ),
         );
@@ -1849,6 +2130,230 @@ Future<void> _showAddAccount(BuildContext context) async {
     await _showDeviceLogin(context);
   } else {
     await _importAuthJson(context);
+  }
+}
+
+class _ProviderChoices extends StatelessWidget {
+  const _ProviderChoices();
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        for (final provider in ProviderKind.values)
+          ListTile(
+            leading: Icon(_providerIcon(provider)),
+            title: Text(_providerLabel(context, provider)),
+            subtitle: provider == ProviderKind.mimo
+                ? Text(l10n.mimoInternalApiWarning)
+                : null,
+            onTap: () => Navigator.pop(context, provider.name.toLowerCase()),
+          ),
+        const SizedBox(height: 8),
+      ],
+    );
+  }
+}
+
+class _DeepSeekLoginDialog extends StatefulWidget {
+  const _DeepSeekLoginDialog();
+
+  @override
+  State<_DeepSeekLoginDialog> createState() => _DeepSeekLoginDialogState();
+}
+
+class _DeepSeekLoginDialogState extends State<_DeepSeekLoginDialog> {
+  final _key = TextEditingController();
+  final _alias = TextEditingController();
+  bool _saving = false;
+  String? _error;
+
+  @override
+  void dispose() {
+    _key.dispose();
+    _alias.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    return AlertDialog(
+      title: Text(l10n.addDeepSeek),
+      content: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 480),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: _key,
+              obscureText: true,
+              enableSuggestions: false,
+              autocorrect: false,
+              decoration: InputDecoration(labelText: l10n.deepSeekApiKey),
+            ),
+            TextField(
+              controller: _alias,
+              decoration: InputDecoration(labelText: l10n.accountAliasOptional),
+            ),
+            const SizedBox(height: 12),
+            Text(l10n.deepSeekKeyHint),
+            if (_error != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Text(
+                  _error!,
+                  style: TextStyle(color: Theme.of(context).colorScheme.error),
+                ),
+              ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _saving ? null : () => Navigator.pop(context),
+          child: Text(l10n.cancel),
+        ),
+        FilledButton(
+          onPressed: _saving ? null : _submit,
+          child: _saving
+              ? const SizedBox.square(
+                  dimension: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : Text(l10n.saveAndVerify),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _submit() async {
+    setState(() {
+      _saving = true;
+      _error = null;
+    });
+    try {
+      await ProviderScope.containerOf(context)
+          .read(appControllerProvider)
+          .addDeepSeekAccount(apiKey: _key.text, alias: _alias.text);
+      if (mounted) Navigator.pop(context);
+    } catch (error) {
+      if (mounted) setState(() => _error = error.toString());
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+}
+
+class _MimoLoginDialog extends StatefulWidget {
+  const _MimoLoginDialog();
+
+  @override
+  State<_MimoLoginDialog> createState() => _MimoLoginDialogState();
+}
+
+class _MimoLoginDialogState extends State<_MimoLoginDialog> {
+  final _username = TextEditingController();
+  final _password = TextEditingController();
+  bool _obscure = true;
+  bool _saving = false;
+  String? _error;
+
+  @override
+  void dispose() {
+    _username.dispose();
+    _password.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    return AlertDialog(
+      title: Text(l10n.addMimo),
+      content: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 480),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: _username,
+                keyboardType: TextInputType.emailAddress,
+                decoration: InputDecoration(labelText: l10n.mimoUsername),
+              ),
+              TextField(
+                controller: _password,
+                obscureText: _obscure,
+                enableSuggestions: false,
+                autocorrect: false,
+                decoration: InputDecoration(
+                  labelText: l10n.mimoPassword,
+                  suffixIcon: IconButton(
+                    onPressed: () => setState(() => _obscure = !_obscure),
+                    icon: Icon(
+                      _obscure ? Icons.visibility : Icons.visibility_off,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(l10n.mimoSecurityHint),
+              if (_error != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: Text(
+                    _error!,
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.error,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _saving ? null : () => Navigator.pop(context),
+          child: Text(l10n.cancel),
+        ),
+        FilledButton(
+          onPressed: _saving ? null : _submit,
+          child: _saving
+              ? const SizedBox.square(
+                  dimension: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : Text(l10n.saveAndVerify),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _submit() async {
+    setState(() {
+      _saving = true;
+      _error = null;
+    });
+    try {
+      final result = await ProviderScope.containerOf(context)
+          .read(appControllerProvider)
+          .beginMimoAccount(username: _username.text, password: _password.text);
+      _password.clear();
+      if (!mounted) return;
+      Navigator.pop(context);
+      if (result.challengeUrl != null) {
+        await context.push('/mimo-login', extra: result.challengeUrl!);
+      }
+    } catch (error) {
+      _password.clear();
+      if (mounted) setState(() => _error = error.toString());
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
   }
 }
 
@@ -1974,8 +2479,46 @@ String _credentialSourceLabel(
   return switch (account.credentialSource) {
     CredentialSource.deviceCode => l10n.credentialSourceDeviceCode,
     CredentialSource.authJson => l10n.credentialSourceAuthJson,
+    CredentialSource.apiKey => l10n.credentialSourceApiKey,
+    CredentialSource.xiaomiPassword => l10n.credentialSourceXiaomiPassword,
+    CredentialSource.xiaomiWeb => l10n.credentialSourceXiaomiWeb,
     CredentialSource.unknown => l10n.credentialSourceUnknown,
   };
+}
+
+String _providerLabel(BuildContext context, ProviderKind provider) =>
+    switch (provider) {
+      ProviderKind.codex => AppLocalizations.of(context).providerCodex,
+      ProviderKind.deepSeek => AppLocalizations.of(context).providerDeepSeek,
+      ProviderKind.mimo => AppLocalizations.of(context).providerMimo,
+    };
+
+IconData _providerIcon(ProviderKind provider) => switch (provider) {
+  ProviderKind.codex => Icons.auto_awesome,
+  ProviderKind.deepSeek => Icons.water_drop_outlined,
+  ProviderKind.mimo => Icons.memory_outlined,
+};
+
+String _accountDisplayName(BuildContext context, StoredAccount account) =>
+    account.displayName ??
+    account.email ??
+    _providerLabel(context, account.provider);
+
+String _providerAccountLabel(BuildContext context, AccountInfo account) =>
+    account.email ?? _providerLabel(context, account.provider);
+
+String _balanceLabel(BuildContext context, String id) {
+  final l10n = AppLocalizations.of(context);
+  if (id.endsWith(':total')) return l10n.totalBalance;
+  if (id.endsWith(':cash')) return l10n.cashBalance;
+  if (id.endsWith(':granted')) return l10n.grantedBalance;
+  if (id.endsWith(':topped-up')) return l10n.toppedUpBalance;
+  if (id.endsWith(':gift')) return l10n.giftBalance;
+  if (id.endsWith(':frozen')) return l10n.frozenBalance;
+  if (id.endsWith(':overdraft') || id.endsWith(':remaining-overdraft')) {
+    return l10n.overdraftLimit;
+  }
+  return l10n.totalBalance;
 }
 
 String _themeLabel(BuildContext context, ThemePreference value) =>

@@ -7,12 +7,14 @@ use reqwest::Client;
 use uuid::Uuid;
 
 use crate::api::codex::{ApiFailure, CodexProvider, HttpObservation};
+use crate::api::deepseek::{DeepSeekProvider, parse_balance};
+use crate::api::mimo::{MimoProvider, parse_balance as parse_mimo_balance, parse_token_plan};
 use crate::auth::{self, AuthError, DeviceCodePoll, PendingDeviceCode};
 use crate::history::HistoryRepository;
 use crate::models::{
     AccountDetails, AccountInfo, DeviceCodeLoginComplete, DeviceCodeLoginPoll,
-    DeviceCodeLoginStart, HistoryPoint, ProfileUsage, SecureCredential, SyncLogEntry, SyncTrigger,
-    UsageResult, UsageState,
+    DeviceCodeLoginStart, HistoryPoint, MimoCredential, MimoLoginResult, ProfileUsage,
+    ProviderKind, SecureCredential, SyncLogEntry, SyncTrigger, UsageResult, UsageState,
 };
 use crate::normalize::{
     RawWhamUsage, parse_account_details, parse_credit_details, parse_profile_usage,
@@ -23,13 +25,18 @@ static CORE: OnceLock<CoreService> = OnceLock::new();
 struct CoreService {
     history: Mutex<HistoryRepository>,
     provider: CodexProvider,
+    deepseek_provider: DeepSeekProvider,
+    mimo_provider: MimoProvider,
     oauth_client: Client,
     pending_device_logins: Mutex<HashMap<String, PendingDeviceCode>>,
+    mimo_sessions: tokio::sync::Mutex<HashMap<String, MimoCredential>>,
 }
 
 impl CoreService {
     fn create(database_path: &str) -> Result<Self, String> {
         let provider = CodexProvider::production()?;
+        let deepseek_provider = DeepSeekProvider::production()?;
+        let mimo_provider = MimoProvider::production()?;
         let oauth_client = Client::builder()
             .connect_timeout(std::time::Duration::from_secs(12))
             .timeout(std::time::Duration::from_secs(20))
@@ -38,10 +45,335 @@ impl CoreService {
         Ok(Self {
             history: Mutex::new(HistoryRepository::open(database_path)?),
             provider,
+            deepseek_provider,
+            mimo_provider,
             oauth_client,
             pending_device_logins: Mutex::new(HashMap::new()),
+            mimo_sessions: tokio::sync::Mutex::new(HashMap::new()),
         })
     }
+}
+
+pub async fn refresh_deepseek_usage(api_key: String, trigger: SyncTrigger) -> UsageResult {
+    let key = api_key.trim();
+    if key.is_empty() || key.contains(['\r', '\n']) {
+        return result_without_snapshot(
+            UsageState::AuthExpired,
+            "DeepSeek API key is invalid".to_string(),
+        );
+    }
+    let service = match core() {
+        Ok(service) => service,
+        Err(error) => return result_without_snapshot(UsageState::ServerError, error),
+    };
+    let identity_hash = auth::provider_identity_hash("deepseek", key);
+    let mut account = AccountInfo {
+        provider: ProviderKind::DeepSeek,
+        identity_hash: identity_hash.clone(),
+        email: None,
+        plan: Some("API".to_string()),
+        workspace_id: None,
+        is_fedramp: false,
+        login_state: crate::models::LoginState::SignedIn,
+        last_successful_refresh: None,
+        credential_status: crate::models::CredentialStatus::Available,
+    };
+    let observation = service.deepseek_provider.balance_json(key).await;
+    if let Some(failure) = observation.failure.as_ref() {
+        record_observation(
+            service,
+            &identity_hash,
+            trigger,
+            &observation,
+            api_failure_label(failure),
+        );
+        return cached_failure(
+            service,
+            account,
+            api_failure_state(failure),
+            provider_failure_message("DeepSeek", failure),
+            None,
+            retry_after(failure),
+        );
+    }
+    let fetched_at = auth::now_unix();
+    let (available, balances, partial) = match parse_balance(&observation.body) {
+        Ok(value) => value,
+        Err(error) => {
+            record_observation_with_error_kind(
+                service,
+                &identity_hash,
+                trigger,
+                &observation,
+                "parse_error",
+                Some("schema_mismatch"),
+            );
+            return cached_failure(service, account, UsageState::ParseError, error, None, None);
+        }
+    };
+    account.last_successful_refresh = Some(fetched_at);
+    let snapshot = crate::models::UsageSnapshot {
+        account,
+        windows: Vec::new(),
+        balances,
+        provider_quotas: Vec::new(),
+        reset_credits_available: None,
+        reset_credits: None,
+        credits: None,
+        fetched_at,
+    };
+    let cache_error = service
+        .history
+        .lock()
+        .map_err(|_| "Quota history is unavailable".to_string())
+        .and_then(|mut history| history.record_snapshot(&snapshot))
+        .err();
+    record_observation(
+        service,
+        &identity_hash,
+        trigger,
+        &observation,
+        if partial { "partial" } else { "fresh" },
+    );
+    UsageResult {
+        snapshot: Some(snapshot),
+        state: UsageState::Fresh,
+        showing_cached_data: false,
+        message: cache_error.or_else(|| {
+            partial
+                .then(|| "Some DeepSeek balance entries were ignored".to_string())
+                .or_else(|| {
+                    (!available).then(|| "DeepSeek reports this account unavailable".to_string())
+                })
+        }),
+        retry_after_seconds: None,
+        updated_credential: None,
+        updated_mimo_credential: None,
+    }
+}
+
+pub async fn begin_mimo_login(
+    username: String,
+    password: String,
+) -> Result<MimoLoginResult, String> {
+    core()?.mimo_provider.login(username, password).await
+}
+
+pub fn complete_mimo_web_login(
+    account_cookie: String,
+    platform_cookie: String,
+) -> Result<MimoLoginResult, String> {
+    core()?
+        .mimo_provider
+        .credential_from_web_cookies(&account_cookie, &platform_cookie)
+}
+
+pub async fn refresh_mimo_usage(credential: MimoCredential, trigger: SyncTrigger) -> UsageResult {
+    let service = match core() {
+        Ok(service) => service,
+        Err(error) => return result_without_snapshot(UsageState::ServerError, error),
+    };
+    let identity_hash = auth::provider_identity_hash("mimo", &credential.user_id);
+    let mut effective = credential;
+    let mut updated = None;
+    let mut balance_observation = service.mimo_provider.balance_json(&effective).await;
+    if matches!(balance_observation.failure, Some(ApiFailure::Unauthorized)) {
+        // Serialize renewal per process. A second foreground/background caller
+        // first reuses the session produced by the first one instead of
+        // performing another SSO exchange.
+        let mut sessions = service.mimo_sessions.lock().await;
+        if let Some(current) = sessions.get(&identity_hash).cloned() {
+            let current_observation = service.mimo_provider.balance_json(&current).await;
+            if current_observation.failure.is_none() {
+                effective = current.clone();
+                updated = Some(current);
+                balance_observation = current_observation;
+            }
+        }
+        if matches!(balance_observation.failure, Some(ApiFailure::Unauthorized)) {
+            match service.mimo_provider.renew(&effective).await {
+                Ok(value) => {
+                    effective = value.clone();
+                    sessions.insert(identity_hash.clone(), value.clone());
+                    updated = Some(value);
+                    balance_observation = service.mimo_provider.balance_json(&effective).await;
+                }
+                Err(_) => {
+                    drop(sessions);
+                    record_observation(
+                        service,
+                        &identity_hash,
+                        trigger,
+                        &balance_observation,
+                        "reauthentication_required",
+                    );
+                    return cached_mimo_failure(
+                        service,
+                        mimo_account(&effective.user_id, None),
+                        UsageState::AuthExpired,
+                        "MiMo requires interactive sign-in".to_string(),
+                        None,
+                    );
+                }
+            }
+        }
+        drop(sessions);
+    }
+    let detail_observation = service
+        .mimo_provider
+        .token_plan_detail_json(&effective)
+        .await;
+    let usage_observation = service
+        .mimo_provider
+        .token_plan_usage_json(&effective)
+        .await;
+
+    let balances = if balance_observation.failure.is_none() {
+        parse_mimo_balance(&balance_observation.body).ok()
+    } else {
+        None
+    };
+    let quotas = if usage_observation.failure.is_none() {
+        parse_token_plan(
+            detail_observation
+                .failure
+                .is_none()
+                .then_some(detail_observation.body.as_str()),
+            &usage_observation.body,
+        )
+        .ok()
+    } else {
+        None
+    };
+
+    record_mimo_observation(
+        service,
+        &identity_hash,
+        trigger,
+        &balance_observation,
+        balances.is_some(),
+    );
+    record_mimo_observation(
+        service,
+        &identity_hash,
+        trigger,
+        &detail_observation,
+        detail_observation.failure.is_none(),
+    );
+    record_mimo_observation(
+        service,
+        &identity_hash,
+        trigger,
+        &usage_observation,
+        quotas.is_some(),
+    );
+
+    if balances.is_none() && quotas.is_none() {
+        let failure = balance_observation
+            .failure
+            .as_ref()
+            .or(usage_observation.failure.as_ref());
+        let state = failure
+            .map(api_failure_state)
+            .unwrap_or(UsageState::ParseError);
+        let message = failure
+            .map(|failure| provider_failure_message("MiMo", failure))
+            .unwrap_or_else(|| "MiMo response could not be decoded".to_string());
+        return cached_mimo_failure(
+            service,
+            mimo_account(&effective.user_id, None),
+            state,
+            message,
+            updated,
+        );
+    }
+
+    let fetched_at = auth::now_unix();
+    let mut account = mimo_account(&effective.user_id, Some(fetched_at));
+    account.credential_status = crate::models::CredentialStatus::Available;
+    let partial = balances.is_none() || quotas.is_none();
+    let snapshot = crate::models::UsageSnapshot {
+        account,
+        windows: Vec::new(),
+        balances: balances.unwrap_or_default(),
+        provider_quotas: quotas.unwrap_or_default(),
+        reset_credits_available: None,
+        reset_credits: None,
+        credits: None,
+        fetched_at,
+    };
+    let cache_error = service
+        .history
+        .lock()
+        .map_err(|_| "Quota history is unavailable".to_string())
+        .and_then(|mut history| history.record_snapshot(&snapshot))
+        .err();
+    UsageResult {
+        snapshot: Some(snapshot),
+        state: UsageState::Fresh,
+        showing_cached_data: false,
+        message: cache_error.or_else(|| {
+            partial.then(|| "Some MiMo account data is temporarily unavailable".to_string())
+        }),
+        retry_after_seconds: None,
+        updated_credential: None,
+        updated_mimo_credential: updated,
+    }
+}
+
+fn mimo_account(user_id: &str, refreshed_at: Option<i64>) -> AccountInfo {
+    AccountInfo {
+        provider: ProviderKind::Mimo,
+        identity_hash: auth::provider_identity_hash("mimo", user_id),
+        email: None,
+        plan: Some("MiMo".to_string()),
+        workspace_id: None,
+        is_fedramp: false,
+        login_state: crate::models::LoginState::SignedIn,
+        last_successful_refresh: refreshed_at,
+        credential_status: crate::models::CredentialStatus::Available,
+    }
+}
+
+fn cached_mimo_failure(
+    service: &CoreService,
+    account: AccountInfo,
+    state: UsageState,
+    message: String,
+    updated_mimo_credential: Option<MimoCredential>,
+) -> UsageResult {
+    let snapshot = service
+        .history
+        .lock()
+        .ok()
+        .and_then(|history| history.latest_snapshot(&account).ok())
+        .flatten();
+    UsageResult {
+        showing_cached_data: snapshot.is_some(),
+        snapshot,
+        state,
+        message: Some(message),
+        retry_after_seconds: None,
+        updated_credential: None,
+        updated_mimo_credential,
+    }
+}
+
+fn record_mimo_observation(
+    service: &CoreService,
+    identity_hash: &str,
+    trigger: SyncTrigger,
+    observation: &HttpObservation,
+    parsed: bool,
+) {
+    let (state, error) = if let Some(failure) = observation.failure.as_ref() {
+        (api_failure_label(failure), Some(api_failure_label(failure)))
+    } else if parsed {
+        ("fresh", None)
+    } else {
+        ("parse_error", Some("schema_mismatch"))
+    };
+    record_observation_with_error_kind(service, identity_hash, trigger, observation, state, error);
 }
 
 pub fn initialize(database_path: String) -> Result<(), String> {
@@ -296,6 +628,7 @@ pub async fn refresh_usage(credential: SecureCredential, trigger: SyncTrigger) -
         message: history_message,
         retry_after_seconds: None,
         updated_credential,
+        updated_mimo_credential: None,
     }
 }
 
@@ -391,6 +724,7 @@ pub fn cached_usage(account: AccountInfo) -> Result<UsageResult, String> {
         message: None,
         retry_after_seconds: None,
         updated_credential: None,
+        updated_mimo_credential: None,
     })
 }
 
@@ -549,6 +883,7 @@ fn cached_failure(
         message: Some(message),
         retry_after_seconds,
         updated_credential,
+        updated_mimo_credential: None,
     }
 }
 
@@ -564,6 +899,7 @@ fn result_without_snapshot(state: UsageState, message: String) -> UsageResult {
         message: Some(message),
         retry_after_seconds: None,
         updated_credential: None,
+        updated_mimo_credential: None,
     }
 }
 
@@ -598,6 +934,19 @@ fn api_failure_message(failure: &ApiFailure) -> String {
         ApiFailure::Server => "OpenAI service is temporarily unavailable".to_string(),
         ApiFailure::Offline => "Unable to reach OpenAI".to_string(),
         ApiFailure::Other => "OpenAI rejected the Usage request".to_string(),
+    }
+}
+
+fn provider_failure_message(provider: &str, failure: &ApiFailure) -> String {
+    match failure {
+        ApiFailure::Unauthorized => format!("{provider} rejected the credential"),
+        ApiFailure::RateLimited(Some(seconds)) => {
+            format!("{provider} rate limited this request; retry after {seconds}s")
+        }
+        ApiFailure::RateLimited(None) => format!("{provider} rate limited this request"),
+        ApiFailure::Server => format!("{provider} is temporarily unavailable"),
+        ApiFailure::Offline => format!("Unable to reach {provider}"),
+        ApiFailure::Other => format!("{provider} rejected the request"),
     }
 }
 
@@ -637,8 +986,11 @@ mod tests {
         CoreService {
             history: Mutex::new(HistoryRepository::open(":memory:").unwrap()),
             provider: CodexProvider::production().unwrap(),
+            deepseek_provider: DeepSeekProvider::production().unwrap(),
+            mimo_provider: MimoProvider::production().unwrap(),
             oauth_client: Client::new(),
             pending_device_logins: Mutex::new(HashMap::new()),
+            mimo_sessions: tokio::sync::Mutex::new(HashMap::new()),
         }
     }
 
@@ -672,6 +1024,7 @@ mod tests {
     #[test]
     fn a_refresh_failure_keeps_the_last_sqlite_snapshot() {
         let account = AccountInfo {
+            provider: crate::models::ProviderKind::Codex,
             identity_hash: "account-hash".to_string(),
             email: Some("user@example.com".to_string()),
             plan: Some("pro".to_string()),
@@ -690,6 +1043,8 @@ mod tests {
                 reset_at: 1_700_000_100,
                 window_seconds: 3600,
             }],
+            balances: Vec::new(),
+            provider_quotas: Vec::new(),
             reset_credits_available: None,
             reset_credits: None,
             credits: None,
@@ -700,8 +1055,11 @@ mod tests {
         let service = CoreService {
             history: Mutex::new(history),
             provider: CodexProvider::production().unwrap(),
+            deepseek_provider: DeepSeekProvider::production().unwrap(),
+            mimo_provider: MimoProvider::production().unwrap(),
             oauth_client: Client::new(),
             pending_device_logins: Mutex::new(HashMap::new()),
+            mimo_sessions: tokio::sync::Mutex::new(HashMap::new()),
         };
 
         let result = cached_failure(

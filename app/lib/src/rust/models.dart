@@ -33,6 +33,7 @@ class AccountDetails {
 /// Non-secret account metadata. `identity_hash` is the only account identifier
 /// written to SQLite; it is a SHA-256 digest derived from JWT claims.
 class AccountInfo {
+  final ProviderKind provider;
   final String identityHash;
   final String? email;
   final String? plan;
@@ -43,6 +44,7 @@ class AccountInfo {
   final CredentialStatus credentialStatus;
 
   const AccountInfo({
+    required this.provider,
     required this.identityHash,
     this.email,
     this.plan,
@@ -55,6 +57,7 @@ class AccountInfo {
 
   @override
   int get hashCode =>
+      provider.hashCode ^
       identityHash.hashCode ^
       email.hashCode ^
       plan.hashCode ^
@@ -69,6 +72,7 @@ class AccountInfo {
       identical(this, other) ||
       other is AccountInfo &&
           runtimeType == other.runtimeType &&
+          provider == other.provider &&
           identityHash == other.identityHash &&
           email == other.email &&
           plan == other.plan &&
@@ -77,6 +81,41 @@ class AccountInfo {
           loginState == other.loginState &&
           lastSuccessfulRefresh == other.lastSuccessfulRefresh &&
           credentialStatus == other.credentialStatus;
+}
+
+class BalanceMetric {
+  final String id;
+  final String label;
+  final String amount;
+  final String? currency;
+  final bool primary;
+
+  const BalanceMetric({
+    required this.id,
+    required this.label,
+    required this.amount,
+    this.currency,
+    required this.primary,
+  });
+
+  @override
+  int get hashCode =>
+      id.hashCode ^
+      label.hashCode ^
+      amount.hashCode ^
+      currency.hashCode ^
+      primary.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is BalanceMetric &&
+          runtimeType == other.runtimeType &&
+          id == other.id &&
+          label == other.label &&
+          amount == other.amount &&
+          currency == other.currency &&
+          primary == other.primary;
 }
 
 enum CredentialStatus { available, missing, refreshRequired }
@@ -221,6 +260,62 @@ class HistoryPoint {
 
 enum LoginState { signedIn, signedOut, expired }
 
+class MimoCredential {
+  final String userId;
+  final String passToken;
+  final String serviceToken;
+  final String serviceSlh;
+  final String servicePh;
+
+  const MimoCredential({
+    required this.userId,
+    required this.passToken,
+    required this.serviceToken,
+    required this.serviceSlh,
+    required this.servicePh,
+  });
+
+  @override
+  int get hashCode =>
+      userId.hashCode ^
+      passToken.hashCode ^
+      serviceToken.hashCode ^
+      serviceSlh.hashCode ^
+      servicePh.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is MimoCredential &&
+          runtimeType == other.runtimeType &&
+          userId == other.userId &&
+          passToken == other.passToken &&
+          serviceToken == other.serviceToken &&
+          serviceSlh == other.serviceSlh &&
+          servicePh == other.servicePh;
+}
+
+class MimoLoginResult {
+  final AccountInfo? account;
+  final MimoCredential? credential;
+  final String? challengeUrl;
+
+  const MimoLoginResult({this.account, this.credential, this.challengeUrl});
+
+  @override
+  int get hashCode =>
+      account.hashCode ^ credential.hashCode ^ challengeUrl.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is MimoLoginResult &&
+          runtimeType == other.runtimeType &&
+          account == other.account &&
+          credential == other.credential &&
+          challengeUrl == other.challengeUrl;
+}
+
 class ProfileUsage {
   final TokenUsageSummary summary;
   final List<DailyTokenBucket> dailyUsageBuckets;
@@ -244,6 +339,55 @@ class ProfileUsage {
           summary == other.summary &&
           dailyUsageBuckets == other.dailyUsageBuckets &&
           fetchedAt == other.fetchedAt;
+}
+
+enum ProviderKind { codex, deepSeek, mimo }
+
+class ProviderQuotaMetric {
+  final String id;
+  final String title;
+  final String used;
+  final String limit;
+  final String remaining;
+  final double usedPercent;
+  final PlatformInt64? expiresAt;
+  final String unit;
+
+  const ProviderQuotaMetric({
+    required this.id,
+    required this.title,
+    required this.used,
+    required this.limit,
+    required this.remaining,
+    required this.usedPercent,
+    this.expiresAt,
+    required this.unit,
+  });
+
+  @override
+  int get hashCode =>
+      id.hashCode ^
+      title.hashCode ^
+      used.hashCode ^
+      limit.hashCode ^
+      remaining.hashCode ^
+      usedPercent.hashCode ^
+      expiresAt.hashCode ^
+      unit.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is ProviderQuotaMetric &&
+          runtimeType == other.runtimeType &&
+          id == other.id &&
+          title == other.title &&
+          used == other.used &&
+          limit == other.limit &&
+          remaining == other.remaining &&
+          usedPercent == other.usedPercent &&
+          expiresAt == other.expiresAt &&
+          unit == other.unit;
 }
 
 class QuotaWindow {
@@ -452,6 +596,7 @@ class UsageResult {
   /// replace its secure-storage value atomically and must never place this in
   /// SQLite or logs.
   final SecureCredential? updatedCredential;
+  final MimoCredential? updatedMimoCredential;
 
   const UsageResult({
     this.snapshot,
@@ -460,6 +605,7 @@ class UsageResult {
     this.message,
     this.retryAfterSeconds,
     this.updatedCredential,
+    this.updatedMimoCredential,
   });
 
   @override
@@ -469,7 +615,8 @@ class UsageResult {
       showingCachedData.hashCode ^
       message.hashCode ^
       retryAfterSeconds.hashCode ^
-      updatedCredential.hashCode;
+      updatedCredential.hashCode ^
+      updatedMimoCredential.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -481,12 +628,15 @@ class UsageResult {
           showingCachedData == other.showingCachedData &&
           message == other.message &&
           retryAfterSeconds == other.retryAfterSeconds &&
-          updatedCredential == other.updatedCredential;
+          updatedCredential == other.updatedCredential &&
+          updatedMimoCredential == other.updatedMimoCredential;
 }
 
 class UsageSnapshot {
   final AccountInfo account;
   final List<QuotaWindow> windows;
+  final List<BalanceMetric> balances;
+  final List<ProviderQuotaMetric> providerQuotas;
   final PlatformInt64? resetCreditsAvailable;
   final List<ResetCredit>? resetCredits;
   final CreditsSnapshot? credits;
@@ -495,6 +645,8 @@ class UsageSnapshot {
   const UsageSnapshot({
     required this.account,
     required this.windows,
+    required this.balances,
+    required this.providerQuotas,
     this.resetCreditsAvailable,
     this.resetCredits,
     this.credits,
@@ -505,6 +657,8 @@ class UsageSnapshot {
   int get hashCode =>
       account.hashCode ^
       windows.hashCode ^
+      balances.hashCode ^
+      providerQuotas.hashCode ^
       resetCreditsAvailable.hashCode ^
       resetCredits.hashCode ^
       credits.hashCode ^
@@ -517,6 +671,8 @@ class UsageSnapshot {
           runtimeType == other.runtimeType &&
           account == other.account &&
           windows == other.windows &&
+          balances == other.balances &&
+          providerQuotas == other.providerQuotas &&
           resetCreditsAvailable == other.resetCreditsAvailable &&
           resetCredits == other.resetCredits &&
           credits == other.credits &&

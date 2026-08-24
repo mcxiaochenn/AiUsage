@@ -631,4 +631,114 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get syncPageLoad => 'Page load';
+
+  @override
+  String get chooseProvider => 'Choose provider';
+
+  @override
+  String get provider => 'Provider';
+
+  @override
+  String get providerCodex => 'OpenAI Codex';
+
+  @override
+  String get providerDeepSeek => 'DeepSeek';
+
+  @override
+  String get providerMimo => 'Xiaomi MiMo';
+
+  @override
+  String get providerAccountsMessage =>
+      'Monitor Codex quotas, DeepSeek balances, or Xiaomi MiMo balances and Token Plans.';
+
+  @override
+  String get deepSeekApiKey => 'DeepSeek API Key';
+
+  @override
+  String get accountAliasOptional => 'Alias (optional)';
+
+  @override
+  String get deepSeekKeyHint =>
+      'The key is validated with DeepSeek\'s official balance API and stored only in the system keychain.';
+
+  @override
+  String get addDeepSeek => 'Add DeepSeek account';
+
+  @override
+  String get mimoUsername => 'Xiaomi account';
+
+  @override
+  String get mimoPassword => 'Password';
+
+  @override
+  String get mimoSecurityHint =>
+      'The password is used once and never stored. AiUsage stores a Xiaomi session token with account-level sign-in privileges.';
+
+  @override
+  String get addMimo => 'Add Xiaomi MiMo account';
+
+  @override
+  String get mimoChallengeTitle => 'Complete Xiaomi verification';
+
+  @override
+  String get mimoChallengeMessage =>
+      'Finish CAPTCHA, SMS, or MFA on Xiaomi\'s official page. AiUsage does not bypass account protection.';
+
+  @override
+  String get mimoLoginIncomplete =>
+      'Xiaomi sign-in did not return a usable MiMo session.';
+
+  @override
+  String get saveAndVerify => 'Verify and save';
+
+  @override
+  String get totalBalance => 'Total balance';
+
+  @override
+  String get cashBalance => 'Cash balance';
+
+  @override
+  String get grantedBalance => 'Granted balance';
+
+  @override
+  String get toppedUpBalance => 'Topped-up balance';
+
+  @override
+  String get giftBalance => 'Gift balance';
+
+  @override
+  String get frozenBalance => 'Frozen balance';
+
+  @override
+  String get overdraftLimit => 'Overdraft limit';
+
+  @override
+  String get tokenPlan => 'Token Plan';
+
+  @override
+  String usedOfTotal(String used, String total, String unit) {
+    return '$used of $total $unit used';
+  }
+
+  @override
+  String expiresAt(String time) {
+    return 'Expires $time';
+  }
+
+  @override
+  String get providerNoHistory =>
+      'This provider does not currently expose Token history.';
+
+  @override
+  String get mimoInternalApiWarning =>
+      'MiMo data uses an undocumented console API that may change without notice.';
+
+  @override
+  String get credentialSourceApiKey => 'API Key';
+
+  @override
+  String get credentialSourceXiaomiPassword => 'Xiaomi password sign-in';
+
+  @override
+  String get credentialSourceXiaomiWeb => 'Xiaomi official web verification';
 }

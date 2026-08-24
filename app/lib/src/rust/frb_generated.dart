@@ -66,7 +66,7 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
   String get codegenVersion => '2.12.0';
 
   @override
-  int get rustContentHash => 1874095919;
+  int get rustContentHash => -1885322832;
 
   static const kDefaultExternalLibraryLoaderConfig =
       ExternalLibraryLoaderConfig(
@@ -79,6 +79,11 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
 
 abstract class RustLibApi extends BaseApi {
   Future<DeviceCodeLoginStart> crateApiApplicationBeginDeviceLogin();
+
+  Future<MimoLoginResult> crateApiApplicationBeginMimoLogin({
+    required String username,
+    required String password,
+  });
 
   Future<AccountDetails?> crateApiApplicationCachedAccountDetails({
     required String accountIdentityHash,
@@ -93,6 +98,11 @@ abstract class RustLibApi extends BaseApi {
   });
 
   Future<void> crateApiApplicationCancelDeviceLogin({required String loginId});
+
+  Future<MimoLoginResult> crateApiApplicationCompleteMimoWebLogin({
+    required String accountCookie,
+    required String platformCookie,
+  });
 
   Future<AccountDetails> crateApiApplicationFetchAccountDetails({
     required SecureCredential credential,
@@ -116,6 +126,16 @@ abstract class RustLibApi extends BaseApi {
 
   Future<DeviceCodeLoginPoll> crateApiApplicationPollDeviceLogin({
     required String loginId,
+  });
+
+  Future<UsageResult> crateApiApplicationRefreshDeepseekUsage({
+    required String apiKey,
+    required SyncTrigger trigger,
+  });
+
+  Future<UsageResult> crateApiApplicationRefreshMimoUsage({
+    required MimoCredential credential,
+    required SyncTrigger trigger,
   });
 
   Future<UsageResult> crateApiApplicationRefreshUsage({
@@ -171,6 +191,41 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       const TaskConstMeta(debugName: "begin_device_login", argNames: []);
 
   @override
+  Future<MimoLoginResult> crateApiApplicationBeginMimoLogin({
+    required String username,
+    required String password,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_String(username, serializer);
+          sse_encode_String(password, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 2,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_mimo_login_result,
+          decodeErrorData: sse_decode_String,
+        ),
+        constMeta: kCrateApiApplicationBeginMimoLoginConstMeta,
+        argValues: [username, password],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiApplicationBeginMimoLoginConstMeta =>
+      const TaskConstMeta(
+        debugName: "begin_mimo_login",
+        argNames: ["username", "password"],
+      );
+
+  @override
   Future<AccountDetails?> crateApiApplicationCachedAccountDetails({
     required String accountIdentityHash,
   }) {
@@ -182,7 +237,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 2,
+            funcId: 3,
             port: port_,
           );
         },
@@ -215,7 +270,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 3,
+            funcId: 4,
             port: port_,
           );
         },
@@ -248,7 +303,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 4,
+            funcId: 5,
             port: port_,
           );
         },
@@ -276,7 +331,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 5,
+            funcId: 6,
             port: port_,
           );
         },
@@ -298,6 +353,41 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       );
 
   @override
+  Future<MimoLoginResult> crateApiApplicationCompleteMimoWebLogin({
+    required String accountCookie,
+    required String platformCookie,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_String(accountCookie, serializer);
+          sse_encode_String(platformCookie, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 7,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_mimo_login_result,
+          decodeErrorData: sse_decode_String,
+        ),
+        constMeta: kCrateApiApplicationCompleteMimoWebLoginConstMeta,
+        argValues: [accountCookie, platformCookie],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiApplicationCompleteMimoWebLoginConstMeta =>
+      const TaskConstMeta(
+        debugName: "complete_mimo_web_login",
+        argNames: ["accountCookie", "platformCookie"],
+      );
+
+  @override
   Future<AccountDetails> crateApiApplicationFetchAccountDetails({
     required SecureCredential credential,
     required SyncTrigger trigger,
@@ -311,7 +401,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 6,
+            funcId: 8,
             port: port_,
           );
         },
@@ -346,7 +436,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 7,
+            funcId: 9,
             port: port_,
           );
         },
@@ -379,7 +469,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 8,
+            funcId: 10,
             port: port_,
           );
         },
@@ -412,7 +502,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 9,
+            funcId: 11,
             port: port_,
           );
         },
@@ -442,7 +532,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 10,
+            funcId: 12,
             port: port_,
           );
         },
@@ -472,7 +562,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 11,
+            funcId: 13,
             port: port_,
           );
         },
@@ -494,6 +584,76 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       );
 
   @override
+  Future<UsageResult> crateApiApplicationRefreshDeepseekUsage({
+    required String apiKey,
+    required SyncTrigger trigger,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_String(apiKey, serializer);
+          sse_encode_sync_trigger(trigger, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 14,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_usage_result,
+          decodeErrorData: null,
+        ),
+        constMeta: kCrateApiApplicationRefreshDeepseekUsageConstMeta,
+        argValues: [apiKey, trigger],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiApplicationRefreshDeepseekUsageConstMeta =>
+      const TaskConstMeta(
+        debugName: "refresh_deepseek_usage",
+        argNames: ["apiKey", "trigger"],
+      );
+
+  @override
+  Future<UsageResult> crateApiApplicationRefreshMimoUsage({
+    required MimoCredential credential,
+    required SyncTrigger trigger,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_box_autoadd_mimo_credential(credential, serializer);
+          sse_encode_sync_trigger(trigger, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 15,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_usage_result,
+          decodeErrorData: null,
+        ),
+        constMeta: kCrateApiApplicationRefreshMimoUsageConstMeta,
+        argValues: [credential, trigger],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiApplicationRefreshMimoUsageConstMeta =>
+      const TaskConstMeta(
+        debugName: "refresh_mimo_usage",
+        argNames: ["credential", "trigger"],
+      );
+
+  @override
   Future<UsageResult> crateApiApplicationRefreshUsage({
     required SecureCredential credential,
     required SyncTrigger trigger,
@@ -507,7 +667,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 12,
+            funcId: 16,
             port: port_,
           );
         },
@@ -540,7 +700,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 13,
+            funcId: 17,
             port: port_,
           );
         },
@@ -570,7 +730,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 14,
+            funcId: 18,
             port: port_,
           );
         },
@@ -602,7 +762,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 15,
+            funcId: 19,
             port: port_,
           );
         },
@@ -646,17 +806,33 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   AccountInfo dco_decode_account_info(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
-    if (arr.length != 8)
-      throw Exception('unexpected arr length: expect 8 but see ${arr.length}');
+    if (arr.length != 9)
+      throw Exception('unexpected arr length: expect 9 but see ${arr.length}');
     return AccountInfo(
-      identityHash: dco_decode_String(arr[0]),
-      email: dco_decode_opt_String(arr[1]),
-      plan: dco_decode_opt_String(arr[2]),
-      workspaceId: dco_decode_opt_String(arr[3]),
-      isFedramp: dco_decode_bool(arr[4]),
-      loginState: dco_decode_login_state(arr[5]),
-      lastSuccessfulRefresh: dco_decode_opt_box_autoadd_i_64(arr[6]),
-      credentialStatus: dco_decode_credential_status(arr[7]),
+      provider: dco_decode_provider_kind(arr[0]),
+      identityHash: dco_decode_String(arr[1]),
+      email: dco_decode_opt_String(arr[2]),
+      plan: dco_decode_opt_String(arr[3]),
+      workspaceId: dco_decode_opt_String(arr[4]),
+      isFedramp: dco_decode_bool(arr[5]),
+      loginState: dco_decode_login_state(arr[6]),
+      lastSuccessfulRefresh: dco_decode_opt_box_autoadd_i_64(arr[7]),
+      credentialStatus: dco_decode_credential_status(arr[8]),
+    );
+  }
+
+  @protected
+  BalanceMetric dco_decode_balance_metric(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 5)
+      throw Exception('unexpected arr length: expect 5 but see ${arr.length}');
+    return BalanceMetric(
+      id: dco_decode_String(arr[0]),
+      label: dco_decode_String(arr[1]),
+      amount: dco_decode_String(arr[2]),
+      currency: dco_decode_opt_String(arr[3]),
+      primary: dco_decode_bool(arr[4]),
     );
   }
 
@@ -696,6 +872,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   PlatformInt64 dco_decode_box_autoadd_i_64(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return dco_decode_i_64(raw);
+  }
+
+  @protected
+  MimoCredential dco_decode_box_autoadd_mimo_credential(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return dco_decode_mimo_credential(raw);
   }
 
   @protected
@@ -817,6 +999,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  List<BalanceMetric> dco_decode_list_balance_metric(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return (raw as List<dynamic>).map(dco_decode_balance_metric).toList();
+  }
+
+  @protected
   List<DailyTokenBucket> dco_decode_list_daily_token_bucket(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return (raw as List<dynamic>).map(dco_decode_daily_token_bucket).toList();
@@ -838,6 +1026,14 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   Uint8List dco_decode_list_prim_u_8_strict(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return raw as Uint8List;
+  }
+
+  @protected
+  List<ProviderQuotaMetric> dco_decode_list_provider_quota_metric(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return (raw as List<dynamic>)
+        .map(dco_decode_provider_quota_metric)
+        .toList();
   }
 
   @protected
@@ -865,6 +1061,34 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  MimoCredential dco_decode_mimo_credential(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 5)
+      throw Exception('unexpected arr length: expect 5 but see ${arr.length}');
+    return MimoCredential(
+      userId: dco_decode_String(arr[0]),
+      passToken: dco_decode_String(arr[1]),
+      serviceToken: dco_decode_String(arr[2]),
+      serviceSlh: dco_decode_String(arr[3]),
+      servicePh: dco_decode_String(arr[4]),
+    );
+  }
+
+  @protected
+  MimoLoginResult dco_decode_mimo_login_result(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 3)
+      throw Exception('unexpected arr length: expect 3 but see ${arr.length}');
+    return MimoLoginResult(
+      account: dco_decode_opt_box_autoadd_account_info(arr[0]),
+      credential: dco_decode_opt_box_autoadd_mimo_credential(arr[1]),
+      challengeUrl: dco_decode_opt_String(arr[2]),
+    );
+  }
+
+  @protected
   String? dco_decode_opt_String(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return raw == null ? null : dco_decode_String(raw);
@@ -874,6 +1098,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   AccountDetails? dco_decode_opt_box_autoadd_account_details(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return raw == null ? null : dco_decode_box_autoadd_account_details(raw);
+  }
+
+  @protected
+  AccountInfo? dco_decode_opt_box_autoadd_account_info(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return raw == null ? null : dco_decode_box_autoadd_account_info(raw);
   }
 
   @protected
@@ -895,6 +1125,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   PlatformInt64? dco_decode_opt_box_autoadd_i_64(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return raw == null ? null : dco_decode_box_autoadd_i_64(raw);
+  }
+
+  @protected
+  MimoCredential? dco_decode_opt_box_autoadd_mimo_credential(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return raw == null ? null : dco_decode_box_autoadd_mimo_credential(raw);
   }
 
   @protected
@@ -931,6 +1167,30 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       summary: dco_decode_token_usage_summary(arr[0]),
       dailyUsageBuckets: dco_decode_list_daily_token_bucket(arr[1]),
       fetchedAt: dco_decode_i_64(arr[2]),
+    );
+  }
+
+  @protected
+  ProviderKind dco_decode_provider_kind(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return ProviderKind.values[raw as int];
+  }
+
+  @protected
+  ProviderQuotaMetric dco_decode_provider_quota_metric(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 8)
+      throw Exception('unexpected arr length: expect 8 but see ${arr.length}');
+    return ProviderQuotaMetric(
+      id: dco_decode_String(arr[0]),
+      title: dco_decode_String(arr[1]),
+      used: dco_decode_String(arr[2]),
+      limit: dco_decode_String(arr[3]),
+      remaining: dco_decode_String(arr[4]),
+      usedPercent: dco_decode_f_64(arr[5]),
+      expiresAt: dco_decode_opt_box_autoadd_i_64(arr[6]),
+      unit: dco_decode_String(arr[7]),
     );
   }
 
@@ -1036,8 +1296,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   UsageResult dco_decode_usage_result(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
-    if (arr.length != 6)
-      throw Exception('unexpected arr length: expect 6 but see ${arr.length}');
+    if (arr.length != 7)
+      throw Exception('unexpected arr length: expect 7 but see ${arr.length}');
     return UsageResult(
       snapshot: dco_decode_opt_box_autoadd_usage_snapshot(arr[0]),
       state: dco_decode_usage_state(arr[1]),
@@ -1045,6 +1305,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       message: dco_decode_opt_String(arr[3]),
       retryAfterSeconds: dco_decode_opt_box_autoadd_i_64(arr[4]),
       updatedCredential: dco_decode_opt_box_autoadd_secure_credential(arr[5]),
+      updatedMimoCredential: dco_decode_opt_box_autoadd_mimo_credential(arr[6]),
     );
   }
 
@@ -1052,15 +1313,17 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   UsageSnapshot dco_decode_usage_snapshot(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
-    if (arr.length != 6)
-      throw Exception('unexpected arr length: expect 6 but see ${arr.length}');
+    if (arr.length != 8)
+      throw Exception('unexpected arr length: expect 8 but see ${arr.length}');
     return UsageSnapshot(
       account: dco_decode_account_info(arr[0]),
       windows: dco_decode_list_quota_window(arr[1]),
-      resetCreditsAvailable: dco_decode_opt_box_autoadd_i_64(arr[2]),
-      resetCredits: dco_decode_opt_list_reset_credit(arr[3]),
-      credits: dco_decode_opt_box_autoadd_credits_snapshot(arr[4]),
-      fetchedAt: dco_decode_i_64(arr[5]),
+      balances: dco_decode_list_balance_metric(arr[2]),
+      providerQuotas: dco_decode_list_provider_quota_metric(arr[3]),
+      resetCreditsAvailable: dco_decode_opt_box_autoadd_i_64(arr[4]),
+      resetCredits: dco_decode_opt_list_reset_credit(arr[5]),
+      credits: dco_decode_opt_box_autoadd_credits_snapshot(arr[6]),
+      fetchedAt: dco_decode_i_64(arr[7]),
     );
   }
 
@@ -1093,6 +1356,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   @protected
   AccountInfo sse_decode_account_info(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_provider = sse_decode_provider_kind(deserializer);
     var var_identityHash = sse_decode_String(deserializer);
     var var_email = sse_decode_opt_String(deserializer);
     var var_plan = sse_decode_opt_String(deserializer);
@@ -1104,6 +1368,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     );
     var var_credentialStatus = sse_decode_credential_status(deserializer);
     return AccountInfo(
+      provider: var_provider,
       identityHash: var_identityHash,
       email: var_email,
       plan: var_plan,
@@ -1112,6 +1377,23 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       loginState: var_loginState,
       lastSuccessfulRefresh: var_lastSuccessfulRefresh,
       credentialStatus: var_credentialStatus,
+    );
+  }
+
+  @protected
+  BalanceMetric sse_decode_balance_metric(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_id = sse_decode_String(deserializer);
+    var var_label = sse_decode_String(deserializer);
+    var var_amount = sse_decode_String(deserializer);
+    var var_currency = sse_decode_opt_String(deserializer);
+    var var_primary = sse_decode_bool(deserializer);
+    return BalanceMetric(
+      id: var_id,
+      label: var_label,
+      amount: var_amount,
+      currency: var_currency,
+      primary: var_primary,
     );
   }
 
@@ -1157,6 +1439,14 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   PlatformInt64 sse_decode_box_autoadd_i_64(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     return (sse_decode_i_64(deserializer));
+  }
+
+  @protected
+  MimoCredential sse_decode_box_autoadd_mimo_credential(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return (sse_decode_mimo_credential(deserializer));
   }
 
   @protected
@@ -1285,6 +1575,20 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  List<BalanceMetric> sse_decode_list_balance_metric(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    var len_ = sse_decode_i_32(deserializer);
+    var ans_ = <BalanceMetric>[];
+    for (var idx_ = 0; idx_ < len_; ++idx_) {
+      ans_.add(sse_decode_balance_metric(deserializer));
+    }
+    return ans_;
+  }
+
+  @protected
   List<DailyTokenBucket> sse_decode_list_daily_token_bucket(
     SseDeserializer deserializer,
   ) {
@@ -1324,6 +1628,20 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     // Codec=Sse (Serialization based), see doc to use other codecs
     var len_ = sse_decode_i_32(deserializer);
     return deserializer.buffer.getUint8List(len_);
+  }
+
+  @protected
+  List<ProviderQuotaMetric> sse_decode_list_provider_quota_metric(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    var len_ = sse_decode_i_32(deserializer);
+    var ans_ = <ProviderQuotaMetric>[];
+    for (var idx_ = 0; idx_ < len_; ++idx_) {
+      ans_.add(sse_decode_provider_quota_metric(deserializer));
+    }
+    return ans_;
   }
 
   @protected
@@ -1372,6 +1690,38 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  MimoCredential sse_decode_mimo_credential(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_userId = sse_decode_String(deserializer);
+    var var_passToken = sse_decode_String(deserializer);
+    var var_serviceToken = sse_decode_String(deserializer);
+    var var_serviceSlh = sse_decode_String(deserializer);
+    var var_servicePh = sse_decode_String(deserializer);
+    return MimoCredential(
+      userId: var_userId,
+      passToken: var_passToken,
+      serviceToken: var_serviceToken,
+      serviceSlh: var_serviceSlh,
+      servicePh: var_servicePh,
+    );
+  }
+
+  @protected
+  MimoLoginResult sse_decode_mimo_login_result(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_account = sse_decode_opt_box_autoadd_account_info(deserializer);
+    var var_credential = sse_decode_opt_box_autoadd_mimo_credential(
+      deserializer,
+    );
+    var var_challengeUrl = sse_decode_opt_String(deserializer);
+    return MimoLoginResult(
+      account: var_account,
+      credential: var_credential,
+      challengeUrl: var_challengeUrl,
+    );
+  }
+
+  @protected
   String? sse_decode_opt_String(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
 
@@ -1390,6 +1740,19 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
 
     if (sse_decode_bool(deserializer)) {
       return (sse_decode_box_autoadd_account_details(deserializer));
+    } else {
+      return null;
+    }
+  }
+
+  @protected
+  AccountInfo? sse_decode_opt_box_autoadd_account_info(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    if (sse_decode_bool(deserializer)) {
+      return (sse_decode_box_autoadd_account_info(deserializer));
     } else {
       return null;
     }
@@ -1428,6 +1791,19 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
 
     if (sse_decode_bool(deserializer)) {
       return (sse_decode_box_autoadd_i_64(deserializer));
+    } else {
+      return null;
+    }
+  }
+
+  @protected
+  MimoCredential? sse_decode_opt_box_autoadd_mimo_credential(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    if (sse_decode_bool(deserializer)) {
+      return (sse_decode_box_autoadd_mimo_credential(deserializer));
     } else {
       return null;
     }
@@ -1497,6 +1873,38 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       summary: var_summary,
       dailyUsageBuckets: var_dailyUsageBuckets,
       fetchedAt: var_fetchedAt,
+    );
+  }
+
+  @protected
+  ProviderKind sse_decode_provider_kind(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var inner = sse_decode_i_32(deserializer);
+    return ProviderKind.values[inner];
+  }
+
+  @protected
+  ProviderQuotaMetric sse_decode_provider_quota_metric(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_id = sse_decode_String(deserializer);
+    var var_title = sse_decode_String(deserializer);
+    var var_used = sse_decode_String(deserializer);
+    var var_limit = sse_decode_String(deserializer);
+    var var_remaining = sse_decode_String(deserializer);
+    var var_usedPercent = sse_decode_f_64(deserializer);
+    var var_expiresAt = sse_decode_opt_box_autoadd_i_64(deserializer);
+    var var_unit = sse_decode_String(deserializer);
+    return ProviderQuotaMetric(
+      id: var_id,
+      title: var_title,
+      used: var_used,
+      limit: var_limit,
+      remaining: var_remaining,
+      usedPercent: var_usedPercent,
+      expiresAt: var_expiresAt,
+      unit: var_unit,
     );
   }
 
@@ -1628,6 +2036,9 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     var var_updatedCredential = sse_decode_opt_box_autoadd_secure_credential(
       deserializer,
     );
+    var var_updatedMimoCredential = sse_decode_opt_box_autoadd_mimo_credential(
+      deserializer,
+    );
     return UsageResult(
       snapshot: var_snapshot,
       state: var_state,
@@ -1635,6 +2046,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       message: var_message,
       retryAfterSeconds: var_retryAfterSeconds,
       updatedCredential: var_updatedCredential,
+      updatedMimoCredential: var_updatedMimoCredential,
     );
   }
 
@@ -1643,6 +2055,10 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     // Codec=Sse (Serialization based), see doc to use other codecs
     var var_account = sse_decode_account_info(deserializer);
     var var_windows = sse_decode_list_quota_window(deserializer);
+    var var_balances = sse_decode_list_balance_metric(deserializer);
+    var var_providerQuotas = sse_decode_list_provider_quota_metric(
+      deserializer,
+    );
     var var_resetCreditsAvailable = sse_decode_opt_box_autoadd_i_64(
       deserializer,
     );
@@ -1652,6 +2068,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     return UsageSnapshot(
       account: var_account,
       windows: var_windows,
+      balances: var_balances,
+      providerQuotas: var_providerQuotas,
       resetCreditsAvailable: var_resetCreditsAvailable,
       resetCredits: var_resetCredits,
       credits: var_credits,
@@ -1686,6 +2104,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   @protected
   void sse_encode_account_info(AccountInfo self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_provider_kind(self.provider, serializer);
     sse_encode_String(self.identityHash, serializer);
     sse_encode_opt_String(self.email, serializer);
     sse_encode_opt_String(self.plan, serializer);
@@ -1694,6 +2113,16 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_login_state(self.loginState, serializer);
     sse_encode_opt_box_autoadd_i_64(self.lastSuccessfulRefresh, serializer);
     sse_encode_credential_status(self.credentialStatus, serializer);
+  }
+
+  @protected
+  void sse_encode_balance_metric(BalanceMetric self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_String(self.id, serializer);
+    sse_encode_String(self.label, serializer);
+    sse_encode_String(self.amount, serializer);
+    sse_encode_opt_String(self.currency, serializer);
+    sse_encode_bool(self.primary, serializer);
   }
 
   @protected
@@ -1745,6 +2174,15 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   ) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     sse_encode_i_64(self, serializer);
+  }
+
+  @protected
+  void sse_encode_box_autoadd_mimo_credential(
+    MimoCredential self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_mimo_credential(self, serializer);
   }
 
   @protected
@@ -1866,6 +2304,18 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  void sse_encode_list_balance_metric(
+    List<BalanceMetric> self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_32(self.length, serializer);
+    for (final item in self) {
+      sse_encode_balance_metric(item, serializer);
+    }
+  }
+
+  @protected
   void sse_encode_list_daily_token_bucket(
     List<DailyTokenBucket> self,
     SseSerializer serializer,
@@ -1912,6 +2362,18 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  void sse_encode_list_provider_quota_metric(
+    List<ProviderQuotaMetric> self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_32(self.length, serializer);
+    for (final item in self) {
+      sse_encode_provider_quota_metric(item, serializer);
+    }
+  }
+
+  @protected
   void sse_encode_list_quota_window(
     List<QuotaWindow> self,
     SseSerializer serializer,
@@ -1954,6 +2416,30 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  void sse_encode_mimo_credential(
+    MimoCredential self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_String(self.userId, serializer);
+    sse_encode_String(self.passToken, serializer);
+    sse_encode_String(self.serviceToken, serializer);
+    sse_encode_String(self.serviceSlh, serializer);
+    sse_encode_String(self.servicePh, serializer);
+  }
+
+  @protected
+  void sse_encode_mimo_login_result(
+    MimoLoginResult self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_opt_box_autoadd_account_info(self.account, serializer);
+    sse_encode_opt_box_autoadd_mimo_credential(self.credential, serializer);
+    sse_encode_opt_String(self.challengeUrl, serializer);
+  }
+
+  @protected
   void sse_encode_opt_String(String? self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
 
@@ -1973,6 +2459,19 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_bool(self != null, serializer);
     if (self != null) {
       sse_encode_box_autoadd_account_details(self, serializer);
+    }
+  }
+
+  @protected
+  void sse_encode_opt_box_autoadd_account_info(
+    AccountInfo? self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    sse_encode_bool(self != null, serializer);
+    if (self != null) {
+      sse_encode_box_autoadd_account_info(self, serializer);
     }
   }
 
@@ -2012,6 +2511,19 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_bool(self != null, serializer);
     if (self != null) {
       sse_encode_box_autoadd_i_64(self, serializer);
+    }
+  }
+
+  @protected
+  void sse_encode_opt_box_autoadd_mimo_credential(
+    MimoCredential? self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    sse_encode_bool(self != null, serializer);
+    if (self != null) {
+      sse_encode_box_autoadd_mimo_credential(self, serializer);
     }
   }
 
@@ -2073,6 +2585,28 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_token_usage_summary(self.summary, serializer);
     sse_encode_list_daily_token_bucket(self.dailyUsageBuckets, serializer);
     sse_encode_i_64(self.fetchedAt, serializer);
+  }
+
+  @protected
+  void sse_encode_provider_kind(ProviderKind self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_32(self.index, serializer);
+  }
+
+  @protected
+  void sse_encode_provider_quota_metric(
+    ProviderQuotaMetric self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_String(self.id, serializer);
+    sse_encode_String(self.title, serializer);
+    sse_encode_String(self.used, serializer);
+    sse_encode_String(self.limit, serializer);
+    sse_encode_String(self.remaining, serializer);
+    sse_encode_f_64(self.usedPercent, serializer);
+    sse_encode_opt_box_autoadd_i_64(self.expiresAt, serializer);
+    sse_encode_String(self.unit, serializer);
   }
 
   @protected
@@ -2165,6 +2699,10 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       self.updatedCredential,
       serializer,
     );
+    sse_encode_opt_box_autoadd_mimo_credential(
+      self.updatedMimoCredential,
+      serializer,
+    );
   }
 
   @protected
@@ -2172,6 +2710,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     // Codec=Sse (Serialization based), see doc to use other codecs
     sse_encode_account_info(self.account, serializer);
     sse_encode_list_quota_window(self.windows, serializer);
+    sse_encode_list_balance_metric(self.balances, serializer);
+    sse_encode_list_provider_quota_metric(self.providerQuotas, serializer);
     sse_encode_opt_box_autoadd_i_64(self.resetCreditsAvailable, serializer);
     sse_encode_opt_list_reset_credit(self.resetCredits, serializer);
     sse_encode_opt_box_autoadd_credits_snapshot(self.credits, serializer);

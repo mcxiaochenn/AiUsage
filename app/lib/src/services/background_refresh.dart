@@ -31,16 +31,31 @@ void backgroundRefreshDispatcher() {
 
       final vault = SecureAccountVault();
       for (final account in await vault.loadAccounts()) {
-        final credential = account.credential;
-        if (credential == null) continue;
-        final result = await core.refreshUsage(
-          credential: credential,
-          trigger: SyncTrigger.background,
-        );
+        if (!account.hasCredential) continue;
+        final result = switch (account.provider) {
+          ProviderKind.codex => await core.refreshUsage(
+            credential: account.credential!,
+            trigger: SyncTrigger.background,
+          ),
+          ProviderKind.deepSeek => await core.refreshDeepseekUsage(
+            apiKey: account.apiKey!,
+            trigger: SyncTrigger.background,
+          ),
+          ProviderKind.mimo => await core.refreshMimoUsage(
+            credential: account.mimoCredential!,
+            trigger: SyncTrigger.background,
+          ),
+        };
         if (result.updatedCredential != null) {
           await vault.updateCredential(
             account.identityHash,
             result.updatedCredential!,
+          );
+        }
+        if (result.updatedMimoCredential != null) {
+          await vault.updateMimoCredential(
+            account.identityHash,
+            result.updatedMimoCredential!,
           );
         }
         if (result.snapshot != null) {

@@ -4,7 +4,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import '../rust/models.dart';
 
-/// OAuth credential 的唯一持久化位置。
+/// Provider 凭据的唯一持久化位置。
 ///
 /// flutter_secure_storage 在 Android 使用 Keystore，在 Apple 平台使用
 /// Keychain，在 Windows 使用受系统保护的凭据存储，在 Linux 使用 Secret
@@ -34,7 +34,9 @@ class SecureAccountVault {
         final secret = await _storage.read(
           key: _credentialKey(record.identityHash),
         );
-        accounts.add(record.withCredential(_credentialFromJson(secret)));
+        accounts.add(
+          record._withSecret(_secretFromJson(secret, record.provider)),
+        );
       }
       return accounts;
     } catch (_) {
@@ -65,6 +67,46 @@ class SecureAccountVault {
     await _writeIndex(next);
   }
 
+  Future<void> saveDeepSeek(
+    AccountInfo account,
+    String apiKey, {
+    String? displayName,
+  }) async {
+    final accounts = await loadAccounts();
+    final updated = StoredAccount.fromAccount(
+      account,
+      displayName: displayName,
+      credentialSource: CredentialSource.apiKey,
+    ).withApiKey(apiKey);
+    await _storage.write(
+      key: _credentialKey(updated.identityHash),
+      value: jsonEncode({'type': 'deepseek_api_key', 'api_key': apiKey}),
+    );
+    await _writeIndex([
+      updated,
+      ...accounts.where((item) => item.identityHash != updated.identityHash),
+    ]);
+  }
+
+  Future<void> saveMimo(
+    AccountInfo account,
+    MimoCredential credential, {
+    required CredentialSource credentialSource,
+    String? displayName,
+  }) async {
+    final accounts = await loadAccounts();
+    final updated = StoredAccount.fromAccount(
+      account,
+      displayName: displayName,
+      credentialSource: credentialSource,
+    ).withMimoCredential(credential);
+    await updateMimoCredential(updated.identityHash, credential);
+    await _writeIndex([
+      updated,
+      ...accounts.where((item) => item.identityHash != updated.identityHash),
+    ]);
+  }
+
   Future<void> updateCredential(
     String identityHash,
     SecureCredential credential,
@@ -75,6 +117,21 @@ class SecureAccountVault {
     );
   }
 
+  Future<void> updateMimoCredential(
+    String identityHash,
+    MimoCredential credential,
+  ) => _storage.write(
+    key: _credentialKey(identityHash),
+    value: jsonEncode({
+      'type': 'mimo_session',
+      'user_id': credential.userId,
+      'pass_token': credential.passToken,
+      'service_token': credential.serviceToken,
+      'service_slh': credential.serviceSlh,
+      'service_ph': credential.servicePh,
+    }),
+  );
+
   Future<void> updateAccount(AccountInfo account) async {
     final accounts = await loadAccounts();
     final next = accounts
@@ -82,8 +139,9 @@ class SecureAccountVault {
           (item) => item.identityHash == account.identityHash
               ? StoredAccount.fromAccount(
                   account,
+                  displayName: item.displayName,
                   credentialSource: item.credentialSource,
-                ).withCredential(item.credential)
+                )._withSecret(item._secret)
               : item,
         )
         .toList(growable: false);
@@ -129,14 +187,32 @@ class SecureAccountVault {
     value: jsonEncode(accounts.map((item) => item.toMetadata()).toList()),
   );
 
-  SecureCredential? _credentialFromJson(String? serialized) {
+  _StoredSecret? _secretFromJson(String? serialized, ProviderKind provider) {
     if (serialized == null) return null;
     try {
       final json = jsonDecode(serialized) as Map<String, dynamic>;
-      return SecureCredential(
-        idToken: json['id_token'] as String,
-        accessToken: json['access_token'] as String,
-        refreshToken: json['refresh_token'] as String,
+      final type = json['type'] as String?;
+      if (type == 'deepseek_api_key' || provider == ProviderKind.deepSeek) {
+        return _StoredSecret(apiKey: json['api_key'] as String);
+      }
+      if (type == 'mimo_session' || provider == ProviderKind.mimo) {
+        return _StoredSecret(
+          mimoCredential: MimoCredential(
+            userId: json['user_id'] as String,
+            passToken: json['pass_token'] as String,
+            serviceToken: json['service_token'] as String,
+            serviceSlh: json['service_slh'] as String,
+            servicePh: json['service_ph'] as String,
+          ),
+        );
+      }
+      // v0.1.0 credentials did not carry a type discriminator.
+      return _StoredSecret(
+        codexCredential: SecureCredential(
+          idToken: json['id_token'] as String,
+          accessToken: json['access_token'] as String,
+          refreshToken: json['refresh_token'] as String,
+        ),
       );
     } catch (_) {
       return null;
@@ -153,6 +229,8 @@ class SecureAccountVault {
 class StoredAccount {
   const StoredAccount({
     required this.identityHash,
+    this.provider = ProviderKind.codex,
+    this.displayName,
     this.email,
     this.plan,
     this.workspaceId,
@@ -160,10 +238,14 @@ class StoredAccount {
     required this.loginState,
     this.lastSuccessfulRefresh,
     this.credential,
+    this.apiKey,
+    this.mimoCredential,
     this.credentialSource = CredentialSource.unknown,
   });
 
   final String identityHash;
+  final ProviderKind provider;
+  final String? displayName;
   final String? email;
   final String? plan;
   final String? workspaceId;
@@ -171,13 +253,18 @@ class StoredAccount {
   final LoginState loginState;
   final int? lastSuccessfulRefresh;
   final SecureCredential? credential;
+  final String? apiKey;
+  final MimoCredential? mimoCredential;
   final CredentialSource credentialSource;
 
   factory StoredAccount.fromAccount(
     AccountInfo account, {
+    String? displayName,
     CredentialSource credentialSource = CredentialSource.unknown,
   }) => StoredAccount(
     identityHash: account.identityHash,
+    provider: account.provider,
+    displayName: displayName,
     email: account.email,
     plan: account.plan,
     workspaceId: account.workspaceId,
@@ -190,6 +277,8 @@ class StoredAccount {
   factory StoredAccount.fromMetadata(Map<String, dynamic> json) =>
       StoredAccount(
         identityHash: json['identity_hash'] as String,
+        provider: _providerFromName(json['provider'] as String?),
+        displayName: json['display_name'] as String?,
         email: json['email'] as String?,
         plan: json['plan'] as String?,
         workspaceId: json['workspace_id'] as String?,
@@ -205,19 +294,22 @@ class StoredAccount {
 
   AccountInfo get account => AccountInfo(
     identityHash: identityHash,
+    provider: provider,
     email: email,
     plan: plan,
     workspaceId: workspaceId,
     isFedramp: isFedramp,
-    loginState: credential == null ? LoginState.signedOut : loginState,
+    loginState: !hasCredential ? LoginState.signedOut : loginState,
     lastSuccessfulRefresh: lastSuccessfulRefresh,
-    credentialStatus: credential == null
+    credentialStatus: !hasCredential
         ? CredentialStatus.missing
         : CredentialStatus.available,
   );
 
   StoredAccount withCredential(SecureCredential? value) => StoredAccount(
     identityHash: identityHash,
+    provider: provider,
+    displayName: displayName,
     email: email,
     plan: plan,
     workspaceId: workspaceId,
@@ -228,10 +320,69 @@ class StoredAccount {
     credentialSource: credentialSource,
   );
 
+  StoredAccount withApiKey(String? value) =>
+      _copyWithSecret(apiKey: value, hasSecret: value != null);
+
+  StoredAccount withMimoCredential(MimoCredential? value) =>
+      _copyWithSecret(mimoCredential: value, hasSecret: value != null);
+
+  StoredAccount withCredentials({
+    SecureCredential? codexCredential,
+    String? apiKey,
+    MimoCredential? mimoCredential,
+  }) => _copyWithSecret(
+    credential: codexCredential,
+    apiKey: apiKey,
+    mimoCredential: mimoCredential,
+    hasSecret:
+        codexCredential != null || apiKey != null || mimoCredential != null,
+  );
+
+  StoredAccount _withSecret(_StoredSecret? value) => _copyWithSecret(
+    credential: value?.codexCredential,
+    apiKey: value?.apiKey,
+    mimoCredential: value?.mimoCredential,
+    hasSecret: value != null,
+  );
+
+  _StoredSecret? get _secret => hasCredential
+      ? _StoredSecret(
+          codexCredential: credential,
+          apiKey: apiKey,
+          mimoCredential: mimoCredential,
+        )
+      : null;
+
+  bool get hasCredential =>
+      credential != null || apiKey != null || mimoCredential != null;
+
+  StoredAccount _copyWithSecret({
+    SecureCredential? credential,
+    String? apiKey,
+    MimoCredential? mimoCredential,
+    required bool hasSecret,
+  }) => StoredAccount(
+    identityHash: identityHash,
+    provider: provider,
+    displayName: displayName,
+    email: email,
+    plan: plan,
+    workspaceId: workspaceId,
+    isFedramp: isFedramp,
+    loginState: hasSecret ? LoginState.signedIn : LoginState.signedOut,
+    lastSuccessfulRefresh: lastSuccessfulRefresh,
+    credential: credential,
+    apiKey: apiKey,
+    mimoCredential: mimoCredential,
+    credentialSource: credentialSource,
+  );
+
   StoredAccount signedOut() => withCredential(null);
 
   Map<String, Object?> toMetadata() => {
     'identity_hash': identityHash,
+    'provider': provider.name,
+    'display_name': displayName,
     'email': email,
     'plan': plan,
     'workspace_id': workspaceId,
@@ -242,7 +393,29 @@ class StoredAccount {
   };
 }
 
-enum CredentialSource { deviceCode, authJson, unknown }
+enum CredentialSource {
+  deviceCode,
+  authJson,
+  apiKey,
+  xiaomiPassword,
+  xiaomiWeb,
+  unknown,
+}
+
+ProviderKind _providerFromName(String? value) {
+  for (final provider in ProviderKind.values) {
+    if (provider.name == value) return provider;
+  }
+  return ProviderKind.codex;
+}
+
+class _StoredSecret {
+  const _StoredSecret({this.codexCredential, this.apiKey, this.mimoCredential});
+
+  final SecureCredential? codexCredential;
+  final String? apiKey;
+  final MimoCredential? mimoCredential;
+}
 
 CredentialSource _credentialSourceFromName(String? value) {
   for (final source in CredentialSource.values) {

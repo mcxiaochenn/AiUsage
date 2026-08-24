@@ -1171,6 +1171,204 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Page load'**
   String get syncPageLoad;
+
+  /// No description provided for @chooseProvider.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose provider'**
+  String get chooseProvider;
+
+  /// No description provided for @provider.
+  ///
+  /// In en, this message translates to:
+  /// **'Provider'**
+  String get provider;
+
+  /// No description provided for @providerCodex.
+  ///
+  /// In en, this message translates to:
+  /// **'OpenAI Codex'**
+  String get providerCodex;
+
+  /// No description provided for @providerDeepSeek.
+  ///
+  /// In en, this message translates to:
+  /// **'DeepSeek'**
+  String get providerDeepSeek;
+
+  /// No description provided for @providerMimo.
+  ///
+  /// In en, this message translates to:
+  /// **'Xiaomi MiMo'**
+  String get providerMimo;
+
+  /// No description provided for @providerAccountsMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Monitor Codex quotas, DeepSeek balances, or Xiaomi MiMo balances and Token Plans.'**
+  String get providerAccountsMessage;
+
+  /// No description provided for @deepSeekApiKey.
+  ///
+  /// In en, this message translates to:
+  /// **'DeepSeek API Key'**
+  String get deepSeekApiKey;
+
+  /// No description provided for @accountAliasOptional.
+  ///
+  /// In en, this message translates to:
+  /// **'Alias (optional)'**
+  String get accountAliasOptional;
+
+  /// No description provided for @deepSeekKeyHint.
+  ///
+  /// In en, this message translates to:
+  /// **'The key is validated with DeepSeek\'s official balance API and stored only in the system keychain.'**
+  String get deepSeekKeyHint;
+
+  /// No description provided for @addDeepSeek.
+  ///
+  /// In en, this message translates to:
+  /// **'Add DeepSeek account'**
+  String get addDeepSeek;
+
+  /// No description provided for @mimoUsername.
+  ///
+  /// In en, this message translates to:
+  /// **'Xiaomi account'**
+  String get mimoUsername;
+
+  /// No description provided for @mimoPassword.
+  ///
+  /// In en, this message translates to:
+  /// **'Password'**
+  String get mimoPassword;
+
+  /// No description provided for @mimoSecurityHint.
+  ///
+  /// In en, this message translates to:
+  /// **'The password is used once and never stored. AiUsage stores a Xiaomi session token with account-level sign-in privileges.'**
+  String get mimoSecurityHint;
+
+  /// No description provided for @addMimo.
+  ///
+  /// In en, this message translates to:
+  /// **'Add Xiaomi MiMo account'**
+  String get addMimo;
+
+  /// No description provided for @mimoChallengeTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Complete Xiaomi verification'**
+  String get mimoChallengeTitle;
+
+  /// No description provided for @mimoChallengeMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Finish CAPTCHA, SMS, or MFA on Xiaomi\'s official page. AiUsage does not bypass account protection.'**
+  String get mimoChallengeMessage;
+
+  /// No description provided for @mimoLoginIncomplete.
+  ///
+  /// In en, this message translates to:
+  /// **'Xiaomi sign-in did not return a usable MiMo session.'**
+  String get mimoLoginIncomplete;
+
+  /// No description provided for @saveAndVerify.
+  ///
+  /// In en, this message translates to:
+  /// **'Verify and save'**
+  String get saveAndVerify;
+
+  /// No description provided for @totalBalance.
+  ///
+  /// In en, this message translates to:
+  /// **'Total balance'**
+  String get totalBalance;
+
+  /// No description provided for @cashBalance.
+  ///
+  /// In en, this message translates to:
+  /// **'Cash balance'**
+  String get cashBalance;
+
+  /// No description provided for @grantedBalance.
+  ///
+  /// In en, this message translates to:
+  /// **'Granted balance'**
+  String get grantedBalance;
+
+  /// No description provided for @toppedUpBalance.
+  ///
+  /// In en, this message translates to:
+  /// **'Topped-up balance'**
+  String get toppedUpBalance;
+
+  /// No description provided for @giftBalance.
+  ///
+  /// In en, this message translates to:
+  /// **'Gift balance'**
+  String get giftBalance;
+
+  /// No description provided for @frozenBalance.
+  ///
+  /// In en, this message translates to:
+  /// **'Frozen balance'**
+  String get frozenBalance;
+
+  /// No description provided for @overdraftLimit.
+  ///
+  /// In en, this message translates to:
+  /// **'Overdraft limit'**
+  String get overdraftLimit;
+
+  /// No description provided for @tokenPlan.
+  ///
+  /// In en, this message translates to:
+  /// **'Token Plan'**
+  String get tokenPlan;
+
+  /// No description provided for @usedOfTotal.
+  ///
+  /// In en, this message translates to:
+  /// **'{used} of {total} {unit} used'**
+  String usedOfTotal(String used, String total, String unit);
+
+  /// No description provided for @expiresAt.
+  ///
+  /// In en, this message translates to:
+  /// **'Expires {time}'**
+  String expiresAt(String time);
+
+  /// No description provided for @providerNoHistory.
+  ///
+  /// In en, this message translates to:
+  /// **'This provider does not currently expose Token history.'**
+  String get providerNoHistory;
+
+  /// No description provided for @mimoInternalApiWarning.
+  ///
+  /// In en, this message translates to:
+  /// **'MiMo data uses an undocumented console API that may change without notice.'**
+  String get mimoInternalApiWarning;
+
+  /// No description provided for @credentialSourceApiKey.
+  ///
+  /// In en, this message translates to:
+  /// **'API Key'**
+  String get credentialSourceApiKey;
+
+  /// No description provided for @credentialSourceXiaomiPassword.
+  ///
+  /// In en, this message translates to:
+  /// **'Xiaomi password sign-in'**
+  String get credentialSourceXiaomiPassword;
+
+  /// No description provided for @credentialSourceXiaomiWeb.
+  ///
+  /// In en, this message translates to:
+  /// **'Xiaomi official web verification'**
+  String get credentialSourceXiaomiWeb;
 }
 
 class _AppLocalizationsDelegate

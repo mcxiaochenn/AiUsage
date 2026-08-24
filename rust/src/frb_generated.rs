@@ -38,7 +38,7 @@ flutter_rust_bridge::frb_generated_boilerplate!(
     default_rust_auto_opaque = RustAutoOpaqueMoi,
 );
 pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_VERSION: &str = "2.12.0";
-pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = 1874095919;
+pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = -1885322832;
 
 // Section: executor
 
@@ -73,6 +73,45 @@ fn wire__crate__api__application__begin_device_login_impl(
                 transform_result_sse::<_, String>(
                     (move || async move {
                         let output_ok = crate::api::application::begin_device_login().await?;
+                        Ok(output_ok)
+                    })()
+                    .await,
+                )
+            }
+        },
+    )
+}
+fn wire__crate__api__application__begin_mimo_login_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::SseCodec, _, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "begin_mimo_login",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_username = <String>::sse_decode(&mut deserializer);
+            let api_password = <String>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| async move {
+                transform_result_sse::<_, String>(
+                    (move || async move {
+                        let output_ok =
+                            crate::api::application::begin_mimo_login(api_username, api_password)
+                                .await?;
                         Ok(output_ok)
                     })()
                     .await,
@@ -209,6 +248,43 @@ fn wire__crate__api__application__cancel_device_login_impl(
             move |context| {
                 transform_result_sse::<_, String>((move || {
                     let output_ok = crate::api::application::cancel_device_login(api_login_id)?;
+                    Ok(output_ok)
+                })())
+            }
+        },
+    )
+}
+fn wire__crate__api__application__complete_mimo_web_login_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "complete_mimo_web_login",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_account_cookie = <String>::sse_decode(&mut deserializer);
+            let api_platform_cookie = <String>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| {
+                transform_result_sse::<_, String>((move || {
+                    let output_ok = crate::api::application::complete_mimo_web_login(
+                        api_account_cookie,
+                        api_platform_cookie,
+                    )?;
                     Ok(output_ok)
                 })())
             }
@@ -432,6 +508,92 @@ fn wire__crate__api__application__poll_device_login_impl(
         },
     )
 }
+fn wire__crate__api__application__refresh_deepseek_usage_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::SseCodec, _, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "refresh_deepseek_usage",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_api_key = <String>::sse_decode(&mut deserializer);
+            let api_trigger = <crate::models::SyncTrigger>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| async move {
+                transform_result_sse::<_, ()>(
+                    (move || async move {
+                        let output_ok = Result::<_, ()>::Ok(
+                            crate::api::application::refresh_deepseek_usage(
+                                api_api_key,
+                                api_trigger,
+                            )
+                            .await,
+                        )?;
+                        Ok(output_ok)
+                    })()
+                    .await,
+                )
+            }
+        },
+    )
+}
+fn wire__crate__api__application__refresh_mimo_usage_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::SseCodec, _, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "refresh_mimo_usage",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_credential = <crate::models::MimoCredential>::sse_decode(&mut deserializer);
+            let api_trigger = <crate::models::SyncTrigger>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| async move {
+                transform_result_sse::<_, ()>(
+                    (move || async move {
+                        let output_ok = Result::<_, ()>::Ok(
+                            crate::api::application::refresh_mimo_usage(
+                                api_credential,
+                                api_trigger,
+                            )
+                            .await,
+                        )?;
+                        Ok(output_ok)
+                    })()
+                    .await,
+                )
+            }
+        },
+    )
+}
 fn wire__crate__api__application__refresh_usage_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
@@ -603,6 +765,7 @@ impl SseDecode for crate::models::AccountDetails {
 impl SseDecode for crate::models::AccountInfo {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_provider = <crate::models::ProviderKind>::sse_decode(deserializer);
         let mut var_identityHash = <String>::sse_decode(deserializer);
         let mut var_email = <Option<String>>::sse_decode(deserializer);
         let mut var_plan = <Option<String>>::sse_decode(deserializer);
@@ -612,6 +775,7 @@ impl SseDecode for crate::models::AccountInfo {
         let mut var_lastSuccessfulRefresh = <Option<i64>>::sse_decode(deserializer);
         let mut var_credentialStatus = <crate::models::CredentialStatus>::sse_decode(deserializer);
         return crate::models::AccountInfo {
+            provider: var_provider,
             identity_hash: var_identityHash,
             email: var_email,
             plan: var_plan,
@@ -620,6 +784,24 @@ impl SseDecode for crate::models::AccountInfo {
             login_state: var_loginState,
             last_successful_refresh: var_lastSuccessfulRefresh,
             credential_status: var_credentialStatus,
+        };
+    }
+}
+
+impl SseDecode for crate::models::BalanceMetric {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_id = <String>::sse_decode(deserializer);
+        let mut var_label = <String>::sse_decode(deserializer);
+        let mut var_amount = <String>::sse_decode(deserializer);
+        let mut var_currency = <Option<String>>::sse_decode(deserializer);
+        let mut var_primary = <bool>::sse_decode(deserializer);
+        return crate::models::BalanceMetric {
+            id: var_id,
+            label: var_label,
+            amount: var_amount,
+            currency: var_currency,
+            primary: var_primary,
         };
     }
 }
@@ -746,6 +928,18 @@ impl SseDecode for i64 {
     }
 }
 
+impl SseDecode for Vec<crate::models::BalanceMetric> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut len_ = <i32>::sse_decode(deserializer);
+        let mut ans_ = Vec::with_capacity(len_ as usize);
+        for idx_ in 0..len_ {
+            ans_.push(<crate::models::BalanceMetric>::sse_decode(deserializer));
+        }
+        return ans_;
+    }
+}
+
 impl SseDecode for Vec<crate::models::DailyTokenBucket> {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
@@ -777,6 +971,20 @@ impl SseDecode for Vec<u8> {
         let mut ans_ = Vec::with_capacity(len_ as usize);
         for idx_ in 0..len_ {
             ans_.push(<u8>::sse_decode(deserializer));
+        }
+        return ans_;
+    }
+}
+
+impl SseDecode for Vec<crate::models::ProviderQuotaMetric> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut len_ = <i32>::sse_decode(deserializer);
+        let mut ans_ = Vec::with_capacity(len_ as usize);
+        for idx_ in 0..len_ {
+            ans_.push(<crate::models::ProviderQuotaMetric>::sse_decode(
+                deserializer,
+            ));
         }
         return ans_;
     }
@@ -831,6 +1039,38 @@ impl SseDecode for crate::models::LoginState {
     }
 }
 
+impl SseDecode for crate::models::MimoCredential {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_userId = <String>::sse_decode(deserializer);
+        let mut var_passToken = <String>::sse_decode(deserializer);
+        let mut var_serviceToken = <String>::sse_decode(deserializer);
+        let mut var_serviceSlh = <String>::sse_decode(deserializer);
+        let mut var_servicePh = <String>::sse_decode(deserializer);
+        return crate::models::MimoCredential {
+            user_id: var_userId,
+            pass_token: var_passToken,
+            service_token: var_serviceToken,
+            service_slh: var_serviceSlh,
+            service_ph: var_servicePh,
+        };
+    }
+}
+
+impl SseDecode for crate::models::MimoLoginResult {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_account = <Option<crate::models::AccountInfo>>::sse_decode(deserializer);
+        let mut var_credential = <Option<crate::models::MimoCredential>>::sse_decode(deserializer);
+        let mut var_challengeUrl = <Option<String>>::sse_decode(deserializer);
+        return crate::models::MimoLoginResult {
+            account: var_account,
+            credential: var_credential,
+            challenge_url: var_challengeUrl,
+        };
+    }
+}
+
 impl SseDecode for Option<String> {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
@@ -847,6 +1087,17 @@ impl SseDecode for Option<crate::models::AccountDetails> {
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
         if (<bool>::sse_decode(deserializer)) {
             return Some(<crate::models::AccountDetails>::sse_decode(deserializer));
+        } else {
+            return None;
+        }
+    }
+}
+
+impl SseDecode for Option<crate::models::AccountInfo> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        if (<bool>::sse_decode(deserializer)) {
+            return Some(<crate::models::AccountInfo>::sse_decode(deserializer));
         } else {
             return None;
         }
@@ -882,6 +1133,17 @@ impl SseDecode for Option<i64> {
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
         if (<bool>::sse_decode(deserializer)) {
             return Some(<i64>::sse_decode(deserializer));
+        } else {
+            return None;
+        }
+    }
+}
+
+impl SseDecode for Option<crate::models::MimoCredential> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        if (<bool>::sse_decode(deserializer)) {
+            return Some(<crate::models::MimoCredential>::sse_decode(deserializer));
         } else {
             return None;
         }
@@ -943,6 +1205,43 @@ impl SseDecode for crate::models::ProfileUsage {
             summary: var_summary,
             daily_usage_buckets: var_dailyUsageBuckets,
             fetched_at: var_fetchedAt,
+        };
+    }
+}
+
+impl SseDecode for crate::models::ProviderKind {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut inner = <i32>::sse_decode(deserializer);
+        return match inner {
+            0 => crate::models::ProviderKind::Codex,
+            1 => crate::models::ProviderKind::DeepSeek,
+            2 => crate::models::ProviderKind::Mimo,
+            _ => unreachable!("Invalid variant for ProviderKind: {}", inner),
+        };
+    }
+}
+
+impl SseDecode for crate::models::ProviderQuotaMetric {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_id = <String>::sse_decode(deserializer);
+        let mut var_title = <String>::sse_decode(deserializer);
+        let mut var_used = <String>::sse_decode(deserializer);
+        let mut var_limit = <String>::sse_decode(deserializer);
+        let mut var_remaining = <String>::sse_decode(deserializer);
+        let mut var_usedPercent = <f64>::sse_decode(deserializer);
+        let mut var_expiresAt = <Option<i64>>::sse_decode(deserializer);
+        let mut var_unit = <String>::sse_decode(deserializer);
+        return crate::models::ProviderQuotaMetric {
+            id: var_id,
+            title: var_title,
+            used: var_used,
+            limit: var_limit,
+            remaining: var_remaining,
+            used_percent: var_usedPercent,
+            expires_at: var_expiresAt,
+            unit: var_unit,
         };
     }
 }
@@ -1084,6 +1383,8 @@ impl SseDecode for crate::models::UsageResult {
         let mut var_retryAfterSeconds = <Option<i64>>::sse_decode(deserializer);
         let mut var_updatedCredential =
             <Option<crate::models::SecureCredential>>::sse_decode(deserializer);
+        let mut var_updatedMimoCredential =
+            <Option<crate::models::MimoCredential>>::sse_decode(deserializer);
         return crate::models::UsageResult {
             snapshot: var_snapshot,
             state: var_state,
@@ -1091,6 +1392,7 @@ impl SseDecode for crate::models::UsageResult {
             message: var_message,
             retry_after_seconds: var_retryAfterSeconds,
             updated_credential: var_updatedCredential,
+            updated_mimo_credential: var_updatedMimoCredential,
         };
     }
 }
@@ -1100,6 +1402,9 @@ impl SseDecode for crate::models::UsageSnapshot {
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
         let mut var_account = <crate::models::AccountInfo>::sse_decode(deserializer);
         let mut var_windows = <Vec<crate::models::QuotaWindow>>::sse_decode(deserializer);
+        let mut var_balances = <Vec<crate::models::BalanceMetric>>::sse_decode(deserializer);
+        let mut var_providerQuotas =
+            <Vec<crate::models::ProviderQuotaMetric>>::sse_decode(deserializer);
         let mut var_resetCreditsAvailable = <Option<i64>>::sse_decode(deserializer);
         let mut var_resetCredits =
             <Option<Vec<crate::models::ResetCredit>>>::sse_decode(deserializer);
@@ -1108,6 +1413,8 @@ impl SseDecode for crate::models::UsageSnapshot {
         return crate::models::UsageSnapshot {
             account: var_account,
             windows: var_windows,
+            balances: var_balances,
+            provider_quotas: var_providerQuotas,
             reset_credits_available: var_resetCreditsAvailable,
             reset_credits: var_resetCredits,
             credits: var_credits,
@@ -1148,57 +1455,80 @@ fn pde_ffi_dispatcher_primary_impl(
             rust_vec_len,
             data_len,
         ),
-        2 => wire__crate__api__application__cached_account_details_impl(
+        2 => {
+            wire__crate__api__application__begin_mimo_login_impl(port, ptr, rust_vec_len, data_len)
+        }
+        3 => wire__crate__api__application__cached_account_details_impl(
             port,
             ptr,
             rust_vec_len,
             data_len,
         ),
-        3 => wire__crate__api__application__cached_profile_usage_impl(
+        4 => wire__crate__api__application__cached_profile_usage_impl(
             port,
             ptr,
             rust_vec_len,
             data_len,
         ),
-        4 => wire__crate__api__application__cached_usage_impl(port, ptr, rust_vec_len, data_len),
-        5 => wire__crate__api__application__cancel_device_login_impl(
+        5 => wire__crate__api__application__cached_usage_impl(port, ptr, rust_vec_len, data_len),
+        6 => wire__crate__api__application__cancel_device_login_impl(
             port,
             ptr,
             rust_vec_len,
             data_len,
         ),
-        6 => wire__crate__api__application__fetch_account_details_impl(
+        7 => wire__crate__api__application__complete_mimo_web_login_impl(
             port,
             ptr,
             rust_vec_len,
             data_len,
         ),
-        7 => wire__crate__api__application__fetch_profile_usage_impl(
+        8 => wire__crate__api__application__fetch_account_details_impl(
             port,
             ptr,
             rust_vec_len,
             data_len,
         ),
-        8 => wire__crate__api__application__import_codex_auth_json_impl(
+        9 => wire__crate__api__application__fetch_profile_usage_impl(
             port,
             ptr,
             rust_vec_len,
             data_len,
         ),
-        9 => wire__crate__api__application__initialize_core_impl(port, ptr, rust_vec_len, data_len),
-        10 => wire__crate__api__system__ping_impl(port, ptr, rust_vec_len, data_len),
+        10 => wire__crate__api__application__import_codex_auth_json_impl(
+            port,
+            ptr,
+            rust_vec_len,
+            data_len,
+        ),
         11 => {
+            wire__crate__api__application__initialize_core_impl(port, ptr, rust_vec_len, data_len)
+        }
+        12 => wire__crate__api__system__ping_impl(port, ptr, rust_vec_len, data_len),
+        13 => {
             wire__crate__api__application__poll_device_login_impl(port, ptr, rust_vec_len, data_len)
         }
-        12 => wire__crate__api__application__refresh_usage_impl(port, ptr, rust_vec_len, data_len),
-        13 => wire__crate__api__application__remove_account_data_impl(
+        14 => wire__crate__api__application__refresh_deepseek_usage_impl(
             port,
             ptr,
             rust_vec_len,
             data_len,
         ),
-        14 => wire__crate__api__application__sync_logs_impl(port, ptr, rust_vec_len, data_len),
-        15 => wire__crate__api__application__usage_history_impl(port, ptr, rust_vec_len, data_len),
+        15 => wire__crate__api__application__refresh_mimo_usage_impl(
+            port,
+            ptr,
+            rust_vec_len,
+            data_len,
+        ),
+        16 => wire__crate__api__application__refresh_usage_impl(port, ptr, rust_vec_len, data_len),
+        17 => wire__crate__api__application__remove_account_data_impl(
+            port,
+            ptr,
+            rust_vec_len,
+            data_len,
+        ),
+        18 => wire__crate__api__application__sync_logs_impl(port, ptr, rust_vec_len, data_len),
+        19 => wire__crate__api__application__usage_history_impl(port, ptr, rust_vec_len, data_len),
         _ => unreachable!(),
     }
 }
@@ -1240,6 +1570,7 @@ impl flutter_rust_bridge::IntoIntoDart<crate::models::AccountDetails>
 impl flutter_rust_bridge::IntoDart for crate::models::AccountInfo {
     fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
         [
+            self.provider.into_into_dart().into_dart(),
             self.identity_hash.into_into_dart().into_dart(),
             self.email.into_into_dart().into_dart(),
             self.plan.into_into_dart().into_dart(),
@@ -1255,6 +1586,27 @@ impl flutter_rust_bridge::IntoDart for crate::models::AccountInfo {
 impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive for crate::models::AccountInfo {}
 impl flutter_rust_bridge::IntoIntoDart<crate::models::AccountInfo> for crate::models::AccountInfo {
     fn into_into_dart(self) -> crate::models::AccountInfo {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::models::BalanceMetric {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.id.into_into_dart().into_dart(),
+            self.label.into_into_dart().into_dart(),
+            self.amount.into_into_dart().into_dart(),
+            self.currency.into_into_dart().into_dart(),
+            self.primary.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive for crate::models::BalanceMetric {}
+impl flutter_rust_bridge::IntoIntoDart<crate::models::BalanceMetric>
+    for crate::models::BalanceMetric
+{
+    fn into_into_dart(self) -> crate::models::BalanceMetric {
         self
     }
 }
@@ -1425,6 +1777,49 @@ impl flutter_rust_bridge::IntoIntoDart<crate::models::LoginState> for crate::mod
     }
 }
 // Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::models::MimoCredential {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.user_id.into_into_dart().into_dart(),
+            self.pass_token.into_into_dart().into_dart(),
+            self.service_token.into_into_dart().into_dart(),
+            self.service_slh.into_into_dart().into_dart(),
+            self.service_ph.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive for crate::models::MimoCredential {}
+impl flutter_rust_bridge::IntoIntoDart<crate::models::MimoCredential>
+    for crate::models::MimoCredential
+{
+    fn into_into_dart(self) -> crate::models::MimoCredential {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::models::MimoLoginResult {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.account.into_into_dart().into_dart(),
+            self.credential.into_into_dart().into_dart(),
+            self.challenge_url.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::models::MimoLoginResult
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::models::MimoLoginResult>
+    for crate::models::MimoLoginResult
+{
+    fn into_into_dart(self) -> crate::models::MimoLoginResult {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
 impl flutter_rust_bridge::IntoDart for crate::models::ProfileUsage {
     fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
         [
@@ -1440,6 +1835,52 @@ impl flutter_rust_bridge::IntoIntoDart<crate::models::ProfileUsage>
     for crate::models::ProfileUsage
 {
     fn into_into_dart(self) -> crate::models::ProfileUsage {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::models::ProviderKind {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        match self {
+            Self::Codex => 0.into_dart(),
+            Self::DeepSeek => 1.into_dart(),
+            Self::Mimo => 2.into_dart(),
+            _ => unreachable!(),
+        }
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive for crate::models::ProviderKind {}
+impl flutter_rust_bridge::IntoIntoDart<crate::models::ProviderKind>
+    for crate::models::ProviderKind
+{
+    fn into_into_dart(self) -> crate::models::ProviderKind {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::models::ProviderQuotaMetric {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.id.into_into_dart().into_dart(),
+            self.title.into_into_dart().into_dart(),
+            self.used.into_into_dart().into_dart(),
+            self.limit.into_into_dart().into_dart(),
+            self.remaining.into_into_dart().into_dart(),
+            self.used_percent.into_into_dart().into_dart(),
+            self.expires_at.into_into_dart().into_dart(),
+            self.unit.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::models::ProviderQuotaMetric
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::models::ProviderQuotaMetric>
+    for crate::models::ProviderQuotaMetric
+{
+    fn into_into_dart(self) -> crate::models::ProviderQuotaMetric {
         self
     }
 }
@@ -1584,6 +2025,7 @@ impl flutter_rust_bridge::IntoDart for crate::models::UsageResult {
             self.message.into_into_dart().into_dart(),
             self.retry_after_seconds.into_into_dart().into_dart(),
             self.updated_credential.into_into_dart().into_dart(),
+            self.updated_mimo_credential.into_into_dart().into_dart(),
         ]
         .into_dart()
     }
@@ -1600,6 +2042,8 @@ impl flutter_rust_bridge::IntoDart for crate::models::UsageSnapshot {
         [
             self.account.into_into_dart().into_dart(),
             self.windows.into_into_dart().into_dart(),
+            self.balances.into_into_dart().into_dart(),
+            self.provider_quotas.into_into_dart().into_dart(),
             self.reset_credits_available.into_into_dart().into_dart(),
             self.reset_credits.into_into_dart().into_dart(),
             self.credits.into_into_dart().into_dart(),
@@ -1657,6 +2101,7 @@ impl SseEncode for crate::models::AccountDetails {
 impl SseEncode for crate::models::AccountInfo {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <crate::models::ProviderKind>::sse_encode(self.provider, serializer);
         <String>::sse_encode(self.identity_hash, serializer);
         <Option<String>>::sse_encode(self.email, serializer);
         <Option<String>>::sse_encode(self.plan, serializer);
@@ -1665,6 +2110,17 @@ impl SseEncode for crate::models::AccountInfo {
         <crate::models::LoginState>::sse_encode(self.login_state, serializer);
         <Option<i64>>::sse_encode(self.last_successful_refresh, serializer);
         <crate::models::CredentialStatus>::sse_encode(self.credential_status, serializer);
+    }
+}
+
+impl SseEncode for crate::models::BalanceMetric {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <String>::sse_encode(self.id, serializer);
+        <String>::sse_encode(self.label, serializer);
+        <String>::sse_encode(self.amount, serializer);
+        <Option<String>>::sse_encode(self.currency, serializer);
+        <bool>::sse_encode(self.primary, serializer);
     }
 }
 
@@ -1765,6 +2221,16 @@ impl SseEncode for i64 {
     }
 }
 
+impl SseEncode for Vec<crate::models::BalanceMetric> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <i32>::sse_encode(self.len() as _, serializer);
+        for item in self {
+            <crate::models::BalanceMetric>::sse_encode(item, serializer);
+        }
+    }
+}
+
 impl SseEncode for Vec<crate::models::DailyTokenBucket> {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
@@ -1791,6 +2257,16 @@ impl SseEncode for Vec<u8> {
         <i32>::sse_encode(self.len() as _, serializer);
         for item in self {
             <u8>::sse_encode(item, serializer);
+        }
+    }
+}
+
+impl SseEncode for Vec<crate::models::ProviderQuotaMetric> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <i32>::sse_encode(self.len() as _, serializer);
+        for item in self {
+            <crate::models::ProviderQuotaMetric>::sse_encode(item, serializer);
         }
     }
 }
@@ -1842,6 +2318,26 @@ impl SseEncode for crate::models::LoginState {
     }
 }
 
+impl SseEncode for crate::models::MimoCredential {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <String>::sse_encode(self.user_id, serializer);
+        <String>::sse_encode(self.pass_token, serializer);
+        <String>::sse_encode(self.service_token, serializer);
+        <String>::sse_encode(self.service_slh, serializer);
+        <String>::sse_encode(self.service_ph, serializer);
+    }
+}
+
+impl SseEncode for crate::models::MimoLoginResult {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <Option<crate::models::AccountInfo>>::sse_encode(self.account, serializer);
+        <Option<crate::models::MimoCredential>>::sse_encode(self.credential, serializer);
+        <Option<String>>::sse_encode(self.challenge_url, serializer);
+    }
+}
+
 impl SseEncode for Option<String> {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
@@ -1858,6 +2354,16 @@ impl SseEncode for Option<crate::models::AccountDetails> {
         <bool>::sse_encode(self.is_some(), serializer);
         if let Some(value) = self {
             <crate::models::AccountDetails>::sse_encode(value, serializer);
+        }
+    }
+}
+
+impl SseEncode for Option<crate::models::AccountInfo> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <bool>::sse_encode(self.is_some(), serializer);
+        if let Some(value) = self {
+            <crate::models::AccountInfo>::sse_encode(value, serializer);
         }
     }
 }
@@ -1888,6 +2394,16 @@ impl SseEncode for Option<i64> {
         <bool>::sse_encode(self.is_some(), serializer);
         if let Some(value) = self {
             <i64>::sse_encode(value, serializer);
+        }
+    }
+}
+
+impl SseEncode for Option<crate::models::MimoCredential> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <bool>::sse_encode(self.is_some(), serializer);
+        if let Some(value) = self {
+            <crate::models::MimoCredential>::sse_encode(value, serializer);
         }
     }
 }
@@ -1938,6 +2454,37 @@ impl SseEncode for crate::models::ProfileUsage {
         <crate::models::TokenUsageSummary>::sse_encode(self.summary, serializer);
         <Vec<crate::models::DailyTokenBucket>>::sse_encode(self.daily_usage_buckets, serializer);
         <i64>::sse_encode(self.fetched_at, serializer);
+    }
+}
+
+impl SseEncode for crate::models::ProviderKind {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <i32>::sse_encode(
+            match self {
+                crate::models::ProviderKind::Codex => 0,
+                crate::models::ProviderKind::DeepSeek => 1,
+                crate::models::ProviderKind::Mimo => 2,
+                _ => {
+                    unimplemented!("");
+                }
+            },
+            serializer,
+        );
+    }
+}
+
+impl SseEncode for crate::models::ProviderQuotaMetric {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <String>::sse_encode(self.id, serializer);
+        <String>::sse_encode(self.title, serializer);
+        <String>::sse_encode(self.used, serializer);
+        <String>::sse_encode(self.limit, serializer);
+        <String>::sse_encode(self.remaining, serializer);
+        <f64>::sse_encode(self.used_percent, serializer);
+        <Option<i64>>::sse_encode(self.expires_at, serializer);
+        <String>::sse_encode(self.unit, serializer);
     }
 }
 
@@ -2041,6 +2588,10 @@ impl SseEncode for crate::models::UsageResult {
         <Option<String>>::sse_encode(self.message, serializer);
         <Option<i64>>::sse_encode(self.retry_after_seconds, serializer);
         <Option<crate::models::SecureCredential>>::sse_encode(self.updated_credential, serializer);
+        <Option<crate::models::MimoCredential>>::sse_encode(
+            self.updated_mimo_credential,
+            serializer,
+        );
     }
 }
 
@@ -2049,6 +2600,8 @@ impl SseEncode for crate::models::UsageSnapshot {
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
         <crate::models::AccountInfo>::sse_encode(self.account, serializer);
         <Vec<crate::models::QuotaWindow>>::sse_encode(self.windows, serializer);
+        <Vec<crate::models::BalanceMetric>>::sse_encode(self.balances, serializer);
+        <Vec<crate::models::ProviderQuotaMetric>>::sse_encode(self.provider_quotas, serializer);
         <Option<i64>>::sse_encode(self.reset_credits_available, serializer);
         <Option<Vec<crate::models::ResetCredit>>>::sse_encode(self.reset_credits, serializer);
         <Option<crate::models::CreditsSnapshot>>::sse_encode(self.credits, serializer);
