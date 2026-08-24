@@ -1,4 +1,4 @@
-# Provider 凭据与兼容性
+# DeepSeek 与 Xiaomi MiMo 集成
 
 AiUsage 将账户索引、认证凭据和标准化快照分离：Provider、别名、状态和 identity hash 可进入安全账户索引；OAuth Token、API Key、密码、Cookie 与原始用户 ID 不进入 SQLite、诊断或普通日志。
 

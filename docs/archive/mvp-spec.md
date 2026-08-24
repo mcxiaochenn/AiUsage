@@ -1,4 +1,7 @@
-# AiUsage 跨平台 MVP 技术报告
+# AiUsage 早期 Codex-only MVP 技术报告
+
+> [!WARNING]
+> 这是项目早期设计档案，仅用于追溯历史决策。它以 Codex-only 和五平台 MVP 为前提，不代表当前 Provider、平台支持、发布资产或产品承诺；当前信息以根 README 与 `docs/` 现行文档为准。
 
 ## 1. 项目目标
 
