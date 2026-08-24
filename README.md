@@ -34,11 +34,11 @@ AiUsage 是一个移动优先、本地优先的 AI 服务用量与余额监看�
 | `armeabi-v7a` | 较旧的 32 位 ARM 设备 |
 | `x86_64` | 64 位 x86 模拟器或少量设备 |
 
-当前已发布版本仍使用旧的 arm64 资产命名；四种固定文件名从下一版本开始提供。请在 Release 资产列表中选择，升级前可查看[安装指南](docs/installation.md)。
+从 v0.2.1 起，Release 使用以上四种固定文件名。请在 Release 资产列表中选择，升级前可查看[安装指南](docs/installation.md)。
 
 ### iOS
 
-后续 Release 将提供 `AiUsage-ios-release-unsigned.ipa`。它没有 Apple 签名，不能像 App Store 应用一样直接安装，需要用户自行签名；越狱设备能否安装取决于设备和所用工具。签名限制见[安装指南](docs/installation.md)。
+Release 提供 `AiUsage-ios-release-unsigned.ipa`。它没有 Apple 签名，不能像 App Store 应用一样直接安装，需要用户自行签名；越狱设备能否安装取决于设备和所用工具。签名限制见[安装指南](docs/installation.md)。
 
 iOS 目前仅在 macOS CI 编译，尚未完成真机验收。如遇问题，欢迎[提交 Issue](https://github.com/mcxiaochenn/AiUsage/issues/new/choose)。
 

@@ -67,4 +67,4 @@ macOS 上运行：
 
 Tag 使用 `vX.Y.Z`，必须与 `app/pubspec.yaml` 完全一致。Release 工作流先通过 Rust、Flutter、Android 和 iOS 门禁，再并行生成四个 Android APK 与一个 unsigned IPA，最后统一生成 `AiUsage-SHA256SUMS.txt`。
 
-当前 v0.2.0 Release 保持旧资产矩阵；新规则从下一个版本开始生效。
+v0.2.0 Release 保持旧资产矩阵；新规则从 v0.2.1 开始生效。

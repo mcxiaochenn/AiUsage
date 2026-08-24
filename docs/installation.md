@@ -4,7 +4,7 @@ AiUsage 暂无 Google Play、App Store 或其他应用商店上架计划。请�
 
 ## Android
 
-下一版本开始提供以下 APK：
+v0.2.1 起提供以下 APK：
 
 | 文件 | 适用场景 |
 | --- | --- |
@@ -13,7 +13,7 @@ AiUsage 暂无 Google Play、App Store 或其他应用商店上架计划。请�
 | `AiUsage-android-release-x86_64.apk` | 64 位 x86 模拟器或少量设备 |
 | `AiUsage-android-release-universal.apk` | 不确定架构时选择，包含上述三种 ABI，体积更大 |
 
-Flutter 已不再支持 Android 32 位 x86，因此不会提供 `x86` APK。当前 v0.2.0 Release 仍是旧的 arm64 APK/AAB 资产矩阵；固定文件名从下一版本开始生效。
+Flutter 已不再支持 Android 32 位 x86，因此不会提供 `x86` APK。v0.2.0 及更早 Release 保留旧的 arm64 APK/AAB 资产矩阵；v0.2.1 起使用固定文件名且不再发布 AAB。
 
 下载 APK 后，在系统设置中允许当前文件管理器或浏览器“安装未知应用”，再打开文件完成安装。升级安装必须使用相同包名和发布证书；若系统提示签名不一致，只能卸载旧应用后重装，这会删除本机凭据、设置和 SQLite 缓存。
 

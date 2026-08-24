@@ -34,11 +34,11 @@ Download AiUsage from [GitHub Releases](https://github.com/mcxiaochenn/AiUsage/r
 | `armeabi-v7a` | Older 32-bit ARM devices |
 | `x86_64` | 64-bit x86 emulators or rare devices |
 
-The current published release still uses the old arm64 asset names. Four stable filenames will be available from the next release. Select an asset on the Release page and read the [installation guide](docs/installation.md) before upgrading.
+Starting with v0.2.1, releases use these four stable filenames. Select an asset on the Release page and read the [installation guide](docs/installation.md) before upgrading.
 
 ### iOS
 
-Future releases will include `AiUsage-ios-release-unsigned.ipa`. It cannot be installed like an App Store app: you must sign it yourself. Installation on jailbroken devices depends on the device and tooling. See the [installation guide](docs/installation.md) for signing constraints.
+Releases include `AiUsage-ios-release-unsigned.ipa`. It cannot be installed like an App Store app: you must sign it yourself. Installation on jailbroken devices depends on the device and tooling. See the [installation guide](docs/installation.md) for signing constraints.
 
 iOS is currently compiled only in macOS CI and has not been validated on a physical device. Please [open an issue](https://github.com/mcxiaochenn/AiUsage/issues/new/choose) if you encounter a problem.
 
