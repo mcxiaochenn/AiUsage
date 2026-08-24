@@ -66,22 +66,7 @@ android {
             if (releaseSigningConfigured) {
                 signingConfig = signingConfigs.getByName("aiUsageRelease")
             }
-            ndk {
-                abiFilters += "arm64-v8a"
-            }
         }
-    }
-}
-
-androidComponents {
-    onVariants(selector().withBuildType("release")) { variant ->
-        variant.packaging.jniLibs.excludes.addAll(
-            setOf(
-                "lib/armeabi-v7a/libdartjni.so",
-                "lib/x86/libdartjni.so",
-                "lib/x86_64/libdartjni.so",
-            ),
-        )
     }
 }
 
