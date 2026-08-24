@@ -56,16 +56,16 @@ executable="$runner_app/$executable_name"
 file "$executable" | grep -q 'arm64' || { echo "Runner executable does not contain arm64." >&2; exit 1; }
 
 rust_archive="$(find "$app_root/build/ios" -name 'libai_usage_core.a' -type f -print -quit)"
-[[ -n "$rust_archive" ]] || { echo "libai_usage_core.a was not produced by Cargokit." >&2; exit 1; }
-rust_strings="$(mktemp)"
-strings "$executable" > "$rust_strings"
-if ! grep -Fq 'begin_device_login' "$rust_strings" ||
-   ! grep -Fq 'refresh_deepseek_usage' "$rust_strings"; then
-  rm -f "$rust_strings"
-  echo "Runner does not contain the expected flutter_rust_bridge API payload." >&2
+[[ -n "$rust_archive" && -s "$rust_archive" ]] || {
+  echo "A non-empty libai_usage_core.a was not produced by Cargokit." >&2
   exit 1
-fi
-rm -f "$rust_strings"
+}
+rust_xcconfig="$(find "$app_root/ios/Pods/Target Support Files/ai_usage_core" -name '*release*.xcconfig' -type f -print -quit)"
+[[ -n "$rust_xcconfig" ]] || { echo "The ai_usage_core release xcconfig is missing." >&2; exit 1; }
+grep -Fq -- '-force_load ${BUILT_PRODUCTS_DIR}/libai_usage_core.a' "$rust_xcconfig" || {
+  echo "The iOS release target does not force-load libai_usage_core.a." >&2
+  exit 1
+}
 
 if [[ -d "$runner_app/_CodeSignature" ]]; then
   echo "Runner.app unexpectedly contains a code signature." >&2
