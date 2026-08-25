@@ -201,7 +201,20 @@ class TokenUsageChart extends StatelessWidget {
   }
 }
 
-class _TokenUsageGrid extends StatelessWidget {
+@immutable
+class _TokenUsageTarget {
+  const _TokenUsageTarget({
+    required this.id,
+    required this.message,
+    required this.tokens,
+  });
+
+  final String id;
+  final String message;
+  final int tokens;
+}
+
+class _TokenUsageGrid extends StatefulWidget {
   const _TokenUsageGrid({required this.data, required this.view});
 
   static const _cellExtent = 18.0;
@@ -210,68 +223,201 @@ class _TokenUsageGrid extends StatelessWidget {
   final TokenUsageView view;
 
   @override
+  State<_TokenUsageGrid> createState() => _TokenUsageGridState();
+}
+
+class _TokenUsageGridState extends State<_TokenUsageGrid> {
+  _TokenUsageTarget? _selectedTarget;
+  _TokenUsageTarget? _hoveredTarget;
+
+  _TokenUsageTarget? get _activeTarget => _hoveredTarget ?? _selectedTarget;
+
+  @override
+  void didUpdateWidget(covariant _TokenUsageGrid oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.view != widget.view ||
+        !_sameChartData(oldWidget.data, widget.data)) {
+      _selectedTarget = null;
+      _hoveredTarget = null;
+    }
+  }
+
+  void _toggleSelected(_TokenUsageTarget target) {
+    setState(() {
+      _selectedTarget = _selectedTarget?.id == target.id ? null : target;
+    });
+  }
+
+  void _setHovered(_TokenUsageTarget? target) {
+    if (_hoveredTarget?.id == target?.id) return;
+    setState(() => _hoveredTarget = target);
+  }
+
+  void _clearSelection() {
+    if (_selectedTarget == null && _hoveredTarget == null) return;
+    setState(() {
+      _selectedTarget = null;
+      _hoveredTarget = null;
+    });
+  }
+
+  Widget _wrapTarget(_TokenUsageTarget target, Widget child) {
+    final selected = _selectedTarget?.id == target.id;
+    final hovered = _hoveredTarget?.id == target.id;
+    final colors = Theme.of(context).colorScheme;
+    final emphasized = selected || hovered;
+    final decorated = Stack(
+      clipBehavior: Clip.none,
+      children: [
+        child,
+        if (emphasized)
+          Positioned.fill(
+            child: IgnorePointer(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  border: Border.all(
+                    color: selected
+                        ? colors.primary
+                        : Color.lerp(colors.primary, colors.surface, .35)!,
+                    width: selected ? 2 : 1,
+                  ),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
+    return Tooltip(
+      message: target.message,
+      child: MouseRegion(
+        onEnter: (_) => _setHovered(target),
+        onExit: (_) => _setHovered(null),
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () => _toggleSelected(target),
+          child: Semantics(
+            button: true,
+            label: target.message,
+            child: decorated,
+          ),
+        ),
+      ),
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final labels = _monthLabels(context, data.weeks);
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      reverse: true,
-      child: SizedBox(
-        width: data.weeks.length * _cellExtent,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            SizedBox(
-              height: 20,
-              child: Stack(
-                clipBehavior: Clip.none,
+    final l10n = AppLocalizations.of(context);
+    final labels = _monthLabels(context, widget.data.weeks);
+    final active = _activeTarget;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          height: 42,
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.surfaceContainerHighest,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Padding(
+              padding: const EdgeInsetsDirectional.only(start: 12, end: 4),
+              child: Row(
                 children: [
-                  for (final MapEntry(key: index, value: label)
-                      in labels.entries)
-                    PositionedDirectional(
-                      start: index * _cellExtent,
-                      child: Text(
-                        label,
-                        style: Theme.of(context).textTheme.labelSmall,
-                      ),
+                  Expanded(
+                    child: Text(
+                      active?.message ?? l10n.tokenUsageInteractionHint,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ),
+                  if (active != null)
+                    IconButton(
+                      tooltip: l10n.cancel,
+                      onPressed: _clearSelection,
+                      visualDensity: VisualDensity.compact,
+                      icon: const Icon(Icons.close, size: 18),
                     ),
                 ],
               ),
             ),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                for (final week in data.weeks)
-                  SizedBox(
-                    width: _cellExtent,
-                    child: switch (view) {
-                      TokenUsageView.daily => _DailyWeekColumn(week: week),
-                      TokenUsageView.weekly => _AggregateWeekColumn(
-                        week: week,
-                        view: view,
-                        fillCount: week.weeklyFillCount,
-                        tokens: week.totalTokens,
-                      ),
-                      TokenUsageView.cumulative => _AggregateWeekColumn(
-                        week: week,
-                        view: view,
-                        fillCount: week.cumulativeFillCount,
-                        tokens: week.cumulativeTokens,
-                      ),
-                    },
-                  ),
-              ],
-            ),
-          ],
+          ),
         ),
-      ),
+        const SizedBox(height: 8),
+        GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: _clearSelection,
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            reverse: true,
+            child: SizedBox(
+              width: widget.data.weeks.length * _TokenUsageGrid._cellExtent,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SizedBox(
+                    height: 20,
+                    child: Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        for (final MapEntry(key: index, value: label)
+                            in labels.entries)
+                          PositionedDirectional(
+                            start: index * _TokenUsageGrid._cellExtent,
+                            child: Text(
+                              label,
+                              style: Theme.of(context).textTheme.labelSmall,
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      for (final week in widget.data.weeks)
+                        SizedBox(
+                          width: _TokenUsageGrid._cellExtent,
+                          child: switch (widget.view) {
+                            TokenUsageView.daily => _DailyWeekColumn(
+                              week: week,
+                              wrapTarget: _wrapTarget,
+                            ),
+                            TokenUsageView.weekly => _AggregateWeekColumn(
+                              week: week,
+                              view: widget.view,
+                              fillCount: week.weeklyFillCount,
+                              tokens: week.totalTokens,
+                              wrapTarget: _wrapTarget,
+                            ),
+                            TokenUsageView.cumulative => _AggregateWeekColumn(
+                              week: week,
+                              view: widget.view,
+                              fillCount: week.cumulativeFillCount,
+                              tokens: week.cumulativeTokens,
+                              wrapTarget: _wrapTarget,
+                            ),
+                          },
+                        ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
 
 class _DailyWeekColumn extends StatelessWidget {
-  const _DailyWeekColumn({required this.week});
+  const _DailyWeekColumn({required this.week, required this.wrapTarget});
 
   final TokenUsageWeek week;
+  final Widget Function(_TokenUsageTarget target, Widget child) wrapTarget;
 
   @override
   Widget build(BuildContext context) {
@@ -280,9 +426,16 @@ class _DailyWeekColumn extends StatelessWidget {
       children: [
         for (final cell in week.cells)
           if (cell.tokens case final tokens?)
-            Tooltip(
-              message: l10n.dailyTokenTooltip(cell.date, tokens),
-              child: _ChartCell(
+            wrapTarget(
+              _TokenUsageTarget(
+                id: 'daily:${cell.date}',
+                message: l10n.dailyTokenTooltip(
+                  cell.date,
+                  _formatTokens(context, tokens),
+                ),
+                tokens: tokens,
+              ),
+              _ChartCell(
                 key: ValueKey('daily-${cell.date}'),
                 level: cell.dailyLevel,
               ),
@@ -300,27 +453,36 @@ class _AggregateWeekColumn extends StatelessWidget {
     required this.view,
     required this.fillCount,
     required this.tokens,
+    required this.wrapTarget,
   });
 
   final TokenUsageWeek week;
   final TokenUsageView view;
   final int fillCount;
   final int tokens;
+  final Widget Function(_TokenUsageTarget target, Widget child) wrapTarget;
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final message = switch (view) {
-      TokenUsageView.weekly => l10n.weeklyTokenTooltip(week.startDate, tokens),
+      TokenUsageView.weekly => l10n.weeklyTokenTooltip(
+        week.startDate,
+        _formatTokens(context, tokens),
+      ),
       TokenUsageView.cumulative => l10n.cumulativeTokenTooltip(
         week.startDate,
-        tokens,
+        _formatTokens(context, tokens),
       ),
       TokenUsageView.daily => throw StateError('Daily uses individual cells.'),
     };
-    return Tooltip(
-      message: message,
-      child: Column(
+    return wrapTarget(
+      _TokenUsageTarget(
+        id: '${view.name}:${week.startDate}',
+        message: message,
+        tokens: tokens,
+      ),
+      Column(
         key: ValueKey('${view.name}-${week.startDate}'),
         children: [
           for (var row = 0; row < 7; row++)
@@ -329,6 +491,40 @@ class _AggregateWeekColumn extends StatelessWidget {
       ),
     );
   }
+}
+
+String _formatTokens(BuildContext context, int tokens) =>
+    NumberFormat.decimalPattern(
+      Localizations.localeOf(context).toLanguageTag(),
+    ).format(tokens);
+
+bool _sameChartData(TokenUsageChartData left, TokenUsageChartData right) {
+  if (left.cutoffDate != right.cutoffDate ||
+      left.weeks.length != right.weeks.length) {
+    return false;
+  }
+  for (var index = 0; index < left.weeks.length; index++) {
+    final leftWeek = left.weeks[index];
+    final rightWeek = right.weeks[index];
+    if (leftWeek.startDate != rightWeek.startDate ||
+        leftWeek.totalTokens != rightWeek.totalTokens ||
+        leftWeek.cumulativeTokens != rightWeek.cumulativeTokens ||
+        leftWeek.weeklyFillCount != rightWeek.weeklyFillCount ||
+        leftWeek.cumulativeFillCount != rightWeek.cumulativeFillCount ||
+        leftWeek.cells.length != rightWeek.cells.length) {
+      return false;
+    }
+    for (var cellIndex = 0; cellIndex < leftWeek.cells.length; cellIndex++) {
+      final leftCell = leftWeek.cells[cellIndex];
+      final rightCell = rightWeek.cells[cellIndex];
+      if (leftCell.date != rightCell.date ||
+          leftCell.tokens != rightCell.tokens ||
+          leftCell.dailyLevel != rightCell.dailyLevel) {
+        return false;
+      }
+    }
+  }
+  return true;
 }
 
 class _ChartCell extends StatelessWidget {

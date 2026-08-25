@@ -1,3 +1,5 @@
+import 'dart:ui' show PointerDeviceKind;
+
 import 'package:ai_usage/src/app.dart';
 import 'package:ai_usage/src/app_controller.dart';
 import 'package:ai_usage/src/rust/models.dart';
@@ -7,6 +9,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
 void main() {
   test('credential source persists and old metadata remains unknown', () {
@@ -223,6 +226,66 @@ void main() {
     expect(find.text('snapshot@example.com'), findsNothing);
   });
 
+  testWidgets(
+    'about page presents localized developer card and embedded avatar',
+    (tester) async {
+      PackageInfo.setMockInitialValues(
+        appName: 'AiUsage',
+        packageName: 'dev.chendusk.aiusage',
+        version: '0.2.1',
+        buildNumber: '46',
+        buildSignature: 'test',
+      );
+      await tester.pumpWidget(AiUsageApp(controller: AppController.testing()));
+      await tester.tap(find.text('Settings'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('About'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('AiUsage'), findsOneWidget);
+      expect(find.text('ChenDusk Git@mcxiaochenn'), findsOneWidget);
+      expect(find.text('github.com/mcxiaochenn'), findsWidgets);
+      expect(
+        find.text('This project is open source under the MIT License'),
+        findsOneWidget,
+      );
+      expect(find.text('Version 0.2.1 (46)'), findsOneWidget);
+      expect(find.byType(CircleAvatar), findsOneWidget);
+      final avatar = await rootBundle.load(
+        'assets/branding/developer_avatar.jpg',
+      );
+      expect(avatar.lengthInBytes, greaterThan(0));
+    },
+  );
+
+  testWidgets('about page remains readable on narrow large-text layouts', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(360, 1000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await tester.pumpWidget(
+      MediaQuery(
+        data: const MediaQueryData(textScaler: TextScaler.linear(2)),
+        child: AiUsageApp(
+          controller: AppController.testing(
+            settings: const MonitorSettings(
+              locale: LocalePreference.simplifiedChinese,
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('设置'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('关于'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('辰渊尘 Git@mcxiaochenn'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('self-destruct requires two cooled-down confirmations', (
     tester,
   ) async {
@@ -233,6 +296,11 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('About'));
     await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.text('Danger zone'),
+      400,
+      scrollable: find.byType(Scrollable),
+    );
     await tester.tap(find.text('Danger zone'));
     await tester.pumpAndSettle();
 
@@ -284,6 +352,11 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('About'));
     await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.text('Danger zone'),
+      400,
+      scrollable: find.byType(Scrollable),
+    );
     await tester.tap(find.text('Danger zone'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Self-destruct'));
@@ -573,6 +646,10 @@ void main() {
       findsOneWidget,
     );
     expect(
+      find.text('Tap or hover over a chart cell to view exact Token usage'),
+      findsOneWidget,
+    );
+    expect(
       find.byTooltip('${_dateKey(twoDaysAgo)} · 0 tokens'),
       findsOneWidget,
     );
@@ -584,6 +661,48 @@ void main() {
     expect(find.byTooltip('${_dateKey(today)} · 999 tokens'), findsNothing);
     expect(find.textContaining('ends yesterday'), findsOneWidget);
 
+    final yesterdayCell = find.byKey(ValueKey('daily-${_dateKey(yesterday)}'));
+    await tester.ensureVisible(yesterdayCell);
+    await tester.pump();
+    final cellCenter = tester.getCenter(yesterdayCell);
+    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    await mouse.moveTo(cellCenter);
+    await tester.pump();
+    expect(find.text('${_dateKey(yesterday)} · 12 tokens'), findsNWidgets(2));
+    await mouse.moveTo(Offset.zero);
+    await tester.pump();
+    expect(
+      find.text('Tap or hover over a chart cell to view exact Token usage'),
+      findsOneWidget,
+    );
+    await mouse.removePointer();
+    await tester.tap(yesterdayCell);
+    await tester.pump();
+    expect(find.text('${_dateKey(yesterday)} · 12 tokens'), findsOneWidget);
+
+    final twoDaysCell = find.byKey(ValueKey('daily-${_dateKey(twoDaysAgo)}'));
+    await tester.ensureVisible(twoDaysCell);
+    await tester.pump();
+    final selectedHover = await tester.createGesture(
+      kind: PointerDeviceKind.mouse,
+    );
+    await selectedHover.moveTo(tester.getCenter(twoDaysCell));
+    await tester.pump();
+    expect(find.text('${_dateKey(twoDaysAgo)} · 0 tokens'), findsNWidgets(2));
+    await selectedHover.moveTo(Offset.zero);
+    await tester.pump();
+    expect(find.text('${_dateKey(yesterday)} · 12 tokens'), findsOneWidget);
+    await selectedHover.removePointer();
+
+    await tester.tap(yesterdayCell);
+    await tester.pump();
+    expect(
+      find.text('Tap or hover over a chart cell to view exact Token usage'),
+      findsOneWidget,
+    );
+
+    await tester.ensureVisible(find.text('Weekly'));
+    await tester.pump();
     await tester.tap(find.text('Weekly'));
     await tester.pump();
     final weekStart = _dateKey(
@@ -591,10 +710,23 @@ void main() {
     );
     expect(find.byTooltip('Week of $weekStart · 12 tokens'), findsOneWidget);
 
+    final weeklyColumn = find.byKey(ValueKey('weekly-$weekStart'));
+    await tester.ensureVisible(weeklyColumn);
+    await tester.pump();
+    await tester.tap(weeklyColumn);
+    await tester.pump();
+    expect(find.text('Week of $weekStart · 12 tokens'), findsOneWidget);
+
+    await tester.ensureVisible(find.text('Cumulative'));
+    await tester.pump();
     await tester.tap(find.text('Cumulative'));
     await tester.pump();
     expect(
       find.byTooltip('Through week of $weekStart · 15 tokens'),
+      findsOneWidget,
+    );
+    expect(
+      find.text('Tap or hover over a chart cell to view exact Token usage'),
       findsOneWidget,
     );
     expect(identical(controller.profileUsage, profile), isTrue);
