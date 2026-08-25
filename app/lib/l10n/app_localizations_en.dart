@@ -42,7 +42,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get addAccount => 'Add account';
 
   @override
-  String get addCodexAccount => 'Add a Codex account';
+  String get addCodexAccount => 'Add a ChatGPT account';
 
   @override
   String get addCodexAccountMessage =>
@@ -252,7 +252,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get details => 'Technical details';
 
   @override
-  String get signInToCodex => 'Sign in to Codex';
+  String get signInToCodex => 'Sign in to ChatGPT';
 
   @override
   String get signInFailed => 'Sign-in failed.';
@@ -302,6 +302,18 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get authJsonAdvanced => 'Advanced · Tokens are stored securely';
+
+  @override
+  String get credentialImport => 'Credential import';
+
+  @override
+  String get credentialNotImported => 'Not imported';
+
+  @override
+  String get credentialImported => 'Imported';
+
+  @override
+  String get importCredential => 'Import';
 
   @override
   String get authFileLabel => 'Codex auth.json';
@@ -611,6 +623,19 @@ class AppLocalizationsEn extends AppLocalizations {
       'Records appear after usage, Profile, or account-detail requests.';
 
   @override
+  String get clearDiagnostics => 'Clear diagnostics';
+
+  @override
+  String get clearDiagnosticsQuestion => 'Clear all diagnostics?';
+
+  @override
+  String get clearDiagnosticsMessage =>
+      'This permanently removes all recorded sync logs. Account and usage caches are not changed.';
+
+  @override
+  String get diagnosticsCleared => 'Diagnostics cleared.';
+
+  @override
   String get emptyResponse => 'No response body was recorded.';
 
   @override
@@ -639,7 +664,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get provider => 'Provider';
 
   @override
-  String get providerCodex => 'OpenAI Codex';
+  String get providerCodex => 'ChatGPT';
 
   @override
   String get providerDeepSeek => 'DeepSeek';
@@ -649,7 +674,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get providerAccountsMessage =>
-      'Monitor Codex quotas, DeepSeek balances, or Xiaomi MiMo balances and Token Plans.';
+      'Monitor ChatGPT quotas, DeepSeek balances, or Xiaomi MiMo balances and Token Plans.';
 
   @override
   String get deepSeekApiKey => 'DeepSeek API Key';
@@ -786,6 +811,41 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get aboutDescription => 'Version, author, and project links';
+
+  @override
+  String get dangerZone => 'Danger zone';
+
+  @override
+  String get selfDestruct => 'Self-destruct';
+
+  @override
+  String get selfDestructDescription =>
+      'After execution, all AiUsage data will be securely cleared (CANNOT! BE! RECOVERED!!!)';
+
+  @override
+  String selfDestructTapRemaining(int count) {
+    return 'Tap $count more times to unlock';
+  }
+
+  @override
+  String get selfDestructWarningTitle => 'Irreversible data destruction';
+
+  @override
+  String get selfDestructFirstWarning =>
+      'This will erase every AiUsage account, credential, setting, cache, and diagnostic entry. The app will then crash on every launch.';
+
+  @override
+  String get selfDestructFinalWarning =>
+      'Final warning. Only uninstalling AiUsage or clearing its app data in system settings can make it launch again.';
+
+  @override
+  String selfDestructWait(int seconds) {
+    return 'Think for $seconds seconds';
+  }
+
+  @override
+  String get selfDestructFailed =>
+      'Data clearing failed. The permanent crash lock was not enabled.';
 
   @override
   String get author => 'Author';

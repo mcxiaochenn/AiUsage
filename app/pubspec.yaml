@@ -86,6 +86,7 @@ flutter:
 
   assets:
     - assets/branding/aiusage_icon_dark.png
+    - assets/providers/
     # Reuses the platform-runner icons so the desktop tray has no separate
     # branding asset to maintain.
     - windows/runner/resources/app_icon.ico

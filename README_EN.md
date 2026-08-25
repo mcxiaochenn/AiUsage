@@ -6,7 +6,7 @@
 
 [简体中文](README.md) | English
 
-AiUsage is a mobile-first, local-first monitor for AI service usage and balances. It currently supports OpenAI Codex, DeepSeek, and Xiaomi MiMo.
+AiUsage is a mobile-first, local-first monitor for AI service usage and balances. It currently supports ChatGPT, DeepSeek, and Xiaomi MiMo.
 
 > [!IMPORTANT]
 > Android is the primary supported platform. iOS is an active target and is compiled in CI, but it has not been tested on a physical device. Some Codex and MiMo integrations rely on internal APIs that may change without notice. Do not use AiUsage as the only source for critical balance alerts.
@@ -46,7 +46,7 @@ iOS is currently compiled only in macOS CI and has not been validated on a physi
 
 | Provider | Authentication | Data | Stability |
 | --- | --- | --- | --- |
-| OpenAI Codex | Device Code / `auth.json` | Quotas, Credits, Reset Credits, token statistics | Some internal APIs |
+| ChatGPT | Device Code / `auth.json` | Codex quotas, Credits, Reset Credits, token statistics | Some internal APIs |
 | DeepSeek | API Key | CNY/USD balance details | Official balance API |
 | Xiaomi MiMo | Xiaomi account sign-in | Pay-as-you-go balance, Token Plan | Internal console API |
 

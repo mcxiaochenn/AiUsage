@@ -42,7 +42,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get addAccount => '添加账户';
 
   @override
-  String get addCodexAccount => '添加 Codex 账户';
+  String get addCodexAccount => '添加 ChatGPT 账户';
 
   @override
   String get addCodexAccountMessage => '使用 OpenAI 官方设备登录流程，Token 仅保存在系统安全存储中。';
@@ -242,7 +242,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get details => '技术详情';
 
   @override
-  String get signInToCodex => '登录 Codex';
+  String get signInToCodex => '登录 ChatGPT';
 
   @override
   String get signInFailed => '登录失败。';
@@ -290,6 +290,18 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get authJsonAdvanced => '高级方式 · Token 将安全保存';
+
+  @override
+  String get credentialImport => '凭据导入';
+
+  @override
+  String get credentialNotImported => '未导入';
+
+  @override
+  String get credentialImported => '已导入';
+
+  @override
+  String get importCredential => '导入';
 
   @override
   String get authFileLabel => 'Codex auth.json';
@@ -584,6 +596,18 @@ class AppLocalizationsZh extends AppLocalizations {
   String get noDiagnosticsDescription => '请求额度、Profile 或账户详情后会产生记录。';
 
   @override
+  String get clearDiagnostics => '清空诊断日志';
+
+  @override
+  String get clearDiagnosticsQuestion => '清空全部诊断日志？';
+
+  @override
+  String get clearDiagnosticsMessage => '这会永久删除全部同步日志，不影响账户和用量缓存。';
+
+  @override
+  String get diagnosticsCleared => '诊断日志已清空。';
+
+  @override
   String get emptyResponse => '未记录响应正文。';
 
   @override
@@ -611,17 +635,17 @@ class AppLocalizationsZh extends AppLocalizations {
   String get provider => 'Provider';
 
   @override
-  String get providerCodex => 'OpenAI Codex';
+  String get providerCodex => 'ChatGPT';
 
   @override
   String get providerDeepSeek => 'DeepSeek';
 
   @override
-  String get providerMimo => '小米 MiMo';
+  String get providerMimo => 'Xiaomi MiMo';
 
   @override
   String get providerAccountsMessage =>
-      '可监控 Codex 额度、DeepSeek 余额或小米 MiMo 余额与 Token 套餐。';
+      '可监控 ChatGPT 额度、DeepSeek 余额或 Xiaomi MiMo 余额与 Token 套餐。';
 
   @override
   String get deepSeekApiKey => 'DeepSeek API Key';
@@ -661,7 +685,7 @@ class AppLocalizationsZh extends AppLocalizations {
       '密码仅用于本次登录且不会保存。AiUsage 会保存具有账号登录权限的小米会话 Token。';
 
   @override
-  String get addMimo => '添加小米 MiMo 账户';
+  String get addMimo => '添加 Xiaomi MiMo 账户';
 
   @override
   String get mimoChallengeTitle => '完成小米安全验证';
@@ -750,6 +774,39 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get aboutDescription => '版本、作者与项目链接';
+
+  @override
+  String get dangerZone => '危险区域';
+
+  @override
+  String get selfDestruct => '一键自毁';
+
+  @override
+  String get selfDestructDescription => '执行后本软件数据安全清除（无！法！恢！复！！！）';
+
+  @override
+  String selfDestructTapRemaining(int count) {
+    return '还需连续点击 $count 次解锁';
+  }
+
+  @override
+  String get selfDestructWarningTitle => '不可逆的数据销毁';
+
+  @override
+  String get selfDestructFirstWarning =>
+      '这会清除 AiUsage 的全部账户、凭据、设置、缓存和诊断记录，随后应用将在每次启动时闪退。';
+
+  @override
+  String get selfDestructFinalWarning =>
+      '最终警告。执行后只有卸载重装 AiUsage，或在系统设置中清除应用数据，才能恢复启动。';
+
+  @override
+  String selfDestructWait(int seconds) {
+    return '请再思考 $seconds 秒';
+  }
+
+  @override
+  String get selfDestructFailed => '数据清理失败，永久闪退锁未启用。';
 
   @override
   String get author => '作者';

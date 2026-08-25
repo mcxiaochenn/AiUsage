@@ -167,7 +167,7 @@ abstract class AppLocalizations {
   /// No description provided for @addCodexAccount.
   ///
   /// In en, this message translates to:
-  /// **'Add a Codex account'**
+  /// **'Add a ChatGPT account'**
   String get addCodexAccount;
 
   /// No description provided for @addCodexAccountMessage.
@@ -509,7 +509,7 @@ abstract class AppLocalizations {
   /// No description provided for @signInToCodex.
   ///
   /// In en, this message translates to:
-  /// **'Sign in to Codex'**
+  /// **'Sign in to ChatGPT'**
   String get signInToCodex;
 
   /// No description provided for @signInFailed.
@@ -601,6 +601,30 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Advanced · Tokens are stored securely'**
   String get authJsonAdvanced;
+
+  /// No description provided for @credentialImport.
+  ///
+  /// In en, this message translates to:
+  /// **'Credential import'**
+  String get credentialImport;
+
+  /// No description provided for @credentialNotImported.
+  ///
+  /// In en, this message translates to:
+  /// **'Not imported'**
+  String get credentialNotImported;
+
+  /// No description provided for @credentialImported.
+  ///
+  /// In en, this message translates to:
+  /// **'Imported'**
+  String get credentialImported;
+
+  /// No description provided for @importCredential.
+  ///
+  /// In en, this message translates to:
+  /// **'Import'**
+  String get importCredential;
 
   /// No description provided for @authFileLabel.
   ///
@@ -1130,6 +1154,30 @@ abstract class AppLocalizations {
   /// **'Records appear after usage, Profile, or account-detail requests.'**
   String get noDiagnosticsDescription;
 
+  /// No description provided for @clearDiagnostics.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear diagnostics'**
+  String get clearDiagnostics;
+
+  /// No description provided for @clearDiagnosticsQuestion.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear all diagnostics?'**
+  String get clearDiagnosticsQuestion;
+
+  /// No description provided for @clearDiagnosticsMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'This permanently removes all recorded sync logs. Account and usage caches are not changed.'**
+  String get clearDiagnosticsMessage;
+
+  /// No description provided for @diagnosticsCleared.
+  ///
+  /// In en, this message translates to:
+  /// **'Diagnostics cleared.'**
+  String get diagnosticsCleared;
+
   /// No description provided for @emptyResponse.
   ///
   /// In en, this message translates to:
@@ -1187,7 +1235,7 @@ abstract class AppLocalizations {
   /// No description provided for @providerCodex.
   ///
   /// In en, this message translates to:
-  /// **'OpenAI Codex'**
+  /// **'ChatGPT'**
   String get providerCodex;
 
   /// No description provided for @providerDeepSeek.
@@ -1205,7 +1253,7 @@ abstract class AppLocalizations {
   /// No description provided for @providerAccountsMessage.
   ///
   /// In en, this message translates to:
-  /// **'Monitor Codex quotas, DeepSeek balances, or Xiaomi MiMo balances and Token Plans.'**
+  /// **'Monitor ChatGPT quotas, DeepSeek balances, or Xiaomi MiMo balances and Token Plans.'**
   String get providerAccountsMessage;
 
   /// No description provided for @deepSeekApiKey.
@@ -1453,6 +1501,60 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Version, author, and project links'**
   String get aboutDescription;
+
+  /// No description provided for @dangerZone.
+  ///
+  /// In en, this message translates to:
+  /// **'Danger zone'**
+  String get dangerZone;
+
+  /// No description provided for @selfDestruct.
+  ///
+  /// In en, this message translates to:
+  /// **'Self-destruct'**
+  String get selfDestruct;
+
+  /// No description provided for @selfDestructDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'After execution, all AiUsage data will be securely cleared (CANNOT! BE! RECOVERED!!!)'**
+  String get selfDestructDescription;
+
+  /// No description provided for @selfDestructTapRemaining.
+  ///
+  /// In en, this message translates to:
+  /// **'Tap {count} more times to unlock'**
+  String selfDestructTapRemaining(int count);
+
+  /// No description provided for @selfDestructWarningTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Irreversible data destruction'**
+  String get selfDestructWarningTitle;
+
+  /// No description provided for @selfDestructFirstWarning.
+  ///
+  /// In en, this message translates to:
+  /// **'This will erase every AiUsage account, credential, setting, cache, and diagnostic entry. The app will then crash on every launch.'**
+  String get selfDestructFirstWarning;
+
+  /// No description provided for @selfDestructFinalWarning.
+  ///
+  /// In en, this message translates to:
+  /// **'Final warning. Only uninstalling AiUsage or clearing its app data in system settings can make it launch again.'**
+  String get selfDestructFinalWarning;
+
+  /// No description provided for @selfDestructWait.
+  ///
+  /// In en, this message translates to:
+  /// **'Think for {seconds} seconds'**
+  String selfDestructWait(int seconds);
+
+  /// No description provided for @selfDestructFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Data clearing failed. The permanent crash lock was not enabled.'**
+  String get selfDestructFailed;
 
   /// No description provided for @author.
   ///

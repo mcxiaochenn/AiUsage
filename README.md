@@ -6,7 +6,7 @@
 
 简体中文 | [English](README_EN.md)
 
-AiUsage 是一个移动优先、本地优先的 AI 服务用量与余额监看应用，目前支持 OpenAI Codex、DeepSeek 和 Xiaomi MiMo。
+AiUsage 是一个移动优先、本地优先的 AI 服务用量与余额监看应用，目前支持 ChatGPT、DeepSeek 和 Xiaomi MiMo。
 
 > [!IMPORTANT]
 > Android 是当前主要支持平台。iOS 正在重点适配，CI 会验证编译，但因缺少物理设备尚未完成真机测试。Codex 与 MiMo 使用的部分内部接口可能随上游变化，请勿将 AiUsage 作为关键余额告警的唯一来源。
@@ -46,7 +46,7 @@ iOS 目前仅在 macOS CI 编译，尚未完成真机验收。如遇问题，欢
 
 | Provider | 认证 | 可查看内容 | 稳定性 |
 | --- | --- | --- | --- |
-| OpenAI Codex | Device Code / `auth.json` | 配额、Credits、Reset Credits、Token 统计 | 部分内部接口 |
+| ChatGPT | Device Code / `auth.json` | Codex 配额、Credits、Reset Credits、Token 统计 | 部分内部接口 |
 | DeepSeek | API Key | CNY/USD 余额明细 | 官方余额 API |
 | Xiaomi MiMo | 小米账号登录 | 按量余额、Token Plan | 内部控制台 API |
 
