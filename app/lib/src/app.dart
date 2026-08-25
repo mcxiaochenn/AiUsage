@@ -698,8 +698,14 @@ class _AccountHeader extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    _providerAccountLabel(context, snapshot.account),
+                    account != null &&
+                            account!.identityHash ==
+                                snapshot.account.identityHash
+                        ? _accountDisplayName(context, account!)
+                        : _providerAccountLabel(context, snapshot.account),
                     style: Theme.of(context).textTheme.titleMedium,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                   ),
                   Text(
                     '${_providerLabel(context, snapshot.account.provider)} · '
@@ -1060,57 +1066,21 @@ class AccountsPage extends ConsumerWidget {
             message: l10n.noAccountsMessage,
           ),
         ...controller.currentProviderAccounts.map(
-          (account) => Card(
-            child: ListTile(
-              leading: _ProviderAvatar(
-                provider: account.provider,
-                account: account,
-                radius: 20,
-              ),
-              title: Text(_accountDisplayName(context, account)),
-              subtitle: Text(
-                '${_providerLabel(context, account.provider)} · ${account.plan ?? l10n.unknownPlan} · ${_loginStateLabel(context, account.loginState)}\n'
-                '${l10n.lastSuccessfulRefresh(account.lastSuccessfulRefresh == null ? l10n.never : _absoluteTime(context, account.lastSuccessfulRefresh!))}\n'
-                '${l10n.credentialSource}: ${_credentialSourceLabel(context, account, demo: controller.demoMode)}',
-              ),
-              isThreeLine: true,
-              selected:
-                  controller.selectedAccount?.identityHash ==
-                  account.identityHash,
-              onTap: () =>
-                  unawaited(controller.selectAccount(account.identityHash)),
-              trailing: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  IconButton(
-                    tooltip: l10n.accountDetails,
-                    onPressed: () async {
-                      await controller.selectAccount(account.identityHash);
-                      if (context.mounted) context.push('/account-details');
-                    },
-                    icon: const Icon(Icons.info_outline),
-                  ),
-                  if (!controller.demoMode)
-                    IconButton(
-                      tooltip: l10n.renameAccount,
-                      onPressed: () =>
-                          _renameAccount(context, controller, account),
-                      icon: const Icon(Icons.edit_outlined),
-                    ),
-                  if (!controller.demoMode)
-                    PopupMenuButton<String>(
-                      onSelected: (value) =>
-                          _accountAction(context, controller, account, value),
-                      itemBuilder: (context) => [
-                        PopupMenuItem(
-                          value: 'remove',
-                          child: Text(l10n.removeAccount),
-                        ),
-                      ],
-                    ),
-                ],
-              ),
-            ),
+          (account) => _AccountManagementCard(
+            account: account,
+            selected:
+                controller.selectedAccount?.identityHash ==
+                account.identityHash,
+            demo: controller.demoMode,
+            onSelect: () =>
+                unawaited(controller.selectAccount(account.identityHash)),
+            onDetails: () async {
+              await controller.selectAccount(account.identityHash);
+              if (context.mounted) context.push('/account-details');
+            },
+            onRename: () => _renameAccount(context, controller, account),
+            onRemove: () =>
+                _accountAction(context, controller, account, 'remove'),
           ),
         ),
         const SizedBox(height: 8),
@@ -1166,6 +1136,157 @@ class AccountsPage extends ConsumerWidget {
     );
     if (value == null) return;
     await controller.renameAccount(account.identityHash, value);
+  }
+}
+
+class _AccountManagementCard extends StatelessWidget {
+  const _AccountManagementCard({
+    required this.account,
+    required this.selected,
+    required this.demo,
+    required this.onSelect,
+    required this.onDetails,
+    required this.onRename,
+    required this.onRemove,
+  });
+
+  final StoredAccount account;
+  final bool selected;
+  final bool demo;
+  final VoidCallback onSelect;
+  final VoidCallback onDetails;
+  final VoidCallback onRename;
+  final VoidCallback onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final colors = Theme.of(context).colorScheme;
+    final title = _accountDisplayName(context, account);
+    final identifier = _accountIdentifierValue(context, account);
+    final showIdentifier =
+        identifier != title && identifier != l10n.unavailable;
+    return Card(
+      color: selected ? colors.secondaryContainer : null,
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onSelect,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 10),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _ProviderAvatar(
+                    provider: account.provider,
+                    account: account,
+                    radius: 22,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          title,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
+                        if (showIdentifier) ...[
+                          const SizedBox(height: 3),
+                          Text(
+                            identifier,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                  if (selected)
+                    Padding(
+                      padding: const EdgeInsets.only(left: 8),
+                      child: Icon(Icons.check_circle, color: colors.primary),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 8,
+                runSpacing: 6,
+                children: [
+                  Chip(label: Text(account.plan ?? l10n.unknownPlan)),
+                  Chip(
+                    label: Text(_loginStateLabel(context, account.loginState)),
+                  ),
+                  Chip(
+                    label: Text(
+                      _credentialSourceLabel(context, account, demo: demo),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Icon(Icons.schedule_outlined, size: 18),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      l10n.lastSuccessfulRefresh(
+                        account.lastSuccessfulRefresh == null
+                            ? l10n.never
+                            : _absoluteTime(
+                                context,
+                                account.lastSuccessfulRefresh!,
+                              ),
+                      ),
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ),
+                ],
+              ),
+              const Divider(height: 22),
+              Align(
+                alignment: AlignmentDirectional.centerEnd,
+                child: Wrap(
+                  alignment: WrapAlignment.end,
+                  spacing: 4,
+                  runSpacing: 4,
+                  children: [
+                    TextButton.icon(
+                      onPressed: onDetails,
+                      icon: const Icon(Icons.info_outline),
+                      label: Text(l10n.accountDetails),
+                    ),
+                    if (!demo)
+                      TextButton.icon(
+                        onPressed: onRename,
+                        icon: const Icon(Icons.edit_outlined),
+                        label: Text(l10n.renameAccount),
+                      ),
+                    if (!demo)
+                      TextButton.icon(
+                        onPressed: onRemove,
+                        icon: const Icon(Icons.delete_outline),
+                        label: Text(l10n.removeAccount),
+                        style: TextButton.styleFrom(
+                          foregroundColor: colors.error,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }
 
@@ -2895,15 +3016,10 @@ class _ProviderAvatar extends StatelessWidget {
     final avatarUrl = provider == ProviderKind.codex
         ? account?.avatarUrl
         : null;
-    final fallback = provider == ProviderKind.codex
-        ? Text(
-            _accountInitials(account),
-            style: TextStyle(color: foreground, fontWeight: FontWeight.w700),
-          )
-        : Text(
-            provider == ProviderKind.deepSeek ? 'DS' : 'Mi',
-            style: TextStyle(color: foreground, fontWeight: FontWeight.w800),
-          );
+    final fallback = Padding(
+      padding: EdgeInsets.all(radius * 0.32),
+      child: Image.asset(_providerAsset(provider), fit: BoxFit.contain),
+    );
     return CircleAvatar(
       radius: radius,
       backgroundColor: background,
@@ -2915,11 +3031,11 @@ class _ProviderAvatar extends StatelessWidget {
   }
 }
 
-String _accountInitials(StoredAccount? account) {
-  final source = account?.email ?? account?.displayName ?? 'C';
-  final trimmed = source.trim();
-  return trimmed.isEmpty ? 'C' : trimmed.substring(0, 1).toUpperCase();
-}
+String _providerAsset(ProviderKind provider) => switch (provider) {
+  ProviderKind.codex => 'assets/providers/openai.png',
+  ProviderKind.deepSeek => 'assets/providers/deepseek.png',
+  ProviderKind.mimo => 'assets/providers/mimo.png',
+};
 
 String _accountDisplayName(BuildContext context, StoredAccount account) =>
     account.displayName ??
