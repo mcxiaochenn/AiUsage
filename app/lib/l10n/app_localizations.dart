@@ -1014,19 +1014,19 @@ abstract class AppLocalizations {
   ///
   /// In en, this message translates to:
   /// **'{date} · {tokens} tokens'**
-  String dailyTokenTooltip(String date, int tokens);
+  String dailyTokenTooltip(String date, String tokens);
 
   /// No description provided for @weeklyTokenTooltip.
   ///
   /// In en, this message translates to:
   /// **'Week of {weekStart} · {tokens} tokens'**
-  String weeklyTokenTooltip(String weekStart, int tokens);
+  String weeklyTokenTooltip(String weekStart, String tokens);
 
   /// No description provided for @cumulativeTokenTooltip.
   ///
   /// In en, this message translates to:
   /// **'Through week of {weekStart} · {tokens} tokens'**
-  String cumulativeTokenTooltip(String weekStart, int tokens);
+  String cumulativeTokenTooltip(String weekStart, String tokens);
 
   /// No description provided for @tokenUsageChartSemantics.
   ///
@@ -1501,6 +1501,54 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Version, author, and project links'**
   String get aboutDescription;
+
+  /// No description provided for @aboutTagline.
+  ///
+  /// In en, this message translates to:
+  /// **'A local-first usage and balance monitor for AI services'**
+  String get aboutTagline;
+
+  /// No description provided for @developer.
+  ///
+  /// In en, this message translates to:
+  /// **'Developer'**
+  String get developer;
+
+  /// No description provided for @developerName.
+  ///
+  /// In en, this message translates to:
+  /// **'ChenDusk Git@mcxiaochenn'**
+  String get developerName;
+
+  /// No description provided for @developerGithub.
+  ///
+  /// In en, this message translates to:
+  /// **'github.com/mcxiaochenn'**
+  String get developerGithub;
+
+  /// No description provided for @openSourceNotice.
+  ///
+  /// In en, this message translates to:
+  /// **'This project is open source under the MIT License'**
+  String get openSourceNotice;
+
+  /// No description provided for @copyrightNotice.
+  ///
+  /// In en, this message translates to:
+  /// **'© 2026 ChenDusk'**
+  String get copyrightNotice;
+
+  /// No description provided for @externalLinkFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Unable to open the link'**
+  String get externalLinkFailed;
+
+  /// No description provided for @tokenUsageInteractionHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Tap or hover over a chart cell to view exact Token usage'**
+  String get tokenUsageInteractionHint;
 
   /// No description provided for @dangerZone.
   ///

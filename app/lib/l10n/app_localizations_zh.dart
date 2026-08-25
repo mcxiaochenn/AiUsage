@@ -514,17 +514,17 @@ class AppLocalizationsZh extends AppLocalizations {
   String get cumulative => '累计';
 
   @override
-  String dailyTokenTooltip(String date, int tokens) {
+  String dailyTokenTooltip(String date, String tokens) {
     return '$date · $tokens Token';
   }
 
   @override
-  String weeklyTokenTooltip(String weekStart, int tokens) {
+  String weeklyTokenTooltip(String weekStart, String tokens) {
     return '$weekStart 当周 · $tokens Token';
   }
 
   @override
-  String cumulativeTokenTooltip(String weekStart, int tokens) {
+  String cumulativeTokenTooltip(String weekStart, String tokens) {
     return '截至 $weekStart 当周 · $tokens Token';
   }
 
@@ -774,6 +774,30 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get aboutDescription => '版本、作者与项目链接';
+
+  @override
+  String get aboutTagline => '本地优先的 AI 服务用量与余额监控工具';
+
+  @override
+  String get developer => '开发者';
+
+  @override
+  String get developerName => '辰渊尘 Git@mcxiaochenn';
+
+  @override
+  String get developerGithub => 'github.com/mcxiaochenn';
+
+  @override
+  String get openSourceNotice => '本项目基于 MIT 协议开源';
+
+  @override
+  String get copyrightNotice => '© 2026 辰渊尘';
+
+  @override
+  String get externalLinkFailed => '无法打开链接';
+
+  @override
+  String get tokenUsageInteractionHint => '点击或悬停图表单元查看具体 Token 用量';
 
   @override
   String get dangerZone => '危险区域';

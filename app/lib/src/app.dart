@@ -1996,6 +1996,7 @@ class _AboutPageState extends ConsumerState<_AboutPage> {
   static final _issues = Uri.parse(
     'https://github.com/mcxiaochenn/AiUsage/issues',
   );
+  static final _developer = Uri.parse('https://github.com/mcxiaochenn');
 
   @override
   void deactivate() {
@@ -2014,163 +2015,270 @@ class _AboutPageState extends ConsumerState<_AboutPage> {
             ? l10n.versionUnavailable
             : '${snapshot.data!.version} (${snapshot.data!.buildNumber})';
         return ListView(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
           children: [
-            Card(
-              child: Column(
-                children: [
-                  const SizedBox(height: 20),
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(18),
-                    child: Image.asset(
-                      'assets/branding/aiusage_icon_dark.png',
-                      width: 68,
-                      height: 68,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    'AiUsage',
-                    style: Theme.of(context).textTheme.headlineSmall,
-                  ),
-                  const SizedBox(height: 4),
-                  Text(l10n.appVersion(version)),
-                  const SizedBox(height: 20),
-                ],
-              ),
-            ),
-            Card(
-              child: Column(
-                children: [
-                  _DetailTile(
-                    label: l10n.author,
-                    value: '辰渊尘 ChenDusk / mcxiaochenn',
-                  ),
-                  _DetailTile(label: l10n.license, value: 'MIT'),
-                ],
-              ),
-            ),
-            Card(
-              child: Column(
-                children: [
-                  ListTile(
-                    leading: const Icon(Icons.code_outlined),
-                    title: Text(l10n.sourceCode),
-                    trailing: const Icon(Icons.open_in_new),
-                    onTap: () => unawaited(
-                      launchUrl(
-                        _repository,
-                        mode: LaunchMode.externalApplication,
+            Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 720),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Card(
+                      child: Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(18),
+                              child: Image.asset(
+                                'assets/branding/aiusage_icon_dark.png',
+                                width: 72,
+                                height: 72,
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              'AiUsage',
+                              style: Theme.of(context).textTheme.headlineMedium,
+                            ),
+                            const SizedBox(height: 6),
+                            Text(l10n.aboutTagline),
+                            const SizedBox(height: 20),
+                            const Divider(),
+                            const SizedBox(height: 12),
+                            Text(l10n.appVersion(version)),
+                          ],
+                        ),
                       ),
                     ),
-                  ),
-                  ListTile(
-                    leading: const Icon(Icons.bug_report_outlined),
-                    title: Text(l10n.feedback),
-                    trailing: const Icon(Icons.open_in_new),
-                    onTap: () => unawaited(
-                      launchUrl(_issues, mode: LaunchMode.externalApplication),
+                    const SizedBox(height: 20),
+                    Padding(
+                      padding: const EdgeInsetsDirectional.only(start: 8),
+                      child: Text(
+                        l10n.developer,
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(
+                              color: Theme.of(context).colorScheme.primary,
+                              fontWeight: FontWeight.w700,
+                            ),
+                      ),
                     ),
-                  ),
-                ],
-              ),
-            ),
-            if (_selfDestructUiSupported)
-              Card(
-                color: Theme.of(context).colorScheme.errorContainer,
-                clipBehavior: Clip.antiAlias,
-                child: ExpansionTile(
-                  leading: Icon(
-                    Icons.warning_amber_rounded,
-                    color: Theme.of(context).colorScheme.onErrorContainer,
-                  ),
-                  iconColor: Theme.of(context).colorScheme.onErrorContainer,
-                  collapsedIconColor: Theme.of(
-                    context,
-                  ).colorScheme.onErrorContainer,
-                  textColor: Theme.of(context).colorScheme.onErrorContainer,
-                  collapsedTextColor: Theme.of(
-                    context,
-                  ).colorScheme.onErrorContainer,
-                  title: Text(l10n.dangerZone),
-                  onExpansionChanged: (expanded) {
-                    if (!expanded && mounted) {
-                      setState(_resetSelfDestruct);
-                    }
-                  },
-                  childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                  children: [
-                    LayoutBuilder(
-                      builder: (context, constraints) {
-                        final description = Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(l10n.selfDestructDescription),
-                            if (_selfDestructTaps > 0) ...[
-                              const SizedBox(height: 6),
-                              Text(
-                                l10n.selfDestructTapRemaining(
-                                  10 - _selfDestructTaps,
-                                ),
-                                style: Theme.of(context).textTheme.bodySmall,
-                              ),
-                            ],
-                          ],
-                        );
-                        final action = FilledButton.tonalIcon(
-                          onPressed: _destroying ? null : _tapSelfDestruct,
-                          icon: _destroying
-                              ? const SizedBox.square(
-                                  dimension: 16,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                  ),
-                                )
-                              : const Icon(Icons.delete_forever),
-                          label: Text(l10n.selfDestruct),
-                        );
-                        if (constraints.maxWidth < 440) {
-                          return Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+                    const SizedBox(height: 8),
+                    Card(
+                      clipBehavior: Clip.antiAlias,
+                      child: InkWell(
+                        onTap: () => unawaited(_openExternal(_developer)),
+                        child: Padding(
+                          padding: const EdgeInsets.all(18),
+                          child: Row(
                             children: [
-                              description,
-                              const SizedBox(height: 12),
-                              Align(
-                                alignment: AlignmentDirectional.centerEnd,
-                                child: action,
+                              const CircleAvatar(
+                                radius: 32,
+                                backgroundImage: AssetImage(
+                                  'assets/branding/developer_avatar.jpg',
+                                ),
                               ),
+                              const SizedBox(width: 16),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      l10n.developerName,
+                                      style: Theme.of(
+                                        context,
+                                      ).textTheme.titleLarge,
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      l10n.developerGithub,
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .bodyLarge
+                                          ?.copyWith(
+                                            color: Theme.of(
+                                              context,
+                                            ).colorScheme.onSurfaceVariant,
+                                          ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const Icon(Icons.chevron_right),
                             ],
-                          );
-                        }
-                        return Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Expanded(child: description),
-                            const SizedBox(width: 12),
-                            action,
-                          ],
-                        );
-                      },
-                    ),
-                    if (_selfDestructError != null) ...[
-                      const SizedBox(height: 12),
-                      Align(
-                        alignment: AlignmentDirectional.centerStart,
-                        child: Text(
-                          _selfDestructError!,
-                          style: TextStyle(
-                            color: Theme.of(context).colorScheme.error,
                           ),
                         ),
                       ),
-                    ],
+                    ),
+                    const SizedBox(height: 16),
+                    Card(
+                      clipBehavior: Clip.antiAlias,
+                      child: Padding(
+                        padding: const EdgeInsets.only(top: 18, bottom: 8),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 20,
+                              ),
+                              child: Text(
+                                l10n.openSourceNotice,
+                                style: Theme.of(context).textTheme.titleMedium,
+                              ),
+                            ),
+                            const Divider(height: 28),
+                            ListTile(
+                              leading: const Icon(Icons.code_outlined),
+                              title: Text(l10n.sourceCode),
+                              subtitle: const Text(
+                                'github.com/mcxiaochenn/AiUsage',
+                              ),
+                              trailing: const Icon(Icons.open_in_new),
+                              onTap: () =>
+                                  unawaited(_openExternal(_repository)),
+                            ),
+                            ListTile(
+                              leading: const Icon(Icons.bug_report_outlined),
+                              title: Text(l10n.feedback),
+                              subtitle: const Text(
+                                'github.com/mcxiaochenn/AiUsage/issues',
+                              ),
+                              trailing: const Icon(Icons.open_in_new),
+                              onTap: () => unawaited(_openExternal(_issues)),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Padding(
+                      padding: const EdgeInsetsDirectional.only(start: 8),
+                      child: Text(
+                        l10n.copyrightNotice,
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
                   ],
+                ),
+              ),
+            ),
+            if (_selfDestructUiSupported)
+              Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 720),
+                  child: Card(
+                    color: Theme.of(context).colorScheme.errorContainer,
+                    clipBehavior: Clip.antiAlias,
+                    child: ExpansionTile(
+                      leading: Icon(
+                        Icons.warning_amber_rounded,
+                        color: Theme.of(context).colorScheme.onErrorContainer,
+                      ),
+                      iconColor: Theme.of(context).colorScheme.onErrorContainer,
+                      collapsedIconColor: Theme.of(
+                        context,
+                      ).colorScheme.onErrorContainer,
+                      textColor: Theme.of(context).colorScheme.onErrorContainer,
+                      collapsedTextColor: Theme.of(
+                        context,
+                      ).colorScheme.onErrorContainer,
+                      title: Text(l10n.dangerZone),
+                      onExpansionChanged: (expanded) {
+                        if (!expanded && mounted) {
+                          setState(_resetSelfDestruct);
+                        }
+                      },
+                      childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                      children: [
+                        LayoutBuilder(
+                          builder: (context, constraints) {
+                            final description = Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(l10n.selfDestructDescription),
+                                if (_selfDestructTaps > 0) ...[
+                                  const SizedBox(height: 6),
+                                  Text(
+                                    l10n.selfDestructTapRemaining(
+                                      10 - _selfDestructTaps,
+                                    ),
+                                    style: Theme.of(
+                                      context,
+                                    ).textTheme.bodySmall,
+                                  ),
+                                ],
+                              ],
+                            );
+                            final action = FilledButton.tonalIcon(
+                              onPressed: _destroying ? null : _tapSelfDestruct,
+                              icon: _destroying
+                                  ? const SizedBox.square(
+                                      dimension: 16,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                      ),
+                                    )
+                                  : const Icon(Icons.delete_forever),
+                              label: Text(l10n.selfDestruct),
+                            );
+                            if (constraints.maxWidth < 440) {
+                              return Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  description,
+                                  const SizedBox(height: 12),
+                                  Align(
+                                    alignment: AlignmentDirectional.centerEnd,
+                                    child: action,
+                                  ),
+                                ],
+                              );
+                            }
+                            return Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Expanded(child: description),
+                                const SizedBox(width: 12),
+                                action,
+                              ],
+                            );
+                          },
+                        ),
+                        if (_selfDestructError != null) ...[
+                          const SizedBox(height: 12),
+                          Align(
+                            alignment: AlignmentDirectional.centerStart,
+                            child: Text(
+                              _selfDestructError!,
+                              style: TextStyle(
+                                color: Theme.of(context).colorScheme.error,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
                 ),
               ),
           ],
         );
       },
     );
+  }
+
+  Future<void> _openExternal(Uri uri) async {
+    final opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    if (!opened && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(AppLocalizations.of(context).externalLinkFailed),
+        ),
+      );
+    }
   }
 
   Future<void> _tapSelfDestruct() async {

@@ -535,17 +535,17 @@ class AppLocalizationsEn extends AppLocalizations {
   String get cumulative => 'Cumulative';
 
   @override
-  String dailyTokenTooltip(String date, int tokens) {
+  String dailyTokenTooltip(String date, String tokens) {
     return '$date · $tokens tokens';
   }
 
   @override
-  String weeklyTokenTooltip(String weekStart, int tokens) {
+  String weeklyTokenTooltip(String weekStart, String tokens) {
     return 'Week of $weekStart · $tokens tokens';
   }
 
   @override
-  String cumulativeTokenTooltip(String weekStart, int tokens) {
+  String cumulativeTokenTooltip(String weekStart, String tokens) {
     return 'Through week of $weekStart · $tokens tokens';
   }
 
@@ -811,6 +811,33 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get aboutDescription => 'Version, author, and project links';
+
+  @override
+  String get aboutTagline =>
+      'A local-first usage and balance monitor for AI services';
+
+  @override
+  String get developer => 'Developer';
+
+  @override
+  String get developerName => 'ChenDusk Git@mcxiaochenn';
+
+  @override
+  String get developerGithub => 'github.com/mcxiaochenn';
+
+  @override
+  String get openSourceNotice =>
+      'This project is open source under the MIT License';
+
+  @override
+  String get copyrightNotice => '© 2026 ChenDusk';
+
+  @override
+  String get externalLinkFailed => 'Unable to open the link';
+
+  @override
+  String get tokenUsageInteractionHint =>
+      'Tap or hover over a chart cell to view exact Token usage';
 
   @override
   String get dangerZone => 'Danger zone';
