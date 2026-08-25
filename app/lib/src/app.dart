@@ -1998,6 +1998,13 @@ class _AboutPageState extends ConsumerState<_AboutPage> {
   );
 
   @override
+  void deactivate() {
+    // 离开页面后，未完成解锁的危险操作不能保留。
+    _resetSelfDestruct();
+    super.deactivate();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     return FutureBuilder<PackageInfo>(
@@ -2088,10 +2095,7 @@ class _AboutPageState extends ConsumerState<_AboutPage> {
                   title: Text(l10n.dangerZone),
                   onExpansionChanged: (expanded) {
                     if (!expanded && mounted) {
-                      setState(() {
-                        _selfDestructTaps = 0;
-                        _selfDestructError = null;
-                      });
+                      setState(_resetSelfDestruct);
                     }
                   },
                   childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
@@ -2180,9 +2184,15 @@ class _AboutPageState extends ConsumerState<_AboutPage> {
     }
     setState(() => _selfDestructTaps = 0);
     final first = await _showSelfDestructWarning(context, finalStage: false);
-    if (!first || !mounted) return;
+    if (!first || !mounted) {
+      if (mounted) setState(_resetSelfDestruct);
+      return;
+    }
     final second = await _showSelfDestructWarning(context, finalStage: true);
-    if (!second || !mounted) return;
+    if (!second || !mounted) {
+      if (mounted) setState(_resetSelfDestruct);
+      return;
+    }
     setState(() {
       _destroying = true;
       _selfDestructError = null;
@@ -2199,6 +2209,11 @@ class _AboutPageState extends ConsumerState<_AboutPage> {
         _selfDestructError = AppLocalizations.of(context).selfDestructFailed;
       });
     }
+  }
+
+  void _resetSelfDestruct() {
+    _selfDestructTaps = 0;
+    _selfDestructError = null;
   }
 }
 

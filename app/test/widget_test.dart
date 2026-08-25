@@ -223,7 +223,7 @@ void main() {
     expect(find.text('snapshot@example.com'), findsNothing);
   });
 
-  testWidgets('self-destruct requires ten taps before the first warning', (
+  testWidgets('self-destruct requires two cooled-down confirmations', (
     tester,
   ) async {
     debugDefaultTargetPlatformOverride = TargetPlatform.android;
@@ -244,9 +244,57 @@ void main() {
     await tester.tap(find.text('Self-destruct'));
     await tester.pump();
     expect(find.text('Irreversible data destruction'), findsOneWidget);
-    expect(find.byIcon(Icons.delete_forever), findsWidgets);
-    await tester.tap(find.text('Cancel'));
+    var delete = find.descendant(
+      of: find.byType(AlertDialog),
+      matching: find.byType(IconButton),
+    );
+    expect(tester.widget<IconButton>(delete).onPressed, isNull);
+    await tester.pump(const Duration(seconds: 10));
+    expect(tester.widget<IconButton>(delete).onPressed, isNotNull);
+    await tester.tap(delete);
+    await tester.pump();
+
+    expect(find.textContaining('Final warning'), findsOneWidget);
+    final secondDialog = find.ancestor(
+      of: find.textContaining('Final warning'),
+      matching: find.byType(AlertDialog),
+    );
+    delete = find.descendant(
+      of: secondDialog,
+      matching: find.byType(IconButton),
+    );
+    expect(tester.widget<IconButton>(delete).onPressed, isNull);
+    await tester.pump(const Duration(seconds: 10));
+    expect(tester.widget<IconButton>(delete).onPressed, isNotNull);
+    await tester.tap(
+      find.descendant(of: secondDialog, matching: find.text('Cancel')),
+    );
     await tester.pumpAndSettle();
+    expect(find.textContaining('Tap '), findsNothing);
+    debugDefaultTargetPlatformOverride = null;
+  });
+
+  testWidgets('collapsing the danger zone resets its tap counter', (
+    tester,
+  ) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    await tester.pumpWidget(AiUsageApp(controller: AppController.testing()));
+    await tester.tap(find.text('Settings'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('About'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Danger zone'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Self-destruct'));
+    await tester.pump();
+    expect(find.text('Tap 9 more times to unlock'), findsOneWidget);
+
+    await tester.tap(find.text('Danger zone'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Danger zone'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Tap '), findsNothing);
     debugDefaultTargetPlatformOverride = null;
   });
 
