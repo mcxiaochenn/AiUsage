@@ -215,6 +215,8 @@ class SecureAccountVault {
   Future<void> saveSettings(MonitorSettings settings) =>
       _storage.write(key: _settingsKey, value: jsonEncode(settings.toJson()));
 
+  Future<void> clearAll() => _storage.deleteAll();
+
   Future<void> _writeIndex(List<StoredAccount> accounts) => _storage.write(
     key: _indexKey,
     value: jsonEncode(accounts.map((item) => item.toMetadata()).toList()),

@@ -319,6 +319,40 @@ impl HistoryRepository {
             .map_err(sql_error)
     }
 
+    pub fn clear_sync_logs(&self) -> Result<(), String> {
+        self.connection
+            .execute("DELETE FROM sync_logs", [])
+            .map_err(sql_error)?;
+        Ok(())
+    }
+
+    pub fn purge_all_data(&mut self) -> Result<(), String> {
+        self.connection
+            .execute_batch("PRAGMA secure_delete = ON; PRAGMA wal_checkpoint(TRUNCATE);")
+            .map_err(sql_error)?;
+        let transaction = self.connection.transaction().map_err(sql_error)?;
+        for table in [
+            "quota_windows",
+            "usage_snapshots",
+            "accounts",
+            "account_details",
+            "profile_usage",
+            "sync_logs",
+        ] {
+            transaction
+                .execute(&format!("DELETE FROM {table}"), [])
+                .map_err(sql_error)?;
+        }
+        transaction
+            .execute(
+                "DELETE FROM sqlite_sequence WHERE name IN ('usage_snapshots', 'quota_windows', 'sync_logs')",
+                [],
+            )
+            .map_err(sql_error)?;
+        transaction.commit().map_err(sql_error)?;
+        self.connection.execute_batch("VACUUM;").map_err(sql_error)
+    }
+
     pub fn history(&self, identity_hash: &str, since: i64) -> Result<Vec<HistoryPoint>, String> {
         let mut statement = self
             .connection
@@ -819,6 +853,81 @@ mod tests {
         assert!(!logs[0].response_body.contains("secret"));
         assert!(!logs[0].response_body.contains("raw"));
         assert!(!logs[0].response_body.contains("Bearer"));
+    }
+
+    #[test]
+    fn clearing_diagnostics_preserves_usage_data() {
+        let mut repository = HistoryRepository {
+            connection: Connection::open_in_memory().unwrap(),
+        };
+        repository.migrate().unwrap();
+        let sample = snapshot(1_700_000_000);
+        repository.record_snapshot(&sample).unwrap();
+        repository
+            .record_sync_log(
+                "account-hash",
+                SyncTrigger::Manual,
+                "usage",
+                1,
+                1,
+                Some(200),
+                "fresh",
+                None,
+                "{}",
+            )
+            .unwrap();
+
+        repository.clear_sync_logs().unwrap();
+
+        assert!(repository.sync_logs().unwrap().is_empty());
+        assert!(
+            repository
+                .latest_snapshot(&sample.account)
+                .unwrap()
+                .is_some()
+        );
+    }
+
+    #[test]
+    fn purging_all_data_clears_every_business_table() {
+        let mut repository = HistoryRepository {
+            connection: Connection::open_in_memory().unwrap(),
+        };
+        repository.migrate().unwrap();
+        let sample = snapshot(1_700_000_000);
+        repository.record_snapshot(&sample).unwrap();
+        repository
+            .record_sync_log(
+                "account-hash",
+                SyncTrigger::Manual,
+                "usage",
+                1,
+                1,
+                Some(200),
+                "fresh",
+                None,
+                "{}",
+            )
+            .unwrap();
+
+        repository.purge_all_data().unwrap();
+
+        for table in [
+            "quota_windows",
+            "usage_snapshots",
+            "accounts",
+            "account_details",
+            "profile_usage",
+            "sync_logs",
+        ] {
+            let count: i64 = repository
+                .connection
+                .query_row(&format!("SELECT COUNT(*) FROM {table}"), [], |row| {
+                    row.get(0)
+                })
+                .unwrap();
+            assert_eq!(count, 0, "{table} was not cleared");
+        }
     }
 
     #[test]

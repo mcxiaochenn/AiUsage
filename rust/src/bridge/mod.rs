@@ -711,6 +711,22 @@ pub fn sync_logs() -> Result<Vec<SyncLogEntry>, String> {
         .sync_logs()
 }
 
+pub fn clear_sync_logs() -> Result<(), String> {
+    core()?
+        .history
+        .lock()
+        .map_err(|_| "Diagnostics are unavailable".to_string())?
+        .clear_sync_logs()
+}
+
+pub fn purge_all_data() -> Result<(), String> {
+    core()?
+        .history
+        .lock()
+        .map_err(|_| "Local data is unavailable".to_string())?
+        .purge_all_data()
+}
+
 pub fn cached_usage(account: AccountInfo) -> Result<UsageResult, String> {
     let snapshot = core()?
         .history

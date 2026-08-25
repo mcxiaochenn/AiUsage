@@ -81,7 +81,7 @@ void main() {
 
     expect(
       find.text(
-        'Monitor Codex quotas, DeepSeek balances, or Xiaomi MiMo balances and Token Plans.',
+        'Monitor ChatGPT quotas, DeepSeek balances, or Xiaomi MiMo balances and Token Plans.',
       ),
       findsOneWidget,
     );
@@ -99,7 +99,7 @@ void main() {
     );
 
     expect(
-      find.text('可监控 Codex 额度、DeepSeek 余额或小米 MiMo 余额与 Token 套餐。'),
+      find.text('可监控 ChatGPT 额度、DeepSeek 余额或 Xiaomi MiMo 余额与 Token 套餐。'),
       findsOneWidget,
     );
   });
@@ -158,9 +158,96 @@ void main() {
     await tester.tap(find.byType(FilledButton).first);
     await tester.pumpAndSettle();
 
-    expect(find.text('OpenAI Codex'), findsOneWidget);
+    expect(find.text('ChatGPT'), findsOneWidget);
     expect(find.text('DeepSeek'), findsOneWidget);
     expect(find.text('Xiaomi MiMo'), findsOneWidget);
+  });
+
+  testWidgets('auth.json import waits for a selected credential before save', (
+    tester,
+  ) async {
+    await tester.pumpWidget(AiUsageApp(controller: AppController.testing()));
+    await tester.tap(find.byType(FilledButton).first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('ChatGPT'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Import auth.json'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Credential import: Not imported'), findsOneWidget);
+    final save = tester.widget<FilledButton>(
+      find.widgetWithText(FilledButton, 'Save'),
+    );
+    expect(save.onPressed, isNull);
+  });
+
+  testWidgets('dashboard account header prefers matching custom name', (
+    tester,
+  ) async {
+    const stored = StoredAccount(
+      identityHash: 'named-account',
+      email: 'stored@example.com',
+      displayName: 'Dashboard alias',
+      plan: 'plus',
+      loginState: LoginState.signedIn,
+    );
+    const snapshotAccount = AccountInfo(
+      provider: ProviderKind.codex,
+      identityHash: 'named-account',
+      email: 'snapshot@example.com',
+      plan: 'plus',
+      isFedramp: false,
+      loginState: LoginState.signedIn,
+      credentialStatus: CredentialStatus.available,
+    );
+    await tester.pumpWidget(
+      AiUsageApp(
+        controller: AppController.testing(
+          accounts: const [stored],
+          usage: const UsageResult(
+            snapshot: UsageSnapshot(
+              account: snapshotAccount,
+              windows: [],
+              balances: [],
+              providerQuotas: [],
+              fetchedAt: 1,
+            ),
+            state: UsageState.fresh,
+            showingCachedData: false,
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('Dashboard alias'), findsOneWidget);
+    expect(find.text('snapshot@example.com'), findsNothing);
+  });
+
+  testWidgets('self-destruct requires ten taps before the first warning', (
+    tester,
+  ) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    await tester.pumpWidget(AiUsageApp(controller: AppController.testing()));
+    await tester.tap(find.text('Settings'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('About'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Danger zone'));
+    await tester.pumpAndSettle();
+
+    for (var index = 0; index < 9; index++) {
+      await tester.tap(find.text('Self-destruct'));
+      await tester.pump();
+    }
+    expect(find.text('Irreversible data destruction'), findsNothing);
+    await tester.tap(find.text('Self-destruct'));
+    await tester.pump();
+    expect(find.text('Irreversible data destruction'), findsOneWidget);
+    expect(find.byIcon(Icons.delete_forever), findsWidgets);
+    await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
+    debugDefaultTargetPlatformOverride = null;
   });
 
   testWidgets('DeepSeek renders separate currencies and has no token history', (
@@ -270,6 +357,36 @@ void main() {
       find.textContaining('Browser authorization (Device Code)'),
       findsOneWidget,
     );
+  });
+
+  testWidgets('account cards remain readable on narrow large-text layouts', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(360, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    const account = StoredAccount(
+      identityHash: 'long-account',
+      email: 'a-very-long-account-identifier@example.com',
+      displayName: 'A very long custom account name for the dashboard',
+      plan: 'ChatGPT Plus with a long plan name',
+      loginState: LoginState.signedIn,
+      credentialSource: CredentialSource.deviceCode,
+    );
+    await tester.pumpWidget(
+      MediaQuery(
+        data: const MediaQueryData(textScaler: TextScaler.linear(2)),
+        child: AiUsageApp(
+          controller: AppController.testing(accounts: const [account]),
+        ),
+      ),
+    );
+    await tester.tap(find.text('Accounts'));
+    await tester.pumpAndSettle();
+
+    expect(find.text(account.displayName!), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('account page filters accounts to the selected provider', (

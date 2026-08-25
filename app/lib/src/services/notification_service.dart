@@ -126,6 +126,12 @@ class NotificationService {
     }
   }
 
+  Future<void> cancelAll() async {
+    await _plugin.cancelAll();
+    _previousUsage.clear();
+    _previousResetAt.clear();
+  }
+
   Future<void> _show({
     required int id,
     required String title,

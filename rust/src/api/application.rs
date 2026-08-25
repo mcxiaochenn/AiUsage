@@ -82,6 +82,14 @@ pub fn sync_logs() -> Result<Vec<SyncLogEntry>, String> {
     bridge::sync_logs()
 }
 
+pub fn clear_sync_logs() -> Result<(), String> {
+    bridge::clear_sync_logs()
+}
+
+pub fn purge_all_data() -> Result<(), String> {
+    bridge::purge_all_data()
+}
+
 pub fn cached_usage(account: AccountInfo) -> Result<UsageResult, String> {
     bridge::cached_usage(account)
 }

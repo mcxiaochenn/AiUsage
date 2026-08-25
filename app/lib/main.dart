@@ -4,9 +4,11 @@ import 'src/app.dart';
 import 'src/app_controller.dart';
 import 'src/rust/frb_generated.dart';
 import 'src/services/desktop_tray.dart';
+import 'src/services/self_destruct_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await SelfDestructService.crashIfArmed();
   await RustLib.init();
   final controller = AppController();
   await controller.bootstrap();

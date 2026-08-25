@@ -17,6 +17,7 @@ import 'app_controller.dart';
 import '../l10n/app_localizations.dart';
 import 'rust/models.dart';
 import 'services/secure_account_vault.dart';
+import 'services/self_destruct_service.dart';
 import 'services/system_settings.dart';
 import 'widgets/token_usage_chart.dart';
 
@@ -405,6 +406,13 @@ class _DiagnosticsRoute extends ConsumerWidget {
       parentPath: '/settings',
       title: l10n.diagnostics,
       actions: [
+        IconButton(
+          tooltip: l10n.clearDiagnostics,
+          onPressed: controller.syncLogs.isEmpty
+              ? null
+              : () => _clearDiagnostics(context, controller),
+          icon: const Icon(Icons.delete_sweep_outlined),
+        ),
         IconButton(
           tooltip: l10n.refresh,
           onPressed: () => unawaited(controller.loadSyncLogs()),
@@ -1970,8 +1978,17 @@ class _AboutRoute extends StatelessWidget {
   );
 }
 
-class _AboutPage extends StatelessWidget {
+class _AboutPage extends ConsumerStatefulWidget {
   const _AboutPage();
+
+  @override
+  ConsumerState<_AboutPage> createState() => _AboutPageState();
+}
+
+class _AboutPageState extends ConsumerState<_AboutPage> {
+  int _selfDestructTaps = 0;
+  bool _destroying = false;
+  String? _selfDestructError;
 
   static final _repository = Uri.parse(
     'https://github.com/mcxiaochenn/AiUsage',
@@ -2051,12 +2068,262 @@ class _AboutPage extends StatelessWidget {
                 ],
               ),
             ),
+            if (_selfDestructUiSupported)
+              Card(
+                color: Theme.of(context).colorScheme.errorContainer,
+                clipBehavior: Clip.antiAlias,
+                child: ExpansionTile(
+                  leading: Icon(
+                    Icons.warning_amber_rounded,
+                    color: Theme.of(context).colorScheme.onErrorContainer,
+                  ),
+                  iconColor: Theme.of(context).colorScheme.onErrorContainer,
+                  collapsedIconColor: Theme.of(
+                    context,
+                  ).colorScheme.onErrorContainer,
+                  textColor: Theme.of(context).colorScheme.onErrorContainer,
+                  collapsedTextColor: Theme.of(
+                    context,
+                  ).colorScheme.onErrorContainer,
+                  title: Text(l10n.dangerZone),
+                  onExpansionChanged: (expanded) {
+                    if (!expanded && mounted) {
+                      setState(() {
+                        _selfDestructTaps = 0;
+                        _selfDestructError = null;
+                      });
+                    }
+                  },
+                  childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                  children: [
+                    LayoutBuilder(
+                      builder: (context, constraints) {
+                        final description = Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(l10n.selfDestructDescription),
+                            if (_selfDestructTaps > 0) ...[
+                              const SizedBox(height: 6),
+                              Text(
+                                l10n.selfDestructTapRemaining(
+                                  10 - _selfDestructTaps,
+                                ),
+                                style: Theme.of(context).textTheme.bodySmall,
+                              ),
+                            ],
+                          ],
+                        );
+                        final action = FilledButton.tonalIcon(
+                          onPressed: _destroying ? null : _tapSelfDestruct,
+                          icon: _destroying
+                              ? const SizedBox.square(
+                                  dimension: 16,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : const Icon(Icons.delete_forever),
+                          label: Text(l10n.selfDestruct),
+                        );
+                        if (constraints.maxWidth < 440) {
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              description,
+                              const SizedBox(height: 12),
+                              Align(
+                                alignment: AlignmentDirectional.centerEnd,
+                                child: action,
+                              ),
+                            ],
+                          );
+                        }
+                        return Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(child: description),
+                            const SizedBox(width: 12),
+                            action,
+                          ],
+                        );
+                      },
+                    ),
+                    if (_selfDestructError != null) ...[
+                      const SizedBox(height: 12),
+                      Align(
+                        alignment: AlignmentDirectional.centerStart,
+                        child: Text(
+                          _selfDestructError!,
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.error,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
           ],
         );
       },
     );
   }
+
+  Future<void> _tapSelfDestruct() async {
+    final next = _selfDestructTaps + 1;
+    if (next < 10) {
+      setState(() {
+        _selfDestructTaps = next;
+        _selfDestructError = null;
+      });
+      return;
+    }
+    setState(() => _selfDestructTaps = 0);
+    final first = await _showSelfDestructWarning(context, finalStage: false);
+    if (!first || !mounted) return;
+    final second = await _showSelfDestructWarning(context, finalStage: true);
+    if (!second || !mounted) return;
+    setState(() {
+      _destroying = true;
+      _selfDestructError = null;
+    });
+    try {
+      final controller = ref.read(appControllerProvider);
+      await const SelfDestructService().execute(
+        purgeData: controller.purgeAllUserData,
+      );
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _destroying = false;
+        _selfDestructError = AppLocalizations.of(context).selfDestructFailed;
+      });
+    }
+  }
 }
+
+Future<bool> _showSelfDestructWarning(
+  BuildContext context, {
+  required bool finalStage,
+}) async =>
+    await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => _SelfDestructWarningDialog(finalStage: finalStage),
+    ) ??
+    false;
+
+class _SelfDestructWarningDialog extends StatefulWidget {
+  const _SelfDestructWarningDialog({required this.finalStage});
+
+  final bool finalStage;
+
+  @override
+  State<_SelfDestructWarningDialog> createState() =>
+      _SelfDestructWarningDialogState();
+}
+
+class _SelfDestructWarningDialogState
+    extends State<_SelfDestructWarningDialog> {
+  int _seconds = 10;
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) return;
+      if (_seconds <= 1) {
+        timer.cancel();
+        setState(() => _seconds = 0);
+      } else {
+        setState(() => _seconds--);
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final colors = Theme.of(context).colorScheme;
+    return AlertDialog(
+      icon: Icon(Icons.warning_amber_rounded, color: colors.error, size: 36),
+      title: Text(l10n.selfDestructWarningTitle),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            widget.finalStage
+                ? l10n.selfDestructFinalWarning
+                : l10n.selfDestructFirstWarning,
+          ),
+          const SizedBox(height: 16),
+          Text(
+            _seconds == 0 ? l10n.selfDestruct : l10n.selfDestructWait(_seconds),
+            style: TextStyle(
+              color: _seconds == 0 ? colors.error : colors.onSurfaceVariant,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context, false),
+          child: Text(l10n.cancel),
+        ),
+        IconButton.filled(
+          tooltip: l10n.selfDestruct,
+          onPressed: _seconds == 0 ? () => Navigator.pop(context, true) : null,
+          color: colors.onError,
+          style: IconButton.styleFrom(backgroundColor: colors.error),
+          icon: const Icon(Icons.delete_forever),
+        ),
+      ],
+    );
+  }
+}
+
+Future<void> _clearDiagnostics(
+  BuildContext context,
+  AppController controller,
+) async {
+  final l10n = AppLocalizations.of(context);
+  final confirmed = await showDialog<bool>(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: Text(l10n.clearDiagnosticsQuestion),
+      content: Text(l10n.clearDiagnosticsMessage),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context, false),
+          child: Text(l10n.cancel),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.pop(context, true),
+          child: Text(l10n.clearDiagnostics),
+        ),
+      ],
+    ),
+  );
+  if (confirmed != true || !context.mounted) return;
+  await controller.clearSyncLogs();
+  if (!context.mounted) return;
+  ScaffoldMessenger.of(
+    context,
+  ).showSnackBar(SnackBar(content: Text(l10n.diagnosticsCleared)));
+}
+
+bool get _selfDestructUiSupported =>
+    defaultTargetPlatform == TargetPlatform.android ||
+    defaultTargetPlatform == TargetPlatform.iOS;
 
 Future<bool> _confirmBackgroundRefresh(BuildContext context) async {
   final l10n = AppLocalizations.of(context);
@@ -2359,7 +2626,6 @@ class _DeviceLoginDialogState extends ConsumerState<_DeviceLoginDialog>
           setState(() {});
         }
       });
-      unawaited(_openBrowser());
     } catch (error) {
       if (mounted) setState(() => _error = '$error');
     }
@@ -2711,16 +2977,16 @@ class _MimoLoginDialogState extends State<_MimoLoginDialog> {
             mainAxisSize: MainAxisSize.min,
             children: [
               TextField(
-                controller: _username,
-                keyboardType: TextInputType.emailAddress,
-                decoration: InputDecoration(labelText: l10n.mimoUsername),
-              ),
-              TextField(
                 controller: _alias,
                 maxLength: 48,
                 decoration: InputDecoration(
                   labelText: l10n.accountAliasOptional,
                 ),
+              ),
+              TextField(
+                controller: _username,
+                keyboardType: TextInputType.emailAddress,
+                decoration: InputDecoration(labelText: l10n.mimoUsername),
               ),
               TextField(
                 controller: _password,
@@ -2835,36 +3101,152 @@ class _LoginMethodChoices extends StatelessWidget {
   }
 }
 
-Future<void> _importAuthJson(BuildContext context) async {
-  try {
+Future<void> _importAuthJson(BuildContext context) => showDialog<void>(
+  context: context,
+  barrierDismissible: false,
+  builder: (context) => const _AuthJsonImportDialog(),
+);
+
+class _AuthJsonImportDialog extends ConsumerStatefulWidget {
+  const _AuthJsonImportDialog();
+
+  @override
+  ConsumerState<_AuthJsonImportDialog> createState() =>
+      _AuthJsonImportDialogState();
+}
+
+class _AuthJsonImportDialogState extends ConsumerState<_AuthJsonImportDialog> {
+  final _alias = TextEditingController();
+  Uint8List? _bytes;
+  bool _saving = false;
+  String? _error;
+
+  @override
+  void dispose() {
+    _wipeBytes();
+    _alias.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    final displayName = await _showAccountNameDialog(context);
-    if (!context.mounted || displayName == null) return;
+    return AlertDialog(
+      title: Text(l10n.importAuthJson),
+      content: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 480),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            TextField(
+              controller: _alias,
+              maxLength: 48,
+              decoration: InputDecoration(labelText: l10n.accountAliasOptional),
+            ),
+            const SizedBox(height: 4),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    '${l10n.credentialImport}: ${_bytes == null ? l10n.credentialNotImported : l10n.credentialImported}',
+                  ),
+                ),
+                const SizedBox(width: 12),
+                OutlinedButton.icon(
+                  onPressed: _saving ? null : _chooseFile,
+                  icon: const Icon(Icons.file_open_outlined),
+                  label: Text(l10n.importCredential),
+                ),
+              ],
+            ),
+            if (_error != null) ...[
+              const SizedBox(height: 12),
+              Text(
+                _error!,
+                style: TextStyle(color: Theme.of(context).colorScheme.error),
+              ),
+            ],
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _saving ? null : () => Navigator.pop(context),
+          child: Text(l10n.cancel),
+        ),
+        FilledButton(
+          onPressed: _saving || _bytes == null ? null : _save,
+          child: _saving
+              ? const SizedBox.square(
+                  dimension: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : Text(l10n.save),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _chooseFile() async {
+    final l10n = AppLocalizations.of(context);
     final typeGroup = XTypeGroup(
       label: l10n.authFileLabel,
       extensions: const ['json'],
       mimeTypes: const ['application/json'],
       uniformTypeIdentifiers: const ['public.json'],
     );
-    final file = await openFile(acceptedTypeGroups: [typeGroup]);
-    if (file == null || !context.mounted) return;
-    if (await file.length() > 1024 * 1024) {
-      throw const FormatException('auth_import.file_too_large');
+    try {
+      final file = await openFile(acceptedTypeGroups: [typeGroup]);
+      if (file == null || !mounted) return;
+      if (await file.length() > 1024 * 1024) {
+        throw const FormatException('auth_import.file_too_large');
+      }
+      final bytes = await file.readAsBytes();
+      if (!mounted) {
+        bytes.fillRange(0, bytes.length, 0);
+        return;
+      }
+      _wipeBytes();
+      setState(() {
+        _bytes = bytes;
+        _error = null;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _error = _authImportErrorMessage(context, error));
     }
-    final bytes = await file.readAsBytes();
-    if (!context.mounted) return;
-    await ProviderScope.containerOf(context)
-        .read(appControllerProvider)
-        .importAccount(bytes, displayName: displayName);
-    if (!context.mounted) return;
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(l10n.accountImported)));
-  } catch (error) {
-    if (!context.mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(_authImportErrorMessage(context, error))),
-    );
+  }
+
+  Future<void> _save() async {
+    final bytes = _bytes;
+    if (bytes == null) return;
+    setState(() {
+      _saving = true;
+      _error = null;
+    });
+    try {
+      await ref
+          .read(appControllerProvider)
+          .importAccount(bytes, displayName: _alias.text);
+      if (!mounted) return;
+      final message = AppLocalizations.of(context).accountImported;
+      final messenger = ScaffoldMessenger.of(context);
+      _wipeBytes();
+      Navigator.pop(context);
+      messenger.showSnackBar(SnackBar(content: Text(message)));
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _error = _authImportErrorMessage(context, error));
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  void _wipeBytes() {
+    final bytes = _bytes;
+    if (bytes != null) bytes.fillRange(0, bytes.length, 0);
+    _bytes = null;
   }
 }
 
@@ -3003,8 +3385,7 @@ class _ProviderAvatar extends StatelessWidget {
     final background =
         backgroundColor ??
         switch (provider) {
-          ProviderKind.codex => colors.primaryContainer,
-          ProviderKind.deepSeek => const Color(0xFF1976D2),
+          ProviderKind.codex || ProviderKind.deepSeek => Colors.white,
           ProviderKind.mimo => const Color(0xFFFF6900),
         };
     final foreground =

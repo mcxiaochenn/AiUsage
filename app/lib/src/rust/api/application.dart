@@ -98,6 +98,12 @@ Future<AccountDetails?> cachedAccountDetails({
 Future<List<SyncLogEntry>> syncLogs() =>
     RustLib.instance.api.crateApiApplicationSyncLogs();
 
+Future<void> clearSyncLogs() =>
+    RustLib.instance.api.crateApiApplicationClearSyncLogs();
+
+Future<void> purgeAllData() =>
+    RustLib.instance.api.crateApiApplicationPurgeAllData();
+
 Future<UsageResult> cachedUsage({required AccountInfo account}) =>
     RustLib.instance.api.crateApiApplicationCachedUsage(account: account);
 

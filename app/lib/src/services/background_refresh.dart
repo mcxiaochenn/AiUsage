@@ -8,6 +8,7 @@ import '../rust/api/application.dart' as core;
 import '../rust/frb_generated.dart';
 import '../rust/models.dart';
 import 'secure_account_vault.dart';
+import 'self_destruct_service.dart';
 
 const _backgroundTaskName = 'aiusage_refresh';
 // Also listed in iOS BGTaskSchedulerPermittedIdentifiers.
@@ -23,6 +24,7 @@ void backgroundRefreshDispatcher() {
   Workmanager().executeTask((_, _) async {
     WidgetsFlutterBinding.ensureInitialized();
     try {
+      if (await SelfDestructService.isArmed()) return true;
       await RustLib.init();
       final supportDirectory = await getApplicationSupportDirectory();
       final databasePath =

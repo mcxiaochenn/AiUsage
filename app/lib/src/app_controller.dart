@@ -568,6 +568,31 @@ class AppController extends ChangeNotifier {
     }
   }
 
+  Future<void> clearSyncLogs() async {
+    await core.clearSyncLogs();
+    _syncLogs = const [];
+    notifyListeners();
+  }
+
+  Future<void> purgeAllUserData() async {
+    _foregroundTimer?.cancel();
+    await _backgroundScheduler.configure(enabled: false, refreshMinutes: 0);
+    await _notifications.cancelAll();
+    await _vault.clearAll();
+    await core.purgeAllData();
+    _accounts = const [];
+    _selectedProvider = null;
+    _selectedAccountId = null;
+    _usage = null;
+    _profileUsage = null;
+    _accountDetailsByAccount.clear();
+    _accountDetailsLoadingAccounts.clear();
+    _accountDetailsErrors.clear();
+    _syncLogs = const [];
+    _settings = const MonitorSettings();
+    notifyListeners();
+  }
+
   Future<void> updateSettings(MonitorSettings value) async {
     final enablingNotifications =
         value.notificationsEnabled && !_settings.notificationsEnabled;
