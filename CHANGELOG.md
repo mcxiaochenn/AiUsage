@@ -2,6 +2,25 @@
 
 本项目遵循语义化版本。用户可见变更记录如下。
 
+## [0.3.0] - 2026-08-26
+
+### Added
+
+- 重做关于页，加入本地开发者头像、项目链接和 Issue 入口。
+- Token 使用热力图支持每日、每周和累计视图的点击与悬停详情。
+- 增加诊断日志清空入口和受保护的数据自毁流程。
+
+### Changed
+
+- Provider 品牌图标与名称统一为 ChatGPT、DeepSeek 和 Xiaomi MiMo。
+- 账户卡片支持自定义名称、Provider 专属标识，概览页同步显示账户别名。
+- 优化 Device Code、`auth.json` 导入和 MiMo 账户添加流程。
+
+### Security
+
+- 开发者头像以内置资源提供，运行时不请求头像网络地址。
+- 自毁流程需要多阶段确认；清理失败时不会写入永久崩溃锁。
+
 ## [0.2.0] - 2026-08-24
 
 ### Added
@@ -45,5 +64,6 @@
 - 诊断响应限制为 64 KiB，并脱敏 Authorization、Token、API Key 和账户标识。
 - Android v0.1.0 使用独立发布密钥签名，Release 同时提供 SHA-256 校验文件。
 
+[0.3.0]: https://github.com/mcxiaochenn/AiUsage/releases/tag/v0.3.0
 [0.2.0]: https://github.com/mcxiaochenn/AiUsage/releases/tag/v0.2.0
 [0.1.0]: https://github.com/mcxiaochenn/AiUsage/releases/tag/v0.1.0
