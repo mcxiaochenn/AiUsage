@@ -13,6 +13,7 @@
 
 - [开发与发布](development.md)：环境、测试、构建、FFI 和版本规则。
 - [架构](architecture.md)：Flutter/Rust 边界、缓存、诊断与数据流。
+- [UI / UX Design System](design-system/README.md)：设计原则、基础规范、组件、交互、响应式与渐进迁移路线。
 - [Codex 兼容性研究](providers/codex.md)
 - [DeepSeek 与 MiMo 集成](providers/deepseek-mimo.md)
 
