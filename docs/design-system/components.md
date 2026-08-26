@@ -2,6 +2,18 @@
 
 本页定义组件职责和复用边界。它不是现有 Widget 名称清单，也不要求一次性构建完整组件库。实现阶段应先收敛高频模式，再按页面迁移。
 
+## 代码映射
+
+已建立的公共 Design System 组件位于 `app/lib/src/design_system/components/`：
+
+- `AiUsagePageList`：标准滚动内容容器。
+- `AiUsageSecondaryScaffold`：二级页面安全区与 AppBar 外壳。
+- `AiUsageSectionTitle`：区块标题。
+- `AiUsageEmptyState`、`AiUsageStatusText`：空状态与短状态反馈。
+- `AiUsageResponsiveGrid`：按布局能力排列摘要/指标卡。
+
+这些组件也必须消费 Token；不得把裸值藏进一次性包装组件，不能以“公共组件”名义绕过审计。
+
 ## 通用规则
 
 - 相同职责必须共享组件或共享明确的主题规则。

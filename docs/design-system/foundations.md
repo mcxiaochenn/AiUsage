@@ -1,6 +1,19 @@
 # 基础规范
 
-本页定义 AiUsage 的视觉基础方向。当前阶段先确定角色和边界；具体数值将在后续实现中根据现有高频模式、真机观察和可访问性验证集中收敛。
+本页定义 AiUsage 的视觉基础方向和当前实现入口。数值只在 Design System 定义层维护，页面和业务组件只消费语义角色。
+
+## 代码入口
+
+实现位于 `app/lib/src/design_system/`：
+
+- `tokens/typography_tokens.dart`：语义文字角色。
+- `tokens/spacing_tokens.dart`、`shape_tokens.dart`：页面、卡片、控件间距与形状。
+- `tokens/layout_tokens.dart`、`component_size_tokens.dart`：断点、内容宽度和固定元素尺寸。
+- `tokens/brand_tokens.dart`、`data_visualization_tokens.dart`：受控品牌与图表例外。
+- `theme/ai_usage_theme.dart`、`theme/semantic_colors.dart`：亮暗主题、动态色和状态色。
+- `context_extensions.dart`：`context.aiTypography`、`context.aiColors`、`context.aiSemanticColors`、`context.aiSpacing`、`context.aiShapes`。
+
+新增视觉语义时，先在上述 Token/Theme 层补充角色并更新本页，再迁移页面；禁止用页面名称创建 Token。
 
 ## Token 分层
 
@@ -26,7 +39,7 @@
 - **标签文本**：Chip、状态和短分类，不承载长句。
 - **诊断文本**：原始响应、标识或技术详情；需要时使用等宽字体，但不能扩散到普通 UI。
 
-实现时优先映射到 `TextTheme` 角色，通过主题统一字号、字重和行高。业务组件不直接指定字号；只有品牌字样或数据可视化等确有理由的场景才允许例外。
+实现时由 `AiUsageTypographyTokens` 映射到 Material `TextTheme` 角色，通过主题统一字号、字重和行高。页面必须使用 `context.aiTypography`，不得直接访问 `.textTheme`、构造 `TextStyle`、设置 `fontSize`、`fontFamily` 或 `FontWeight`。品牌字样和数据可视化仍通过已登记 Token 表达。
 
 ### 内容规则
 
@@ -38,7 +51,7 @@
 
 ## Spacing
 
-间距应形成少量可命名的节奏，而不是记录每个页面的像素值。后续实现至少区分：
+间距应形成少量可命名的节奏，而不是记录每个页面的像素值。当前 `AiUsageSpacingTokens` 至少区分：
 
 - 页面安全边距与页面内容边距。
 - 区块之间的分隔距离。
@@ -46,6 +59,8 @@
 - 同一内容组内的紧密、常规和宽松间距。
 - 图标与文字、标签与标签、操作与操作之间的间距。
 - compact 与 expanded 布局的密度调整。
+
+页面可用的语义字段包括 `pageInsets`、`cardInsets`、`featuredCardInsets`、`stateInsets`、`emptyStateInsets`、`tightGap`、`contentGap`、`controlGap`、`sectionGap`、`majorSectionGap`、`inlineGap`、`inlineWideGap`、`actionGap`、`formFieldGap` 和 `wrapGap`。页面不得直接构造带视觉数字的 `EdgeInsets`。
 
 选择间距时先判断语义关系：同组内容应比不同区块更接近。不得通过连续堆叠多个 `SizedBox` 临时修复层级，也不得为了卡片表面对齐压缩大字体内容。
 
@@ -80,12 +95,14 @@
 
 ## Shape / Elevation
 
-Shape 应表达组件类别和交互层级，而不是制造视觉变化。后续统一时至少区分：
+Shape 应表达组件类别和交互层级，而不是制造视觉变化。当前 `AiUsageShapeTokens` 至少区分：
 
 - 页面容器与普通信息卡。
 - 可点击卡片和选中卡片。
 - Button、输入框、Dialog、Bottom Sheet 与 Chip。
 - 头像、品牌图标和热力图小单元。
+
+普通 Card、Button、Input、Dialog 和 Chip 优先由 Theme 提供 Shape；热力图几何只使用 `AiUsageDataVisualizationTokens`。
 
 同类组件必须共享 Shape。Elevation 仅用于表达覆盖关系或交互层级；普通信息分组优先使用表面层级和边界，不为每张卡片增加独立阴影。
 

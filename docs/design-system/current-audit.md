@@ -1,6 +1,6 @@
 # 当前 UI 审计快照
 
-> 快照日期：2026-08-26。本文描述当前代码，不是永久规范。迁移完成后应更新对应状态；长期规则以本目录其他文档为准。
+> 快照日期：2026-08-26。本文描述迁移前后状态，不是永久规范；后续页面继续迁移时应更新对应状态。
 
 ## 审计范围
 
@@ -24,59 +24,60 @@
 
 ## 1. Theme
 
-**现状**
+**现状（基础层已迁移）**
 
-- 应用入口直接创建亮暗两套 `ThemeData`，使用 Material 3、动态色或 Indigo `ColorScheme.fromSeed`。
-- 尚未集中配置 Card、ListTile、Button、Chip、Dialog、NavigationBar、NavigationRail、Input 等组件 Theme。
-- 没有 AiUsage 语义 `ThemeExtension` 或等价 token 层。
+- 应用入口通过 `AiUsageTheme.light/dark` 创建亮暗主题，使用 Material 3、动态色或 Indigo `ColorScheme.fromSeed`。
+- 已加入 `AiUsageSemanticColors`，当前覆盖额度警告所需的 Warning 四角色。
+- 组件级 Theme 只配置已验证的 Card/Input 形状，其他 Material 默认行为暂保留。
 
 **风险**
 
 页面只能依赖 Material 默认值或在局部覆盖，随着功能增长容易出现相同状态不同表现。
 
-**迁移方向**
+**剩余方向**
 
-先建立单一 Theme 工厂和最小语义扩展，再逐步收敛组件 Theme；迁移时保持当前外观基本不变。
+按实际重复模式逐步补充组件 Theme，不为尚未使用的状态预建颜色。
 
 ## 2. Typography
 
-**现状**
+**现状（已完成生产 UI 迁移）**
 
 - 多数文本使用 `headlineSmall`、`titleMedium`、`titleLarge` 和 `bodySmall` 等 Material 角色。
 - 一级页面在正文显示标题，二级页面在 AppBar 显示标题，方向基本合理。
 - 同为指标值、状态说明或区块标题的内容在不同卡片中仍使用不同角色或默认 `Text`。
-- 诊断原文局部直接指定等宽字体；部分数字摘要使用未本地化的 K/M/B 缩写。
+- 生产 UI 使用 `context.aiTypography` 语义角色；诊断原文通过 `diagnostic` Token 获取等宽样式。
+- 业务数字格式化与既有行为保持不变，后续可单独评估本地化摘要策略。
 
 **风险**
 
 信息层级依赖页面作者判断，新增页面容易继续产生近似但不同的样式。
 
-**迁移方向**
+**剩余方向**
 
-按页面、区块、卡片、指标、正文、辅助和标签角色建立映射；统一数字、日期和技术文本格式策略。
+新增文字角色必须先扩展 Typography Token，不得在页面中直接构造文字样式。
 
 ## 3. Spacing
 
-**现状**
+**现状（当前生产 UI 已接入语义间距）**
 
 - 页面和卡片高频使用统一感较强的常规边距，但代码中同时存在多种局部间距、内边距和 Divider 高度。
-- `SizedBox`、`Padding` 和 `EdgeInsets` 直接散落在页面与组件内部。
+- 页面和 Token 图表已改用 `context.aiSpacing`；视觉数字集中在 Token 层。
 - About 页等近期重构页面采用较宽松节奏，设置页和数据卡片更接近 Material 默认密度。
 
 **风险**
 
 相近组件之间的节奏会随维护者不同而漂移，也难以统一调整 compact 与 expanded 密度。
 
-**迁移方向**
+**剩余方向**
 
-从当前高频用法提炼页面、区块、卡片和同组内容四类语义间距，暂不追求细密的数字刻度。
+随着页面拆分或共享组件演进，继续删除重复的局部布局模式；不新增页面专属间距。
 
 ## 4. Color
 
-**现状**
+**现状（Warning 与品牌/图表例外已迁移）**
 
 - 页面主要使用 `ColorScheme`，错误和危险区域使用 error 系列。
-- 额度接近上限时存在硬编码橙色警告；成功、缓存、警告和部分成功没有完整语义色。
+- 额度接近上限的警告使用 `context.aiSemanticColors.warning`；品牌和热力图颜色集中在对应 Token。
 - Provider 头像背景存在品牌色和白色前景的合理例外。
 - Token 热力图从主题主色插值得到等级色，并提供图例。
 
@@ -84,16 +85,15 @@
 
 警告等状态在动态取色与暗色主题下缺乏统一对比度保证；品牌例外和业务状态可能被后续代码混用。
 
-**迁移方向**
+**剩余方向**
 
-增加成功、警告、信息、缓存和部分成功语义；保留 Provider 与热力图为明确受控例外。
+只有出现真实跨页面需求时，才按本文原则增加 Success、Info、Cache 或 Partial Success 语义。
 
 ## 5. Shape 与 Elevation
 
-**现状**
+**现状（基础 Shape 已集中）**
 
-- 普通 Card 主要采用 Material 默认 Shape。
-- 应用图标、进度条、Token 详情区和热力图单元存在局部圆角。
+- 普通 Card/Input 形状由 Theme/`AiUsageShapeTokens` 提供；应用图标、Token 详情区和热力图单元使用已登记例外 Token。
 - 可点击卡、选中卡、普通信息卡主要靠颜色和 `InkWell` 区分，尚无统一 Shape/Elevation 关系。
 
 **风险**
@@ -106,11 +106,11 @@
 
 ## 6. Components
 
-**现状**
+**现状（公共组件已建立，业务组件仍在 Feature 层）**
 
-- `_SecondaryPageScaffold`、`_EmptyState`、`_StateBanner` 和 `_ProviderAvatar` 已表现出共享组件方向。
+- `design_system/components/` 已提供页面列表、二级 Scaffold、区块标题、空/状态反馈和响应式网格；业务 Provider 组件仍保留在 `app.dart`。
 - 额度、余额、Reset Credits、Token 摘要等卡片具有相近骨架，但各自实现标题、间距和指标布局。
-- 设置入口、详情项、登录 Dialog 和状态提示存在重复的 Material 组合方式。
+- 设置入口、详情项、登录 Dialog 和指标卡仍存在重复的业务组合方式。
 - 大部分组件为 `app.dart` 内私有类，文件超过三千行，职责发现和复用成本较高。
 
 **风险**
@@ -123,9 +123,9 @@
 
 ## 7. Responsive
 
-**现状**
+**现状（核心断点与尺寸已集中）**
 
-- 当前存在多个局部宽度判断，分别控制主导航、网格列数、浮层形式、About 布局和危险区域排列。
+- 主导航、网格列数、浮层形式和内容宽度已改用 `AiUsageLayoutTokens`；危险区域沿用自然换行布局。
 - About 页已限制最大内容宽度，其他一级页面在 expanded 布局中通常占满可用空间。
 - 概览卡片使用最小高度以保持视觉一致；Token 摘要在窄屏仍采用双列计算。
 
@@ -133,7 +133,7 @@
 
 断点缺少共同语义；相同宽度下不同页面可能表现为不同布局能力。固定最小高度和窄屏双列在极端内容下可能与可读性冲突。
 
-**迁移方向**
+**剩余方向**
 
 集中定义 compact、medium、expanded 能力和标准内容容器；网格根据内容最小可读宽度决定列数。
 
@@ -177,16 +177,16 @@
 
 - Widget 测试重点验证行为、文本、导航、交互和 RenderFlex 防溢出。
 - Token 聚合有纯计算测试，热力图交互有 Widget 覆盖。
-- 尚无设计 token 契约测试、共享组件矩阵或 Golden 基线。
-- 根目录此前没有指向 UI 规范的 `AGENTS.md`。
+- 已加入 `tool/design_token_audit.dart`、`tool/check_design_tokens.dart` 及 Fixture 测试；CI 在 Analyze 前执行门禁。
+- 根目录 `AGENTS.md` 已提供 Design System 入口和 UI 修改规则。
 
 **风险**
 
 功能测试通过仍可能出现视觉漂移；后续 Agent 不容易发现规范入口。
 
-**迁移方向**
+**剩余方向**
 
-以文档入口和 Review 清单先建立治理，再为稳定基础组件增加契约测试和少量高价值 Golden，不追求全页面截图覆盖。
+为稳定基础组件增加少量契约/Golden 验证，不追求全页面截图覆盖。
 
 ## 例外登记
 

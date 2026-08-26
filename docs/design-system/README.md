@@ -49,6 +49,20 @@ AiUsage 以 Material 3 为基础。Flutter 的 `ThemeData`、`ColorScheme`、`Te
 
 不要为了单个页面预先建立通用抽象，也不要在业务组件中散落未命名的视觉规则。实现阶段应让 Theme、语义 token 和共享组件逐步成为代码层的真实来源。
 
+## 当前代码入口与门禁
+
+Token/Theme/公共组件位于 `app/lib/src/design_system/`。页面 Typography 使用
+`context.aiTypography`，颜色、间距和布局分别使用对应的 Context 扩展与语义 Token；视觉裸值只允许在 Token/Theme 定义层。
+
+本地提交前运行：
+
+```powershell
+cd app
+dart run tool/check_design_tokens.dart
+```
+
+审计递归检查 `lib` 下生产 Dart 文件，排除生成 l10n/Rust 文件和测试；它会输出相对路径、行号、规则、替代 Token 建议，并在发现违规时返回非零状态。没有页面级 Ignore 或 Allowlist；需要例外时应进入 Token 层并更新文档。
+
 ## 文档维护
 
 - 长期稳定规则写入 `principles.md` 至 `responsive-accessibility.md`。

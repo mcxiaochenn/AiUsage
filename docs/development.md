@@ -20,7 +20,8 @@ cargo test
 cd ../app
 flutter pub get
 flutter gen-l10n
-dart format --output=none --set-exit-if-changed lib test
+dart format --output=none --set-exit-if-changed lib test tool
+dart run tool/check_design_tokens.dart
 flutter analyze --no-pub
 flutter test --no-pub
 ```
