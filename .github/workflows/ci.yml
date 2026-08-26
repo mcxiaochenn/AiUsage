@@ -55,7 +55,9 @@ jobs:
           flutter gen-l10n
           git diff --exit-code -- lib/l10n
       - name: Check Dart formatting
-        run: dart format --output=none --set-exit-if-changed lib test
+        run: dart format --output=none --set-exit-if-changed lib test tool
+      - name: Audit Design Token usage
+        run: dart run tool/check_design_tokens.dart
       - name: Analyze Flutter app
         run: flutter analyze --no-pub
       - name: Run Widget tests

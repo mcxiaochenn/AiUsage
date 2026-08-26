@@ -1,0 +1,230 @@
+import 'dart:io';
+
+class DesignTokenViolation {
+  const DesignTokenViolation({
+    required this.path,
+    required this.line,
+    required this.rule,
+    required this.suggestion,
+  });
+
+  final String path;
+  final int line;
+  final String rule;
+  final String suggestion;
+
+  @override
+  String toString() => '$path:$line [$rule] $suggestion';
+}
+
+/// Removes comments and string contents while retaining line breaks and
+/// character positions. This keeps the audit focused on Dart syntax instead
+/// of examples embedded in comments or user-facing strings.
+String stripCommentsAndStrings(String source) {
+  final output = StringBuffer();
+  var index = 0;
+  var blockComment = false;
+  var lineComment = false;
+  String? quote;
+  var raw = false;
+
+  while (index < source.length) {
+    final current = source[index];
+    final next = index + 1 < source.length ? source[index + 1] : '';
+
+    if (blockComment) {
+      if (current == '*' && next == '/') {
+        output.write('  ');
+        index += 2;
+        blockComment = false;
+      } else {
+        output.write(current == '\n' ? '\n' : ' ');
+        index++;
+      }
+      continue;
+    }
+    if (lineComment) {
+      if (current == '\n') {
+        output.write('\n');
+        lineComment = false;
+      } else {
+        output.write(' ');
+      }
+      index++;
+      continue;
+    }
+    if (quote != null) {
+      if (!raw && current == '\\') {
+        output.write('  ');
+        index += index + 1 < source.length ? 2 : 1;
+        continue;
+      }
+      if (current == quote) {
+        final isTriple =
+            index + 2 < source.length &&
+            source[index + 1] == quote &&
+            source[index + 2] == quote;
+        if (isTriple) {
+          output.write('   ');
+          index += 3;
+        } else {
+          output.write(' ');
+          index++;
+        }
+        quote = null;
+        raw = false;
+      } else {
+        output.write(current == '\n' ? '\n' : ' ');
+        index++;
+      }
+      continue;
+    }
+
+    if (current == '/' && next == '/') {
+      output.write('  ');
+      index += 2;
+      lineComment = true;
+      continue;
+    }
+    if (current == '/' && next == '*') {
+      output.write('  ');
+      index += 2;
+      blockComment = true;
+      continue;
+    }
+    if (current == 'r' && next == "'") {
+      output.write('  ');
+      index += 2;
+      quote = "'";
+      raw = true;
+      continue;
+    }
+    if (current == 'r' && next == '"') {
+      output.write('  ');
+      index += 2;
+      quote = '"';
+      raw = true;
+      continue;
+    }
+    if (current == "'" || current == '"') {
+      output.write(' ');
+      index++;
+      quote = current;
+      raw = false;
+      continue;
+    }
+    output.write(current);
+    index++;
+  }
+  return output.toString();
+}
+
+List<DesignTokenViolation> auditSource(String source, String relativePath) {
+  final sanitized = stripCommentsAndStrings(source);
+  final violations = <DesignTokenViolation>[];
+  final allowed =
+      relativePath.startsWith('lib/src/design_system/tokens/') ||
+      relativePath.startsWith('lib/src/design_system/theme/') ||
+      relativePath == 'lib/src/design_system/context_extensions.dart';
+  if (allowed) return violations;
+
+  void find(String rule, String suggestion, RegExp pattern) {
+    for (final match in pattern.allMatches(sanitized)) {
+      final line =
+          '\n'.allMatches(sanitized.substring(0, match.start)).length + 1;
+      violations.add(
+        DesignTokenViolation(
+          path: relativePath,
+          line: line,
+          rule: rule,
+          suggestion: suggestion,
+        ),
+      );
+    }
+  }
+
+  find(
+    'typography.literal',
+    '使用 context.aiTypography 的语义 Typography Token。',
+    RegExp(r'\bfontSize\s*:|\bfontFamily\s*:|\bFontWeight\.|\bTextStyle\s*\('),
+  );
+  find(
+    'typography.material-direct',
+    '不要直接访问 textTheme，改用 context.aiTypography。',
+    RegExp(r'\.textTheme\b'),
+  );
+  find(
+    'color.literal',
+    '使用 context.aiColors、context.aiSemanticColors 或已登记 Token。',
+    RegExp(
+      r'\bColors\.|\bColor\s*\(|\bColor\.lerp\s*\(|\bwithOpacity\s*\(|\bwithAlpha\s*\(',
+    ),
+  );
+  find(
+    'spacing.literal',
+    '使用 context.aiSpacing 的语义间距 Token。',
+    RegExp(
+      r'\bEdgeInsets(?:Directional)?\.(?:all|only|symmetric|fromLTRB|fromSTEB)\s*\([^)]*\d',
+    ),
+  );
+  find(
+    'shape.literal',
+    '使用 context.aiShapes 或已登记数据可视化 Shape Token。',
+    RegExp(
+      r'\b(?:BorderRadius|Radius)\.circular\s*\([^)]*\d|\bBorder\.all\s*\(',
+    ),
+  );
+  find(
+    'visual-number.literal',
+    '使用 Layout/Component/Data Visualization Token。',
+    RegExp(
+      r'\b(?:width|height|minHeight|maxHeight|maxWidth|minWidth|radius|strokeWidth|elevation)\s*:\s*(?:const\s+)?(?:\d+(?:\.\d+)?|\.\d+)',
+    ),
+  );
+  find(
+    'responsive.literal',
+    '使用 AiUsageLayoutTokens 的语义断点。',
+    RegExp(
+      r'(?:MediaQuery\.sizeOf|constraints\.maxWidth|constraints\.maxHeight)[^\n]*(?:<|>)=?\s*\d+',
+    ),
+  );
+  find(
+    'visual-constant.literal',
+    '将视觉常量集中到 Design System Token 层。',
+    RegExp(
+      r'\b(?:const|final)\s+(?:double|int)\s+\w*(?:size|width|height|extent|radius|padding|gap|spacing|inset|stroke|breakpoint)\w*\s*=\s*\d',
+      caseSensitive: false,
+    ),
+  );
+  return violations;
+}
+
+List<DesignTokenViolation> auditDirectory(Directory root) {
+  final violations = <DesignTokenViolation>[];
+  final lib = Directory('${root.path}${Platform.pathSeparator}lib');
+  if (!lib.existsSync()) return violations;
+  for (final entity in lib.listSync(recursive: true)) {
+    if (entity is! File || !entity.path.endsWith('.dart')) continue;
+    final normalized = entity.path.replaceAll('\\', '/');
+    final relative = normalized.substring(normalized.indexOf('/lib/') + 1);
+    if (relative.startsWith('lib/l10n/') ||
+        relative.startsWith('lib/src/rust/')) {
+      continue;
+    }
+    violations.addAll(auditSource(entity.readAsStringSync(), relative));
+  }
+  return violations;
+}
+
+int runAudit({Directory? root, bool printResult = true}) {
+  final violations = auditDirectory(root ?? Directory.current);
+  if (printResult) {
+    for (final violation in violations) {
+      stdout.writeln(violation);
+    }
+    stdout.writeln('Design Token audit: ${violations.length} violation(s).');
+  }
+  return violations.isEmpty ? 0 : 1;
+}
+
+void main() => exit(runAudit());
