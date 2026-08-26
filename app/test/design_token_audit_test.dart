@@ -35,6 +35,81 @@ void main() {
     );
   });
 
+  final controlledExceptionCases = <String, String>{
+    'spacing.literal': 'padding: const EdgeInsets.only(top: 3),',
+    'shape.literal':
+        'shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(5)),',
+    'visual-number.literal': 'width: 13,',
+    'responsive.literal': 'final compact = constraints.maxWidth < 511;',
+    'visual-constant.literal': 'const double localGap = 7;',
+  };
+  for (final entry in controlledExceptionCases.entries) {
+    test('allows a documented ${entry.key} exception', () {
+      final source =
+          '''
+        // design-token-audit: allow ${entry.key} -- One-off local geometry.
+        ${entry.value}
+      ''';
+      expect(auditSource(source, 'lib/src/example.dart'), isEmpty);
+    });
+  }
+
+  test('does not allow typography or color exceptions', () {
+    const source = '''
+      // design-token-audit: allow typography.literal -- One-off heading.
+      style: const TextStyle(fontSize: 17),
+      // design-token-audit: allow color.literal -- One-off tint.
+      color: Colors.orange.withValues(alpha: 0.5),
+    ''';
+    final violations = auditSource(source, 'lib/src/example.dart');
+    expect(
+      violations.map((item) => item.rule),
+      containsAll(<String>[
+        'exception.disallowed',
+        'typography.literal',
+        'color.literal',
+      ]),
+    );
+  });
+
+  test('rejects malformed and unused exceptions', () {
+    const malformed = '''
+      // design-token-audit: allow spacing.literal
+      padding: const EdgeInsets.only(top: 3),
+    ''';
+    expect(
+      auditSource(malformed, 'lib/src/example.dart').map((item) => item.rule),
+      contains('exception.invalid'),
+    );
+
+    const unused = '''
+      // design-token-audit: allow spacing.literal -- No spacing literal follows.
+      child: const Placeholder(),
+    ''';
+    expect(
+      auditSource(unused, 'lib/src/example.dart').map((item) => item.rule),
+      contains('exception.unused'),
+    );
+  });
+
+  test('ignores exception markers inside strings', () {
+    const source = '''
+      final help = 'design-token-audit: allow spacing.literal -- example';
+    ''';
+    expect(auditSource(source, 'lib/src/example.dart'), isEmpty);
+  });
+
+  test('still audits shared design system components', () {
+    const source = 'padding: const EdgeInsets.all(16);';
+    expect(
+      auditSource(
+        source,
+        'lib/src/design_system/components/example.dart',
+      ).map((item) => item.rule),
+      contains('spacing.literal'),
+    );
+  });
+
   test('does not flag business durations or counters', () {
     const source = '''
       final timeout = Duration(seconds: 2);

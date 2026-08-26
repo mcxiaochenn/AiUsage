@@ -62,6 +62,7 @@
 
 - 页面和卡片高频使用统一感较强的常规边距，但代码中同时存在多种局部间距、内边距和 Divider 高度。
 - 页面和 Token 图表已改用 `context.aiSpacing`；视觉数字集中在 Token 层。
+- 审计允许 Spacing、尺寸、Shape 和特殊布局使用带理由的行级例外；当前生产 UI 无需例外即可通过。
 - About 页等近期重构页面采用较宽松节奏，设置页和数据卡片更接近 Material 默认密度。
 
 **风险**
@@ -178,6 +179,7 @@
 - Widget 测试重点验证行为、文本、导航、交互和 RenderFlex 防溢出。
 - Token 聚合有纯计算测试，热力图交互有 Widget 覆盖。
 - 已加入 `tool/design_token_audit.dart`、`tool/check_design_tokens.dart` 及 Fixture 测试；CI 在 Analyze 前执行门禁。
+- Typography 与颜色继续严格失败；低风险局部视觉值只允许使用紧邻代码、带理由且可检索的受控例外，无文件级 Ignore。
 - 根目录 `AGENTS.md` 已提供 Design System 入口和 UI 修改规则。
 
 **风险**
@@ -197,4 +199,4 @@
 - 诊断原文使用技术文本排版。
 - 永久自毁使用明显高于普通删除操作的危险层级和确认强度。
 
-新增例外必须写明原因、范围、主题回退和可访问性路径。
+Provider、数据可视化等长期例外仍应在文档中登记。一次性局部 Spacing、尺寸、Shape 或布局例外使用代码旁的审计注释记录原因；重复出现时必须回收为 Token 或公共组件。Typography 与颜色不接受行级例外。

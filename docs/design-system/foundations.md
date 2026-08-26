@@ -1,6 +1,6 @@
 # 基础规范
 
-本页定义 AiUsage 的视觉基础方向和当前实现入口。数值只在 Design System 定义层维护，页面和业务组件只消费语义角色。
+本页定义 AiUsage 的视觉基础方向和当前实现入口。跨页面语义和高漂移视觉值由 Design System 维护；页面和业务组件优先消费语义角色，只有无复用价值的局部 Spacing、尺寸、Shape 或特殊布局值可以按 Quick Start 声明受控例外。
 
 ## 代码入口
 
@@ -13,7 +13,7 @@
 - `theme/ai_usage_theme.dart`、`theme/semantic_colors.dart`：亮暗主题、动态色和状态色。
 - `context_extensions.dart`：`context.aiTypography`、`context.aiColors`、`context.aiSemanticColors`、`context.aiSpacing`、`context.aiShapes`。
 
-新增视觉语义时，先在上述 Token/Theme 层补充角色并更新本页，再迁移页面；禁止用页面名称创建 Token。
+新增可复用视觉语义时，先在上述 Token/Theme 层补充角色并更新本页，再迁移页面；禁止用页面名称创建 Token。一次性局部实现不要伪装成公共语义，按 [Quick Start](README.md#受控局部例外) 判断是否适用受控例外。
 
 ## Token 分层
 
@@ -24,7 +24,7 @@
 3. **组件 token**：只有特定组件确实需要时，才基于语义 token 定义局部规则。
 4. **受控例外**：Provider 品牌和数据可视化色阶，必须说明范围和回退。
 
-业务页面不应直接跳过语义层读取或创建零散视觉值。
+业务页面不应默认跳过语义层。Typography、主题颜色不得例外；低风险局部视觉值只有在缺少跨页面语义时才可显式说明原因。
 
 ## Typography
 
@@ -60,7 +60,7 @@
 - 图标与文字、标签与标签、操作与操作之间的间距。
 - compact 与 expanded 布局的密度调整。
 
-页面可用的语义字段包括 `pageInsets`、`cardInsets`、`featuredCardInsets`、`stateInsets`、`emptyStateInsets`、`tightGap`、`contentGap`、`controlGap`、`sectionGap`、`majorSectionGap`、`inlineGap`、`inlineWideGap`、`actionGap`、`formFieldGap` 和 `wrapGap`。页面不得直接构造带视觉数字的 `EdgeInsets`。
+页面可用的语义字段包括 `pageInsets`、`cardInsets`、`featuredCardInsets`、`stateInsets`、`emptyStateInsets`、`tightGap`、`contentGap`、`controlGap`、`sectionGap`、`majorSectionGap`、`inlineGap`、`inlineWideGap`、`actionGap`、`formFieldGap` 和 `wrapGap`。优先使用这些角色；仅属于单个局部结构且重复使用不会产生语义价值的 `EdgeInsets`，可使用带理由的行级例外。
 
 选择间距时先判断语义关系：同组内容应比不同区块更接近。不得通过连续堆叠多个 `SizedBox` 临时修复层级，也不得为了卡片表面对齐压缩大字体内容。
 
@@ -122,5 +122,5 @@ Shape 应表达组件类别和交互层级，而不是制造视觉变化。当�
 1. 统计当前实现中的高频值和实际职责。
 2. 删除纯粹为局部修补产生的重复值。
 3. 在亮暗主题、中英文、窄屏、大字体和 expanded 布局中验证。
-4. 以语义名称进入 Theme 或 token，而不是以页面名称进入。
+4. 跨页面职责以语义名称进入 Theme 或 token；局部实现值不以页面名称伪装成 Token。
 5. 在本页补充经过验证的最小值集，不建立过度精细的刻度。

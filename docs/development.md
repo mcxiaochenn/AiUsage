@@ -26,6 +26,8 @@ flutter analyze --no-pub
 flutter test --no-pub
 ```
 
+Design Token Audit 对 Typography 和颜色保持严格限制。Spacing、尺寸、Shape 或特殊布局若确实只属于局部实现，可按 `docs/design-system/README.md` 使用紧邻代码且带理由的行级例外；不支持文件级 Ignore。可用 `rg -n "design-token-audit: allow" app/lib` 集中审查全部例外。
+
 修改 Rust FFI 公共函数或模型后重新生成 bridge：
 
 ```powershell
