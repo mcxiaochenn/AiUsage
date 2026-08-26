@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../../l10n/app_localizations.dart';
+import '../design_system/design_system.dart';
 import '../rust/models.dart';
 
 enum TokenUsageView { daily, weekly, cumulative }
@@ -145,20 +146,19 @@ class TokenUsageChart extends StatelessWidget {
     final data = buildTokenUsageChartData(buckets, DateTime.now());
     return Card(
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: context.aiSpacing.cardInsets,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              l10n.tokenUsageChart,
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-            const SizedBox(height: 12),
+            Text(l10n.tokenUsageChart, style: context.aiTypography.cardTitle),
+            SizedBox(height: context.aiSpacing.controlGap),
             LayoutBuilder(
               builder: (context, constraints) => Align(
                 alignment: AlignmentDirectional.centerStart,
                 child: SegmentedButton<TokenUsageView>(
-                  expandedInsets: constraints.maxWidth < 600
+                  expandedInsets:
+                      constraints.maxWidth <
+                          AiUsageLayoutTokens.compactBreakpoint
                       ? EdgeInsets.zero
                       : null,
                   showSelectedIcon: false,
@@ -183,7 +183,7 @@ class TokenUsageChart extends StatelessWidget {
                 ),
               ),
             ),
-            const SizedBox(height: 16),
+            SizedBox(height: context.aiSpacing.sectionGap),
             if (buckets.isEmpty)
               Text(l10n.noTokenBuckets)
             else
@@ -192,7 +192,7 @@ class TokenUsageChart extends StatelessWidget {
                 label: l10n.tokenUsageChartSemantics(_viewLabel(l10n, view)),
                 child: _TokenUsageGrid(data: data, view: view),
               ),
-            const SizedBox(height: 10),
+            SizedBox(height: context.aiSpacing.inlineWideGap),
             const _TokenUsageLegend(),
           ],
         ),
@@ -216,8 +216,6 @@ class _TokenUsageTarget {
 
 class _TokenUsageGrid extends StatefulWidget {
   const _TokenUsageGrid({required this.data, required this.view});
-
-  static const _cellExtent = 18.0;
 
   final TokenUsageChartData data;
   final TokenUsageView view;
@@ -264,7 +262,7 @@ class _TokenUsageGridState extends State<_TokenUsageGrid> {
   Widget _wrapTarget(_TokenUsageTarget target, Widget child) {
     final selected = _selectedTarget?.id == target.id;
     final hovered = _hoveredTarget?.id == target.id;
-    final colors = Theme.of(context).colorScheme;
+    final colors = context.aiColors;
     final emphasized = selected || hovered;
     final decorated = Stack(
       clipBehavior: Clip.none,
@@ -274,14 +272,9 @@ class _TokenUsageGridState extends State<_TokenUsageGrid> {
           Positioned.fill(
             child: IgnorePointer(
               child: DecoratedBox(
-                decoration: BoxDecoration(
-                  border: Border.all(
-                    color: selected
-                        ? colors.primary
-                        : Color.lerp(colors.primary, colors.surface, .35)!,
-                    width: selected ? 2 : 1,
-                  ),
-                  borderRadius: BorderRadius.circular(4),
+                decoration: AiUsageDataVisualizationTokens.selectionDecoration(
+                  colors,
+                  selected: selected,
                 ),
               ),
             ),
@@ -315,14 +308,16 @@ class _TokenUsageGridState extends State<_TokenUsageGrid> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         SizedBox(
-          height: 42,
+          height: AiUsageDataVisualizationTokens.chartDetailExtent,
           child: DecoratedBox(
-            decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.surfaceContainerHighest,
-              borderRadius: BorderRadius.circular(10),
+            decoration: AiUsageDataVisualizationTokens.detailDecoration(
+              context.aiColors,
             ),
             child: Padding(
-              padding: const EdgeInsetsDirectional.only(start: 12, end: 4),
+              padding: EdgeInsetsDirectional.only(
+                start: context.aiSpacing.controlGap,
+                end: context.aiSpacing.tightGap,
+              ),
               child: Row(
                 children: [
                   Expanded(
@@ -330,7 +325,7 @@ class _TokenUsageGridState extends State<_TokenUsageGrid> {
                       active?.message ?? l10n.tokenUsageInteractionHint,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.bodySmall,
+                      style: context.aiTypography.supporting,
                     ),
                   ),
                   if (active != null)
@@ -338,14 +333,17 @@ class _TokenUsageGridState extends State<_TokenUsageGrid> {
                       tooltip: l10n.cancel,
                       onPressed: _clearSelection,
                       visualDensity: VisualDensity.compact,
-                      icon: const Icon(Icons.close, size: 18),
+                      icon: Icon(
+                        Icons.close,
+                        size: AiUsageComponentSizeTokens.compactIndicatorExtent,
+                      ),
                     ),
                 ],
               ),
             ),
           ),
         ),
-        const SizedBox(height: 8),
+        SizedBox(height: context.aiSpacing.contentGap),
         GestureDetector(
           behavior: HitTestBehavior.opaque,
           onTap: _clearSelection,
@@ -353,22 +351,27 @@ class _TokenUsageGridState extends State<_TokenUsageGrid> {
             scrollDirection: Axis.horizontal,
             reverse: true,
             child: SizedBox(
-              width: widget.data.weeks.length * _TokenUsageGrid._cellExtent,
+              width:
+                  widget.data.weeks.length *
+                  AiUsageDataVisualizationTokens.chartColumnExtent,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   SizedBox(
-                    height: 20,
+                    height: AiUsageDataVisualizationTokens.monthLabelExtent,
                     child: Stack(
                       clipBehavior: Clip.none,
                       children: [
                         for (final MapEntry(key: index, value: label)
                             in labels.entries)
                           PositionedDirectional(
-                            start: index * _TokenUsageGrid._cellExtent,
+                            start:
+                                index *
+                                AiUsageDataVisualizationTokens
+                                    .chartColumnExtent,
                             child: Text(
                               label,
-                              style: Theme.of(context).textTheme.labelSmall,
+                              style: context.aiTypography.caption,
                             ),
                           ),
                       ],
@@ -379,7 +382,8 @@ class _TokenUsageGridState extends State<_TokenUsageGrid> {
                     children: [
                       for (final week in widget.data.weeks)
                         SizedBox(
-                          width: _TokenUsageGrid._cellExtent,
+                          width:
+                              AiUsageDataVisualizationTokens.chartColumnExtent,
                           child: switch (widget.view) {
                             TokenUsageView.daily => _DailyWeekColumn(
                               week: week,
@@ -534,12 +538,14 @@ class _ChartCell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-    width: 15,
-    height: 15,
-    margin: const EdgeInsets.only(bottom: 3),
-    decoration: BoxDecoration(
-      color: level == null ? Colors.transparent : _levelColor(context, level!),
-      borderRadius: BorderRadius.circular(3),
+    width: AiUsageDataVisualizationTokens.chartCellExtent,
+    height: AiUsageDataVisualizationTokens.chartCellExtent,
+    margin: EdgeInsets.only(
+      bottom: AiUsageDataVisualizationTokens.chartCellGap,
+    ),
+    decoration: AiUsageDataVisualizationTokens.cellDecoration(
+      context.aiColors,
+      level,
     ),
   );
 }
@@ -550,19 +556,19 @@ class _TokenUsageLegend extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    final style = Theme.of(context).textTheme.bodySmall;
+    final style = context.aiTypography.supporting;
     return Wrap(
-      spacing: 5,
+      spacing: context.aiSpacing.tightGap,
       crossAxisAlignment: WrapCrossAlignment.center,
       children: [
         Text(l10n.lessUsage, style: style),
         for (var level = 0; level <= 4; level++)
           Container(
-            width: 12,
-            height: 12,
-            decoration: BoxDecoration(
-              color: _levelColor(context, level),
-              borderRadius: BorderRadius.circular(2),
+            width: AiUsageDataVisualizationTokens.chartLegendExtent,
+            height: AiUsageDataVisualizationTokens.chartLegendExtent,
+            decoration: AiUsageDataVisualizationTokens.legendDecoration(
+              context.aiColors,
+              level,
             ),
           ),
         Text(l10n.moreUsage, style: style),
@@ -609,16 +615,6 @@ int _dailyLevel(int? tokens, int peak) {
 int _columnFillCount(int tokens, int peak) {
   if (tokens <= 0 || peak <= 0) return 0;
   return max(1, (tokens / peak * 7).ceil());
-}
-
-Color _levelColor(BuildContext context, int level) {
-  final colors = Theme.of(context).colorScheme;
-  if (level <= 0) return colors.surfaceContainerHighest;
-  return Color.lerp(
-    colors.primaryContainer,
-    colors.primary,
-    level.clamp(1, 4) / 4,
-  )!;
 }
 
 DateTime? _parseCalendarDate(String value) {

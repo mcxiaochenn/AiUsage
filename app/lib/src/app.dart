@@ -15,6 +15,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import 'app_controller.dart';
 import '../l10n/app_localizations.dart';
+import 'design_system/design_system.dart';
 import 'rust/models.dart';
 import 'services/secure_account_vault.dart';
 import 'services/self_destruct_service.dart';
@@ -143,20 +144,11 @@ class _MonitorRouterState extends ConsumerState<_MonitorRouter>
             ThemePreference.light => ThemeMode.light,
             ThemePreference.dark => ThemeMode.dark,
           },
-          theme: ThemeData(
-            colorScheme: useDynamic
-                ? lightDynamic
-                : ColorScheme.fromSeed(seedColor: Colors.indigo),
-            useMaterial3: true,
-          ),
-          darkTheme: ThemeData(
-            colorScheme: settings.dynamicColorEnabled && darkDynamic != null
+          theme: AiUsageTheme.light(useDynamic ? lightDynamic : null),
+          darkTheme: AiUsageTheme.dark(
+            settings.dynamicColorEnabled && darkDynamic != null
                 ? darkDynamic
-                : ColorScheme.fromSeed(
-                    seedColor: Colors.indigo,
-                    brightness: Brightness.dark,
-                  ),
-            useMaterial3: true,
+                : null,
           ),
           routerConfig: _router,
         );
@@ -196,12 +188,16 @@ class _AppShellState extends ConsumerState<_AppShell> {
   @override
   Widget build(BuildContext context) {
     final controller = ref.watch(appControllerProvider);
-    final desktop = MediaQuery.sizeOf(context).width >= 820;
+    final desktop =
+        MediaQuery.sizeOf(context).width >=
+        AiUsageLayoutTokens.expandedBreakpoint;
     final l10n = AppLocalizations.of(context);
     final labels = [l10n.dashboard, l10n.accounts, l10n.history, l10n.settings];
     final content = Scaffold(
       appBar: AppBar(
-        titleSpacing: desktop ? NavigationToolbar.kMiddleSpacing : 8,
+        titleSpacing: desktop
+            ? NavigationToolbar.kMiddleSpacing
+            : context.aiSpacing.contentGap,
         title: desktop
             ? Text(l10n.appTitle)
             : controller.accounts.isEmpty
@@ -210,7 +206,7 @@ class _AppShellState extends ConsumerState<_AppShell> {
         actions: [
           if (desktop && controller.accounts.isNotEmpty)
             SizedBox(
-              width: 260,
+              width: AiUsageLayoutTokens.providerSelectorWidth,
               child: _ProviderDropdown(controller: controller),
             ),
           IconButton(
@@ -219,16 +215,19 @@ class _AppShellState extends ConsumerState<_AppShell> {
                 ? null
                 : () => unawaited(controller.refresh()),
             icon: controller.refreshing
-                ? const SizedBox(
-                    height: 18,
-                    width: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2),
+                ? SizedBox(
+                    height: AiUsageComponentSizeTokens.compactIndicatorExtent,
+                    width: AiUsageComponentSizeTokens.compactIndicatorExtent,
+                    child: CircularProgressIndicator(
+                      strokeWidth:
+                          AiUsageComponentSizeTokens.compactIndicatorStroke,
+                    ),
                   )
                 : const Icon(Icons.refresh),
           ),
           if (desktop)
             Padding(
-              padding: const EdgeInsets.only(right: 12),
+              padding: EdgeInsets.only(right: context.aiSpacing.controlGap),
               child: FilledButton.icon(
                 onPressed: () => _showAddAccount(context),
                 icon: const Icon(Icons.person_add_alt_1),
@@ -275,7 +274,7 @@ class _AppShellState extends ConsumerState<_AppShell> {
                     ),
                   ),
                 ),
-                const VerticalDivider(width: 1),
+                const VerticalDivider(),
                 Expanded(child: content),
               ],
             ),
@@ -344,14 +343,11 @@ class _SecondaryPageScaffold extends StatelessWidget {
       onPopInvokedWithResult: (didPop, result) {
         if (!didPop) context.go(parentPath);
       },
-      child: Scaffold(
-        appBar: AppBar(
-          automaticallyImplyLeading: false,
-          leading: BackButton(onPressed: () => _popOrGo(context, parentPath)),
-          title: Text(title),
-          actions: actions,
-        ),
-        body: child,
+      child: AiUsageSecondaryScaffold(
+        title: title,
+        actions: actions,
+        onBack: () => _popOrGo(context, parentPath),
+        child: child,
       ),
     );
   }
@@ -370,12 +366,17 @@ class _AccountDetailsRoute extends ConsumerWidget {
       title: l10n.accountDetails,
       actions: [
         if (controller.accountDetailsLoading)
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 12),
+          Padding(
+            padding: EdgeInsets.symmetric(
+              horizontal: context.aiSpacing.controlGap,
+            ),
             child: Center(
               child: SizedBox.square(
-                dimension: 18,
-                child: CircularProgressIndicator(strokeWidth: 2),
+                dimension: AiUsageComponentSizeTokens.compactIndicatorExtent,
+                child: CircularProgressIndicator(
+                  strokeWidth:
+                      AiUsageComponentSizeTokens.compactIndicatorStroke,
+                ),
               ),
             ),
           )
@@ -464,10 +465,10 @@ class _MimoChallengePageState extends ConsumerState<_MimoChallengePage> {
           if (_capturing) const LinearProgressIndicator(),
           if (_error != null)
             Padding(
-              padding: const EdgeInsets.all(8),
-              child: Text(
-                _error!,
-                style: TextStyle(color: Theme.of(context).colorScheme.error),
+              padding: context.aiSpacing.stateInsets,
+              child: AiUsageStatusText(
+                text: _error!,
+                tone: AiUsageStatusTone.error,
               ),
             ),
           Expanded(
@@ -572,8 +573,11 @@ class _ProviderDropdown extends StatelessWidget {
                 value: provider,
                 child: Row(
                   children: [
-                    _ProviderAvatar(provider: provider, radius: 12),
-                    const SizedBox(width: 8),
+                    _ProviderAvatar(
+                      provider: provider,
+                      radius: AiUsageComponentSizeTokens.compactAvatar / 2,
+                    ),
+                    SizedBox(width: context.aiSpacing.inlineGap),
                     Expanded(
                       child: Text(
                         _providerLabel(context, provider),
@@ -621,7 +625,7 @@ class DashboardPage extends ConsumerWidget {
     return RefreshIndicator(
       onRefresh: controller.refresh,
       child: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: context.aiSpacing.pageInsets,
         children: [
           if (controller.bootError != null)
             _StateBanner(
@@ -647,12 +651,15 @@ class DashboardPage extends ConsumerWidget {
               snapshot: snapshot,
               account: controller.selectedAccount,
             ),
-            const SizedBox(height: 12),
+            SizedBox(height: context.aiSpacing.controlGap),
             if (controller.demoMode)
               Padding(
-                padding: const EdgeInsets.only(bottom: 8),
+                padding: EdgeInsets.only(bottom: context.aiSpacing.contentGap),
                 child: Chip(
-                  avatar: const Icon(Icons.science_outlined, size: 18),
+                  avatar: Icon(
+                    Icons.science_outlined,
+                    size: AiUsageComponentSizeTokens.compactIndicatorExtent,
+                  ),
                   label: Text(l10n.demoData),
                 ),
               ),
@@ -661,13 +668,13 @@ class DashboardPage extends ConsumerWidget {
               showResetCredits: controller.settings.showResetCredits,
             ),
             Padding(
-              padding: const EdgeInsets.only(top: 8),
+              padding: EdgeInsets.only(top: context.aiSpacing.contentGap),
               child: Text(
                 l10n.updatedAt(
                   _relativeTime(context, snapshot.fetchedAt),
                   _absoluteTime(context, snapshot.fetchedAt),
                 ),
-                style: Theme.of(context).textTheme.bodySmall,
+                style: context.aiTypography.supporting,
               ),
             ),
           ],
@@ -686,21 +693,21 @@ class _AccountHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    final colors = Theme.of(context).colorScheme;
+    final colors = context.aiColors;
     return Card(
       color: colors.primaryContainer,
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: context.aiSpacing.featuredCardInsets,
         child: Row(
           children: [
             _ProviderAvatar(
               provider: snapshot.account.provider,
               account: account,
-              radius: 24,
+              radius: AiUsageComponentSizeTokens.regularAvatar / 2,
               backgroundColor: colors.primary,
               foregroundColor: colors.onPrimary,
             ),
-            const SizedBox(width: 12),
+            SizedBox(width: context.aiSpacing.controlGap),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -711,7 +718,7 @@ class _AccountHeader extends StatelessWidget {
                                 snapshot.account.identityHash
                         ? _accountDisplayName(context, account!)
                         : _providerAccountLabel(context, snapshot.account),
-                    style: Theme.of(context).textTheme.titleMedium,
+                    style: context.aiTypography.cardTitle,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -748,7 +755,7 @@ class _OverviewGrid extends StatelessWidget {
           snapshot.providerQuotas.isEmpty)
         Card(
           child: Padding(
-            padding: const EdgeInsets.all(20),
+            padding: context.aiSpacing.featuredCardInsets,
             child: Text(l10n.noQuotaWindows),
           ),
         )
@@ -767,21 +774,27 @@ class _OverviewGrid extends StatelessWidget {
     ];
     return LayoutBuilder(
       builder: (context, constraints) {
-        final columns = constraints.maxWidth >= 920
+        final columns =
+            constraints.maxWidth >= AiUsageLayoutTokens.overviewGridBreakpoint
             ? 3
-            : constraints.maxWidth >= 600
+            : constraints.maxWidth >= AiUsageLayoutTokens.compactBreakpoint
             ? 2
             : 1;
-        final width = (constraints.maxWidth - (columns - 1) * 12) / columns;
+        final width =
+            (constraints.maxWidth -
+                (columns - 1) * context.aiSpacing.controlGap) /
+            columns;
         return Wrap(
-          spacing: 12,
-          runSpacing: 12,
+          spacing: context.aiSpacing.controlGap,
+          runSpacing: context.aiSpacing.controlGap,
           children: [
             for (final card in cards)
               SizedBox(
                 width: width,
                 child: ConstrainedBox(
-                  constraints: const BoxConstraints(minHeight: 230),
+                  constraints: const BoxConstraints(
+                    minHeight: AiUsageComponentSizeTokens.metricCardMinHeight,
+                  ),
                   child: card,
                 ),
               ),
@@ -806,39 +819,37 @@ class _QuotaWindowCard extends StatelessWidget {
       final remaining = (100 - used).clamp(0, 100).toDouble();
       return Card(
         child: Padding(
-          padding: const EdgeInsets.all(16),
+          padding: context.aiSpacing.cardInsets,
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
                 _windowTitle(context, window),
-                style: Theme.of(context).textTheme.titleMedium,
+                style: context.aiTypography.cardTitle,
               ),
               Text(l10n.usedPercent(used.round())),
-              const SizedBox(height: 12),
+              SizedBox(height: context.aiSpacing.controlGap),
               ClipRRect(
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: context.aiShapes.controlBorderRadius,
                 child: LinearProgressIndicator(
                   value: used / 100,
-                  minHeight: 10,
+                  minHeight: AiUsageComponentSizeTokens.compactProgressExtent,
                   color: used >= 95
-                      ? Theme.of(context).colorScheme.error
+                      ? context.aiColors.error
                       : used >= 80
-                      ? Colors.orange
-                      : Theme.of(context).colorScheme.primary,
-                  backgroundColor: Theme.of(
-                    context,
-                  ).colorScheme.surfaceContainerHighest,
+                      ? context.aiSemanticColors.warning
+                      : context.aiColors.primary,
+                  backgroundColor: context.aiColors.surfaceContainerHighest,
                 ),
               ),
-              const SizedBox(height: 10),
+              SizedBox(height: context.aiSpacing.inlineWideGap),
               Text(l10n.remainingPercent(remaining.round())),
-              const SizedBox(height: 4),
+              SizedBox(height: context.aiSpacing.tightGap),
               Text(l10n.resetIn(_remainingTime(context, window.resetAt))),
               Text(
                 l10n.resetsAt(_absoluteTime(context, window.resetAt)),
-                style: Theme.of(context).textTheme.bodySmall,
+                style: context.aiTypography.supporting,
               ),
             ],
           ),
@@ -874,7 +885,7 @@ class _ProviderBalanceCard extends StatelessWidget {
     final currency = primary?.currency ?? '';
     return Card(
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: context.aiSpacing.cardInsets,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -882,24 +893,24 @@ class _ProviderBalanceCard extends StatelessWidget {
             Row(
               children: [
                 const Icon(Icons.account_balance_wallet_outlined),
-                const SizedBox(width: 8),
+                SizedBox(width: context.aiSpacing.inlineGap),
                 Expanded(
                   child: Text(
                     _balanceLabel(context, primary?.id ?? 'total'),
-                    style: Theme.of(context).textTheme.titleMedium,
+                    style: context.aiTypography.cardTitle,
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 16),
+            SizedBox(height: context.aiSpacing.sectionGap),
             Text(
               '${primary?.amount ?? '—'}${currency.isEmpty ? '' : ' $currency'}',
-              style: Theme.of(context).textTheme.headlineSmall,
+              style: context.aiTypography.primaryMetric,
             ),
-            const SizedBox(height: 8),
+            SizedBox(height: context.aiSpacing.contentGap),
             for (final metric in metrics.where((item) => !item.primary))
               Padding(
-                padding: const EdgeInsets.only(top: 4),
+                padding: EdgeInsets.only(top: context.aiSpacing.tightGap),
                 child: Row(
                   children: [
                     Expanded(child: Text(_balanceLabel(context, metric.id))),
@@ -927,20 +938,23 @@ class _ProviderQuotaCard extends StatelessWidget {
     final used = quota.usedPercent.clamp(0, 100).toDouble();
     return Card(
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: context.aiSpacing.cardInsets,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
               quota.id.startsWith('mimo:') ? l10n.tokenPlan : quota.title,
-              style: Theme.of(context).textTheme.titleMedium,
+              style: context.aiTypography.cardTitle,
             ),
-            const SizedBox(height: 8),
+            SizedBox(height: context.aiSpacing.contentGap),
             Text(l10n.usedOfTotal(quota.used, quota.limit, quota.unit)),
-            const SizedBox(height: 12),
-            LinearProgressIndicator(value: used / 100, minHeight: 10),
-            const SizedBox(height: 8),
+            SizedBox(height: context.aiSpacing.controlGap),
+            LinearProgressIndicator(
+              value: used / 100,
+              minHeight: AiUsageComponentSizeTokens.compactProgressExtent,
+            ),
+            SizedBox(height: context.aiSpacing.contentGap),
             Text('${quota.remaining} ${quota.unit}'),
             if (quota.expiresAt != null)
               Text(l10n.expiresAt(_absoluteTime(context, quota.expiresAt!))),
@@ -961,23 +975,20 @@ class _CreditsCard extends StatelessWidget {
     final l10n = AppLocalizations.of(context);
     return Card(
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: context.aiSpacing.cardInsets,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Icon(Icons.account_balance_wallet_outlined),
-            const SizedBox(height: 12),
-            Text(
-              l10n.extraCredits,
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-            const SizedBox(height: 20),
+            SizedBox(height: context.aiSpacing.controlGap),
+            Text(l10n.extraCredits, style: context.aiTypography.cardTitle),
+            SizedBox(height: context.aiSpacing.majorSectionGap),
             Text(
               credits.unlimited
                   ? l10n.unlimited
                   : credits.balance ?? l10n.balanceUnavailable,
-              style: Theme.of(context).textTheme.headlineSmall,
+              style: context.aiTypography.primaryMetric,
             ),
             Text(credits.hasCredits ? l10n.creditsAvailable : l10n.noCredits),
           ],
@@ -1005,7 +1016,7 @@ class _ResetCreditsCard extends StatelessWidget {
           ..sort();
     return Card(
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: context.aiSpacing.cardInsets,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -1013,23 +1024,23 @@ class _ResetCreditsCard extends StatelessWidget {
             Row(
               children: [
                 const Icon(Icons.restart_alt),
-                const SizedBox(width: 8),
+                SizedBox(width: context.aiSpacing.inlineGap),
                 Expanded(
                   child: Text(
                     l10n.resetCredits,
-                    style: Theme.of(context).textTheme.titleMedium,
+                    style: context.aiTypography.cardTitle,
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 12),
+            SizedBox(height: context.aiSpacing.controlGap),
             Text(l10n.resetCreditsReadOnly),
-            const SizedBox(height: 16),
+            SizedBox(height: context.aiSpacing.sectionGap),
             Text(
               l10n.availableCount(available),
-              style: Theme.of(context).textTheme.titleLarge,
+              style: context.aiTypography.secondaryMetric,
             ),
-            const SizedBox(height: 8),
+            SizedBox(height: context.aiSpacing.contentGap),
             if (expiries.isNotEmpty)
               Text(l10n.earliestExpiry(_absoluteTime(context, expiries.first)))
             else
@@ -1041,7 +1052,7 @@ class _ResetCreditsCard extends StatelessWidget {
                     .join(' · '),
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.bodySmall,
+                style: context.aiTypography.supporting,
               ),
           ],
         ),
@@ -1058,15 +1069,15 @@ class AccountsPage extends ConsumerWidget {
     final controller = ref.watch(appControllerProvider);
     final l10n = AppLocalizations.of(context);
     return ListView(
-      padding: const EdgeInsets.all(16),
+      padding: context.aiSpacing.pageInsets,
       children: [
         Text(
           controller.selectedProvider == null
               ? l10n.accounts
               : '${_providerLabel(context, controller.selectedProvider!)} · ${l10n.accounts}',
-          style: Theme.of(context).textTheme.headlineSmall,
+          style: context.aiTypography.pageTitle,
         ),
-        const SizedBox(height: 8),
+        SizedBox(height: context.aiSpacing.contentGap),
         if (controller.currentProviderAccounts.isEmpty)
           _EmptyState(
             icon: Icons.person_off_outlined,
@@ -1091,7 +1102,7 @@ class AccountsPage extends ConsumerWidget {
                 _accountAction(context, controller, account, 'remove'),
           ),
         ),
-        const SizedBox(height: 8),
+        SizedBox(height: context.aiSpacing.contentGap),
         OutlinedButton.icon(
           onPressed: () => _showAddAccount(context),
           icon: const Icon(Icons.person_add_alt_1),
@@ -1169,7 +1180,7 @@ class _AccountManagementCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    final colors = Theme.of(context).colorScheme;
+    final colors = context.aiColors;
     final title = _accountDisplayName(context, account);
     final identifier = _accountIdentifierValue(context, account);
     final showIdentifier =
@@ -1180,7 +1191,7 @@ class _AccountManagementCard extends StatelessWidget {
       child: InkWell(
         onTap: onSelect,
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 10),
+          padding: context.aiSpacing.cardInsets,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -1190,9 +1201,9 @@ class _AccountManagementCard extends StatelessWidget {
                   _ProviderAvatar(
                     provider: account.provider,
                     account: account,
-                    radius: 22,
+                    radius: AiUsageComponentSizeTokens.regularAvatar / 2,
                   ),
-                  const SizedBox(width: 12),
+                  SizedBox(width: context.aiSpacing.controlGap),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1201,15 +1212,15 @@ class _AccountManagementCard extends StatelessWidget {
                           title,
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
-                          style: Theme.of(context).textTheme.titleMedium,
+                          style: context.aiTypography.cardTitle,
                         ),
                         if (showIdentifier) ...[
-                          const SizedBox(height: 3),
+                          SizedBox(height: context.aiSpacing.tightGap),
                           Text(
                             identifier,
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
-                            style: Theme.of(context).textTheme.bodySmall,
+                            style: context.aiTypography.supporting,
                           ),
                         ],
                       ],
@@ -1217,15 +1228,17 @@ class _AccountManagementCard extends StatelessWidget {
                   ),
                   if (selected)
                     Padding(
-                      padding: const EdgeInsets.only(left: 8),
+                      padding: EdgeInsets.only(
+                        left: context.aiSpacing.contentGap,
+                      ),
                       child: Icon(Icons.check_circle, color: colors.primary),
                     ),
                 ],
               ),
-              const SizedBox(height: 12),
+              SizedBox(height: context.aiSpacing.controlGap),
               Wrap(
-                spacing: 8,
-                runSpacing: 6,
+                spacing: context.aiSpacing.wrapGap,
+                runSpacing: context.aiSpacing.tightGap,
                 children: [
                   Chip(label: Text(account.plan ?? l10n.unknownPlan)),
                   Chip(
@@ -1238,12 +1251,15 @@ class _AccountManagementCard extends StatelessWidget {
                   ),
                 ],
               ),
-              const SizedBox(height: 10),
+              SizedBox(height: context.aiSpacing.inlineWideGap),
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Icon(Icons.schedule_outlined, size: 18),
-                  const SizedBox(width: 6),
+                  Icon(
+                    Icons.schedule_outlined,
+                    size: AiUsageComponentSizeTokens.compactIndicatorExtent,
+                  ),
+                  SizedBox(width: context.aiSpacing.tightGap),
                   Expanded(
                     child: Text(
                       l10n.lastSuccessfulRefresh(
@@ -1254,18 +1270,18 @@ class _AccountManagementCard extends StatelessWidget {
                                 account.lastSuccessfulRefresh!,
                               ),
                       ),
-                      style: Theme.of(context).textTheme.bodySmall,
+                      style: context.aiTypography.supporting,
                     ),
                   ),
                 ],
               ),
-              const Divider(height: 22),
+              const Divider(),
               Align(
                 alignment: AlignmentDirectional.centerEnd,
                 child: Wrap(
                   alignment: WrapAlignment.end,
-                  spacing: 4,
-                  runSpacing: 4,
+                  spacing: context.aiSpacing.tightGap,
+                  runSpacing: context.aiSpacing.tightGap,
                   children: [
                     TextButton.icon(
                       onPressed: onDetails,
@@ -1343,7 +1359,7 @@ class _AccountDetailsPageState extends ConsumerState<AccountDetailsPage> {
         : (DateTime.now().millisecondsSinceEpoch ~/ 1000 - details.createdAt) ~/
               86400;
     return ListView(
-      padding: const EdgeInsets.all(16),
+      padding: context.aiSpacing.pageInsets,
       children: [
         if (controller.demoMode)
           Align(
@@ -1357,12 +1373,12 @@ class _AccountDetailsPageState extends ConsumerState<AccountDetailsPage> {
                 leading: _ProviderAvatar(
                   provider: account.provider,
                   account: account,
-                  radius: 24,
+                  radius: AiUsageComponentSizeTokens.regularAvatar / 2,
                 ),
                 title: Text(_accountDisplayName(context, account)),
                 subtitle: Text(_providerLabel(context, account.provider)),
               ),
-              const Divider(height: 1),
+              const Divider(),
               _DetailTile(
                 label: l10n.provider,
                 value: _providerLabel(context, account.provider),
@@ -1422,10 +1438,10 @@ class _AccountDetailsPageState extends ConsumerState<AccountDetailsPage> {
         ),
         if (account.provider == ProviderKind.mimo)
           Padding(
-            padding: const EdgeInsets.only(top: 8),
+            padding: EdgeInsets.only(top: context.aiSpacing.contentGap),
             child: Text(
               l10n.mimoInternalApiWarning,
-              style: Theme.of(context).textTheme.bodySmall,
+              style: context.aiTypography.supporting,
             ),
           ),
         if (account.provider == ProviderKind.codex &&
@@ -1466,7 +1482,7 @@ class _DetailTile extends StatelessWidget {
   Widget build(BuildContext context) => ListTile(
     title: Text(label),
     trailing: SizedBox(
-      width: 180,
+      width: AiUsageLayoutTokens.detailLabelMaxWidth,
       child: Text(
         value,
         textAlign: TextAlign.end,
@@ -1518,14 +1534,14 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
       );
     }
     return ListView(
-      padding: const EdgeInsets.all(16),
+      padding: context.aiSpacing.pageInsets,
       children: [
         Row(
           children: [
             Expanded(
               child: Text(
                 l10n.tokenActivity,
-                style: Theme.of(context).textTheme.headlineSmall,
+                style: context.aiTypography.pageTitle,
               ),
             ),
             if (controller.demoMode) Chip(label: Text(l10n.demoData)),
@@ -1538,11 +1554,11 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
             ),
           ],
         ),
-        Text(l10n.profileMayLag, style: Theme.of(context).textTheme.bodySmall),
-        const SizedBox(height: 12),
+        Text(l10n.profileMayLag, style: context.aiTypography.supporting),
+        SizedBox(height: context.aiSpacing.controlGap),
         if (controller.profileLoading && profile == null)
-          const SizedBox(
-            height: 240,
+          SizedBox(
+            height: AiUsageComponentSizeTokens.featuredCardMinHeight,
             child: Center(child: CircularProgressIndicator()),
           )
         else if (profile == null)
@@ -1553,21 +1569,21 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
           )
         else ...[
           _TokenSummaryGrid(summary: profile.summary),
-          const SizedBox(height: 12),
+          SizedBox(height: context.aiSpacing.controlGap),
           TokenUsageChart(
             buckets: profile.dailyUsageBuckets,
             view: _tokenUsageView,
             onViewChanged: (view) => setState(() => _tokenUsageView = view),
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: context.aiSpacing.contentGap),
           Text(
             l10n.profileUpdatedAt(_absoluteTime(context, profile.fetchedAt)),
-            style: Theme.of(context).textTheme.bodySmall,
+            style: context.aiTypography.supporting,
           ),
           if (controller.profileError != null)
-            Text(
-              l10n.showingCachedProfile,
-              style: TextStyle(color: Theme.of(context).colorScheme.error),
+            AiUsageStatusText(
+              text: l10n.showingCachedProfile,
+              tone: AiUsageStatusTone.error,
             ),
         ],
       ],
@@ -1597,27 +1613,28 @@ class _TokenSummaryGrid extends StatelessWidget {
     ];
     return LayoutBuilder(
       builder: (context, constraints) {
-        final width = constraints.maxWidth >= 700
-            ? (constraints.maxWidth - 24) / 3
-            : (constraints.maxWidth - 12) / 2;
+        final width =
+            constraints.maxWidth >= AiUsageLayoutTokens.summaryGridBreakpoint
+            ? (constraints.maxWidth - context.aiSpacing.majorSectionGap) / 3
+            : (constraints.maxWidth - context.aiSpacing.controlGap) / 2;
         return Wrap(
-          spacing: 12,
-          runSpacing: 12,
+          spacing: context.aiSpacing.controlGap,
+          runSpacing: context.aiSpacing.controlGap,
           children: [
             for (final item in items)
               SizedBox(
                 width: width,
                 child: Card(
                   child: Padding(
-                    padding: const EdgeInsets.all(16),
+                    padding: context.aiSpacing.cardInsets,
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(item.$1),
-                        const SizedBox(height: 8),
+                        SizedBox(height: context.aiSpacing.contentGap),
                         Text(
                           item.$2,
-                          style: Theme.of(context).textTheme.titleLarge,
+                          style: context.aiTypography.secondaryMetric,
                         ),
                       ],
                     ),
@@ -1664,10 +1681,10 @@ class SettingsPage extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     return ListView(
-      padding: const EdgeInsets.all(16),
+      padding: context.aiSpacing.pageInsets,
       children: [
-        Text(l10n.settings, style: Theme.of(context).textTheme.headlineSmall),
-        const SizedBox(height: 8),
+        Text(l10n.settings, style: context.aiTypography.pageTitle),
+        SizedBox(height: context.aiSpacing.contentGap),
         _SettingsEntry(
           icon: Icons.palette_outlined,
           title: l10n.appearanceAndLanguage,
@@ -1742,7 +1759,7 @@ class _AppearanceSettingsPage extends ConsumerWidget {
     final settings = controller.settings;
     final l10n = AppLocalizations.of(context);
     return ListView(
-      padding: const EdgeInsets.all(16),
+      padding: context.aiSpacing.pageInsets,
       children: [
         Card(
           child: Column(
@@ -1769,7 +1786,7 @@ class _AppearanceSettingsPage extends ConsumerWidget {
                   ],
                 ),
               ),
-              const Divider(height: 1),
+              const Divider(),
               SwitchListTile(
                 title: Text(l10n.dynamicColor),
                 subtitle: Text(l10n.dynamicColorDescription),
@@ -1836,7 +1853,7 @@ class _MonitoringSettingsPage extends ConsumerWidget {
     final settings = controller.settings;
     final l10n = AppLocalizations.of(context);
     return ListView(
-      padding: const EdgeInsets.all(16),
+      padding: context.aiSpacing.pageInsets,
       children: [
         Card(
           child: Column(
@@ -1937,7 +1954,7 @@ class _DataSettingsPage extends ConsumerWidget {
     final settings = controller.settings;
     final l10n = AppLocalizations.of(context);
     return ListView(
-      padding: const EdgeInsets.all(16),
+      padding: context.aiSpacing.pageInsets,
       children: [
         Card(
           child: SwitchListTile(
@@ -1960,7 +1977,7 @@ class _DataSettingsPage extends ConsumerWidget {
             onTap: () => context.push('/diagnostics'),
           ),
         ),
-        const SizedBox(height: 8),
+        SizedBox(height: context.aiSpacing.contentGap),
         Text(l10n.privacy),
       ],
     );
@@ -1987,6 +2004,7 @@ class _AboutPage extends ConsumerStatefulWidget {
 
 class _AboutPageState extends ConsumerState<_AboutPage> {
   int _selfDestructTaps = 0;
+  bool _dangerExpanded = false;
   bool _destroying = false;
   String? _selfDestructError;
 
@@ -2015,92 +2033,89 @@ class _AboutPageState extends ConsumerState<_AboutPage> {
             ? l10n.versionUnavailable
             : '${snapshot.data!.version} (${snapshot.data!.buildNumber})';
         return ListView(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+          padding: EdgeInsetsDirectional.only(
+            top: context.aiSpacing.contentGap,
+            bottom: context.aiSpacing.contentGap,
+            start: context.aiSpacing.pageInsets.left,
+            end: context.aiSpacing.pageInsets.right,
+          ),
           children: [
             Center(
               child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 720),
+                constraints: const BoxConstraints(
+                  maxWidth: AiUsageLayoutTokens.readingMaxWidth,
+                ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Card(
                       child: Padding(
-                        padding: const EdgeInsets.all(24),
+                        padding: context.aiSpacing.cardInsets,
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             ClipRRect(
-                              borderRadius: BorderRadius.circular(18),
+                              borderRadius: context
+                                  .aiShapes
+                                  .prominentContainerBorderRadius,
                               child: Image.asset(
                                 'assets/branding/aiusage_icon_dark.png',
-                                width: 72,
-                                height: 72,
+                                width: AiUsageComponentSizeTokens.appIcon,
+                                height: AiUsageComponentSizeTokens.appIcon,
                               ),
                             ),
-                            const SizedBox(height: 16),
+                            SizedBox(height: context.aiSpacing.sectionGap),
                             Text(
                               'AiUsage',
-                              style: Theme.of(context).textTheme.headlineMedium,
+                              style: context.aiTypography.prominentTitle,
                             ),
-                            const SizedBox(height: 6),
+                            SizedBox(height: context.aiSpacing.tightGap),
                             Text(l10n.aboutTagline),
-                            const SizedBox(height: 20),
+                            SizedBox(height: context.aiSpacing.majorSectionGap),
                             const Divider(),
-                            const SizedBox(height: 12),
+                            SizedBox(height: context.aiSpacing.controlGap),
                             Text(l10n.appVersion(version)),
                           ],
                         ),
                       ),
                     ),
-                    const SizedBox(height: 20),
-                    Padding(
-                      padding: const EdgeInsetsDirectional.only(start: 8),
-                      child: Text(
-                        l10n.developer,
-                        style: Theme.of(context).textTheme.titleMedium
-                            ?.copyWith(
-                              color: Theme.of(context).colorScheme.primary,
-                              fontWeight: FontWeight.w700,
-                            ),
-                      ),
+                    SizedBox(height: context.aiSpacing.sectionGap),
+                    AiUsageSectionTitle(
+                      l10n.developer,
+                      color: context.aiColors.primary,
                     ),
-                    const SizedBox(height: 8),
                     Card(
                       clipBehavior: Clip.antiAlias,
                       child: InkWell(
                         onTap: () => unawaited(_openExternal(_developer)),
                         child: Padding(
-                          padding: const EdgeInsets.all(18),
+                          padding: context.aiSpacing.cardInsets,
                           child: Row(
                             children: [
                               const CircleAvatar(
-                                radius: 32,
+                                radius:
+                                    AiUsageComponentSizeTokens
+                                        .emphasizedAvatar /
+                                    2,
                                 backgroundImage: AssetImage(
                                   'assets/branding/developer_avatar.jpg',
                                 ),
                               ),
-                              const SizedBox(width: 16),
+                              SizedBox(width: context.aiSpacing.sectionGap),
                               Expanded(
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
                                       l10n.developerName,
-                                      style: Theme.of(
-                                        context,
-                                      ).textTheme.titleLarge,
+                                      style: context.aiTypography.itemTitle,
                                     ),
-                                    const SizedBox(height: 4),
+                                    SizedBox(
+                                      height: context.aiSpacing.tightGap,
+                                    ),
                                     Text(
                                       l10n.developerGithub,
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .bodyLarge
-                                          ?.copyWith(
-                                            color: Theme.of(
-                                              context,
-                                            ).colorScheme.onSurfaceVariant,
-                                          ),
+                                      style: context.aiTypography.body,
                                     ),
                                   ],
                                 ),
@@ -2111,24 +2126,27 @@ class _AboutPageState extends ConsumerState<_AboutPage> {
                         ),
                       ),
                     ),
-                    const SizedBox(height: 16),
+                    SizedBox(height: context.aiSpacing.contentGap),
                     Card(
                       clipBehavior: Clip.antiAlias,
                       child: Padding(
-                        padding: const EdgeInsets.only(top: 18, bottom: 8),
+                        padding: EdgeInsets.only(
+                          top: context.aiSpacing.sectionGap,
+                          bottom: context.aiSpacing.contentGap,
+                        ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 20,
+                              padding: EdgeInsets.symmetric(
+                                horizontal: context.aiSpacing.majorSectionGap,
                               ),
                               child: Text(
                                 l10n.openSourceNotice,
-                                style: Theme.of(context).textTheme.titleMedium,
+                                style: context.aiTypography.cardTitle,
                               ),
                             ),
-                            const Divider(height: 28),
+                            const Divider(),
                             ListTile(
                               leading: const Icon(Icons.code_outlined),
                               title: Text(l10n.sourceCode),
@@ -2152,15 +2170,17 @@ class _AboutPageState extends ConsumerState<_AboutPage> {
                         ),
                       ),
                     ),
-                    const SizedBox(height: 12),
+                    SizedBox(height: context.aiSpacing.controlGap),
                     Padding(
-                      padding: const EdgeInsetsDirectional.only(start: 8),
+                      padding: EdgeInsetsDirectional.only(
+                        start: context.aiSpacing.contentGap,
+                      ),
                       child: Text(
                         l10n.copyrightNotice,
-                        style: Theme.of(context).textTheme.bodySmall,
+                        style: context.aiTypography.supporting,
                       ),
                     ),
-                    const SizedBox(height: 12),
+                    SizedBox(height: context.aiSpacing.controlGap),
                   ],
                 ),
               ),
@@ -2168,30 +2188,50 @@ class _AboutPageState extends ConsumerState<_AboutPage> {
             if (_selfDestructUiSupported)
               Center(
                 child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 720),
+                  constraints: const BoxConstraints(
+                    maxWidth: AiUsageLayoutTokens.readingMaxWidth,
+                  ),
                   child: Card(
-                    color: Theme.of(context).colorScheme.errorContainer,
+                    color: context.aiColors.errorContainer,
                     clipBehavior: Clip.antiAlias,
                     child: ExpansionTile(
                       leading: Icon(
                         Icons.warning_amber_rounded,
-                        color: Theme.of(context).colorScheme.onErrorContainer,
+                        color: context.aiColors.onErrorContainer,
                       ),
-                      iconColor: Theme.of(context).colorScheme.onErrorContainer,
-                      collapsedIconColor: Theme.of(
-                        context,
-                      ).colorScheme.onErrorContainer,
-                      textColor: Theme.of(context).colorScheme.onErrorContainer,
-                      collapsedTextColor: Theme.of(
-                        context,
-                      ).colorScheme.onErrorContainer,
+                      iconColor: context.aiColors.onErrorContainer,
+                      collapsedIconColor: context.aiColors.onErrorContainer,
+                      textColor: context.aiColors.onErrorContainer,
+                      collapsedTextColor: context.aiColors.onErrorContainer,
                       title: Text(l10n.dangerZone),
+                      trailing: _dangerExpanded
+                          ? FilledButton.tonalIcon(
+                              onPressed: _destroying ? null : _tapSelfDestruct,
+                              icon: _destroying
+                                  ? SizedBox.square(
+                                      dimension: AiUsageComponentSizeTokens
+                                          .compactIndicatorExtent,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: AiUsageComponentSizeTokens
+                                            .compactIndicatorStroke,
+                                      ),
+                                    )
+                                  : const Icon(Icons.delete_forever),
+                              label: Text(l10n.selfDestruct),
+                            )
+                          : null,
                       onExpansionChanged: (expanded) {
-                        if (!expanded && mounted) {
-                          setState(_resetSelfDestruct);
-                        }
+                        if (!mounted) return;
+                        setState(() {
+                          _dangerExpanded = expanded;
+                          if (!expanded) _resetSelfDestruct();
+                        });
                       },
-                      childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                      childrenPadding: EdgeInsets.only(
+                        left: context.aiSpacing.cardInsets.left,
+                        right: context.aiSpacing.cardInsets.right,
+                        bottom: context.aiSpacing.cardInsets.bottom,
+                      ),
                       children: [
                         LayoutBuilder(
                           builder: (context, constraints) {
@@ -2200,62 +2240,26 @@ class _AboutPageState extends ConsumerState<_AboutPage> {
                               children: [
                                 Text(l10n.selfDestructDescription),
                                 if (_selfDestructTaps > 0) ...[
-                                  const SizedBox(height: 6),
+                                  SizedBox(height: context.aiSpacing.tightGap),
                                   Text(
                                     l10n.selfDestructTapRemaining(
                                       10 - _selfDestructTaps,
                                     ),
-                                    style: Theme.of(
-                                      context,
-                                    ).textTheme.bodySmall,
+                                    style: context.aiTypography.supporting,
                                   ),
                                 ],
                               ],
                             );
-                            final action = FilledButton.tonalIcon(
-                              onPressed: _destroying ? null : _tapSelfDestruct,
-                              icon: _destroying
-                                  ? const SizedBox.square(
-                                      dimension: 16,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                      ),
-                                    )
-                                  : const Icon(Icons.delete_forever),
-                              label: Text(l10n.selfDestruct),
-                            );
-                            if (constraints.maxWidth < 440) {
-                              return Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  description,
-                                  const SizedBox(height: 12),
-                                  Align(
-                                    alignment: AlignmentDirectional.centerEnd,
-                                    child: action,
-                                  ),
-                                ],
-                              );
-                            }
-                            return Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Expanded(child: description),
-                                const SizedBox(width: 12),
-                                action,
-                              ],
-                            );
+                            return description;
                           },
                         ),
                         if (_selfDestructError != null) ...[
-                          const SizedBox(height: 12),
+                          SizedBox(height: context.aiSpacing.controlGap),
                           Align(
                             alignment: AlignmentDirectional.centerStart,
-                            child: Text(
-                              _selfDestructError!,
-                              style: TextStyle(
-                                color: Theme.of(context).colorScheme.error,
-                              ),
+                            child: AiUsageStatusText(
+                              text: _selfDestructError!,
+                              tone: AiUsageStatusTone.error,
                             ),
                           ),
                         ],
@@ -2374,9 +2378,13 @@ class _SelfDestructWarningDialogState
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    final colors = Theme.of(context).colorScheme;
+    final colors = context.aiColors;
     return AlertDialog(
-      icon: Icon(Icons.warning_amber_rounded, color: colors.error, size: 36),
+      icon: Icon(
+        Icons.warning_amber_rounded,
+        color: colors.error,
+        size: AiUsageComponentSizeTokens.warningIcon,
+      ),
       title: Text(l10n.selfDestructWarningTitle),
       content: Column(
         mainAxisSize: MainAxisSize.min,
@@ -2387,13 +2395,15 @@ class _SelfDestructWarningDialogState
                 ? l10n.selfDestructFinalWarning
                 : l10n.selfDestructFirstWarning,
           ),
-          const SizedBox(height: 16),
-          Text(
-            _seconds == 0 ? l10n.selfDestruct : l10n.selfDestructWait(_seconds),
-            style: TextStyle(
-              color: _seconds == 0 ? colors.error : colors.onSurfaceVariant,
-              fontWeight: FontWeight.w600,
-            ),
+          SizedBox(height: context.aiSpacing.sectionGap),
+          AiUsageStatusText(
+            text: _seconds == 0
+                ? l10n.selfDestruct
+                : l10n.selfDestructWait(_seconds),
+            tone: _seconds == 0
+                ? AiUsageStatusTone.error
+                : AiUsageStatusTone.neutral,
+            emphasized: true,
           ),
         ],
       ),
@@ -2462,9 +2472,9 @@ Future<bool> _confirmBackgroundRefresh(BuildContext context) async {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(l10n.backgroundWarningMessage),
-                  const SizedBox(height: 12),
+                  SizedBox(height: context.aiSpacing.controlGap),
                   Wrap(
-                    spacing: 8,
+                    spacing: context.aiSpacing.wrapGap,
                     children: [
                       OutlinedButton(
                         onPressed: () => unawaited(
@@ -2530,13 +2540,10 @@ class _DiagnosticsPageState extends ConsumerState<DiagnosticsPage> {
     final controller = ref.watch(appControllerProvider);
     final l10n = AppLocalizations.of(context);
     return ListView(
-      padding: const EdgeInsets.all(16),
+      padding: context.aiSpacing.pageInsets,
       children: [
-        Text(
-          l10n.diagnosticsPrivacy,
-          style: Theme.of(context).textTheme.bodySmall,
-        ),
-        const SizedBox(height: 8),
+        Text(l10n.diagnosticsPrivacy, style: context.aiTypography.supporting),
+        SizedBox(height: context.aiSpacing.contentGap),
         if (controller.syncLogs.isEmpty)
           _EmptyState(
             icon: Icons.receipt_long_outlined,
@@ -2556,7 +2563,11 @@ class _DiagnosticsPageState extends ConsumerState<DiagnosticsPage> {
                 subtitle: Text(
                   '${_absoluteTime(context, entry.startedAt)} · ${entry.durationMs} ms · ${_syncTriggerLabel(context, entry.trigger)}',
                 ),
-                childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                childrenPadding: EdgeInsets.only(
+                  left: context.aiSpacing.cardInsets.left,
+                  right: context.aiSpacing.cardInsets.right,
+                  bottom: context.aiSpacing.cardInsets.bottom,
+                ),
                 children: [
                   Align(
                     alignment: Alignment.centerLeft,
@@ -2564,9 +2575,7 @@ class _DiagnosticsPageState extends ConsumerState<DiagnosticsPage> {
                       entry.responseBody.isEmpty
                           ? l10n.emptyResponse
                           : entry.responseBody,
-                      style: Theme.of(
-                        context,
-                      ).textTheme.bodySmall?.copyWith(fontFamily: 'monospace'),
+                      style: context.aiTypography.diagnostic,
                     ),
                   ),
                   if (entry.truncated)
@@ -2598,14 +2607,14 @@ class _StateBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
+    final colors = context.aiColors;
     final l10n = AppLocalizations.of(context);
     return Card(
       color: state == UsageState.authExpired
           ? colors.errorContainer
           : colors.surfaceContainerHighest,
       child: Padding(
-        padding: const EdgeInsets.all(12),
+        padding: context.aiSpacing.stateInsets,
         child: Row(
           children: [
             Icon(
@@ -2613,7 +2622,7 @@ class _StateBanner extends StatelessWidget {
                   ? Icons.lock_outline
                   : Icons.warning_amber_outlined,
             ),
-            const SizedBox(width: 10),
+            SizedBox(width: context.aiSpacing.inlineWideGap),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -2650,21 +2659,11 @@ class _EmptyState extends StatelessWidget {
   final Widget? action;
 
   @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.all(32),
-    child: Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 48),
-          const SizedBox(height: 12),
-          Text(title, style: Theme.of(context).textTheme.titleLarge),
-          const SizedBox(height: 6),
-          Text(message, textAlign: TextAlign.center),
-          if (action != null) ...[const SizedBox(height: 16), action!],
-        ],
-      ),
-    ),
+  Widget build(BuildContext context) => AiUsageEmptyState(
+    icon: icon,
+    title: title,
+    message: message,
+    action: action,
   );
 }
 
@@ -2817,20 +2816,20 @@ class _DeviceLoginDialogState extends ConsumerState<_DeviceLoginDialog>
     return AlertDialog(
       title: Text(l10n.signInToCodex),
       content: SizedBox(
-        width: 420,
+        width: AiUsageLayoutTokens.dialogMaxWidth,
         child: _error != null && _start == null
             ? Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(l10n.signInFailed),
-                  const SizedBox(height: 8),
+                  SizedBox(height: context.aiSpacing.contentGap),
                   SelectableText(_loginErrorMessage(context, _error!)),
                 ],
               )
             : _start == null
-            ? const SizedBox(
-                height: 96,
+            ? SizedBox(
+                height: AiUsageComponentSizeTokens.loadingPlaceholder,
                 child: Center(child: CircularProgressIndicator()),
               )
             : Column(
@@ -2844,27 +2843,26 @@ class _DeviceLoginDialogState extends ConsumerState<_DeviceLoginDialog>
                     ),
                     textInputAction: TextInputAction.done,
                   ),
-                  const SizedBox(height: 12),
+                  SizedBox(height: context.aiSpacing.controlGap),
                   Text(l10n.completeBrowserSignIn),
-                  const SizedBox(height: 16),
+                  SizedBox(height: context.aiSpacing.sectionGap),
                   SelectableText(
                     _start!.userCode,
-                    style: Theme.of(context).textTheme.headlineMedium,
+                    style: context.aiTypography.prominentTitle,
                   ),
-                  const SizedBox(height: 8),
+                  SizedBox(height: context.aiSpacing.contentGap),
                   Text(l10n.codeExpiresIn(_remainingLoginTime)),
-                  const SizedBox(height: 8),
+                  SizedBox(height: context.aiSpacing.contentGap),
                   Text(l10n.browserPasteHint),
                   if (_error != null) ...[
-                    const SizedBox(height: 8),
-                    Text(
-                      '${l10n.lastCheckFailed} ${_loginErrorMessage(context, _error!)}',
-                      style: TextStyle(
-                        color: Theme.of(context).colorScheme.error,
-                      ),
+                    SizedBox(height: context.aiSpacing.contentGap),
+                    AiUsageStatusText(
+                      text:
+                          '${l10n.lastCheckFailed} ${_loginErrorMessage(context, _error!)}',
+                      tone: AiUsageStatusTone.error,
                     ),
                   ],
-                  const SizedBox(height: 12),
+                  SizedBox(height: context.aiSpacing.controlGap),
                   const LinearProgressIndicator(),
                 ],
               ),
@@ -2900,7 +2898,8 @@ Future<void> _showDeviceLogin(BuildContext context) => showDialog<void>(
 );
 
 Future<void> _showAddAccount(BuildContext context) async {
-  final mobile = MediaQuery.sizeOf(context).width < 600;
+  final mobile =
+      MediaQuery.sizeOf(context).width < AiUsageLayoutTokens.compactBreakpoint;
   final provider = mobile
       ? await showModalBottomSheet<String>(
           context: context,
@@ -2962,14 +2961,17 @@ class _ProviderChoices extends StatelessWidget {
       children: [
         for (final provider in ProviderKind.values)
           ListTile(
-            leading: _ProviderAvatar(provider: provider, radius: 18),
+            leading: _ProviderAvatar(
+              provider: provider,
+              radius: AiUsageComponentSizeTokens.compactAvatar / 2,
+            ),
             title: Text(_providerLabel(context, provider)),
             subtitle: provider == ProviderKind.mimo
                 ? Text(l10n.mimoInternalApiWarning)
                 : null,
             onTap: () => Navigator.pop(context, provider.name.toLowerCase()),
           ),
-        const SizedBox(height: 8),
+        SizedBox(height: context.aiSpacing.contentGap),
       ],
     );
   }
@@ -3001,7 +3003,9 @@ class _DeepSeekLoginDialogState extends State<_DeepSeekLoginDialog> {
     return AlertDialog(
       title: Text(l10n.addDeepSeek),
       content: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 480),
+        constraints: const BoxConstraints(
+          maxWidth: AiUsageLayoutTokens.dialogMaxWidth,
+        ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -3016,14 +3020,14 @@ class _DeepSeekLoginDialogState extends State<_DeepSeekLoginDialog> {
               controller: _alias,
               decoration: InputDecoration(labelText: l10n.accountAliasOptional),
             ),
-            const SizedBox(height: 12),
+            SizedBox(height: context.aiSpacing.controlGap),
             Text(l10n.deepSeekKeyHint),
             if (_error != null)
               Padding(
-                padding: const EdgeInsets.only(top: 8),
-                child: Text(
-                  _error!,
-                  style: TextStyle(color: Theme.of(context).colorScheme.error),
+                padding: EdgeInsets.only(top: context.aiSpacing.contentGap),
+                child: AiUsageStatusText(
+                  text: _error!,
+                  tone: AiUsageStatusTone.error,
                 ),
               ),
           ],
@@ -3038,8 +3042,11 @@ class _DeepSeekLoginDialogState extends State<_DeepSeekLoginDialog> {
           onPressed: _saving ? null : _submit,
           child: _saving
               ? const SizedBox.square(
-                  dimension: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2),
+                  dimension: AiUsageComponentSizeTokens.compactIndicatorExtent,
+                  child: CircularProgressIndicator(
+                    strokeWidth:
+                        AiUsageComponentSizeTokens.compactIndicatorStroke,
+                  ),
                 )
               : Text(l10n.saveAndVerify),
         ),
@@ -3094,7 +3101,9 @@ class _MimoLoginDialogState extends State<_MimoLoginDialog> {
     return AlertDialog(
       title: Text(l10n.addMimo),
       content: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 480),
+        constraints: const BoxConstraints(
+          maxWidth: AiUsageLayoutTokens.dialogMaxWidth,
+        ),
         child: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -3126,16 +3135,14 @@ class _MimoLoginDialogState extends State<_MimoLoginDialog> {
                   ),
                 ),
               ),
-              const SizedBox(height: 12),
+              SizedBox(height: context.aiSpacing.controlGap),
               Text(l10n.mimoSecurityHint),
               if (_error != null)
                 Padding(
-                  padding: const EdgeInsets.only(top: 8),
-                  child: Text(
-                    _error!,
-                    style: TextStyle(
-                      color: Theme.of(context).colorScheme.error,
-                    ),
+                  padding: EdgeInsets.only(top: context.aiSpacing.contentGap),
+                  child: AiUsageStatusText(
+                    text: _error!,
+                    tone: AiUsageStatusTone.error,
                   ),
                 ),
             ],
@@ -3151,8 +3158,11 @@ class _MimoLoginDialogState extends State<_MimoLoginDialog> {
           onPressed: _saving ? null : _submit,
           child: _saving
               ? const SizedBox.square(
-                  dimension: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2),
+                  dimension: AiUsageComponentSizeTokens.compactIndicatorExtent,
+                  child: CircularProgressIndicator(
+                    strokeWidth:
+                        AiUsageComponentSizeTokens.compactIndicatorStroke,
+                  ),
                 )
               : Text(l10n.saveAndVerify),
         ),
@@ -3218,7 +3228,7 @@ class _LoginMethodChoices extends StatelessWidget {
           subtitle: Text(l10n.authJsonAdvanced),
           onTap: () => Navigator.pop(context, 'file'),
         ),
-        const SizedBox(height: 8),
+        SizedBox(height: context.aiSpacing.contentGap),
       ],
     );
   }
@@ -3257,7 +3267,9 @@ class _AuthJsonImportDialogState extends ConsumerState<_AuthJsonImportDialog> {
     return AlertDialog(
       title: Text(l10n.importAuthJson),
       content: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 480),
+        constraints: const BoxConstraints(
+          maxWidth: AiUsageLayoutTokens.dialogMaxWidth,
+        ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -3267,7 +3279,7 @@ class _AuthJsonImportDialogState extends ConsumerState<_AuthJsonImportDialog> {
               maxLength: 48,
               decoration: InputDecoration(labelText: l10n.accountAliasOptional),
             ),
-            const SizedBox(height: 4),
+            SizedBox(height: context.aiSpacing.tightGap),
             Row(
               children: [
                 Expanded(
@@ -3275,7 +3287,7 @@ class _AuthJsonImportDialogState extends ConsumerState<_AuthJsonImportDialog> {
                     '${l10n.credentialImport}: ${_bytes == null ? l10n.credentialNotImported : l10n.credentialImported}',
                   ),
                 ),
-                const SizedBox(width: 12),
+                SizedBox(width: context.aiSpacing.controlGap),
                 OutlinedButton.icon(
                   onPressed: _saving ? null : _chooseFile,
                   icon: const Icon(Icons.file_open_outlined),
@@ -3284,11 +3296,8 @@ class _AuthJsonImportDialogState extends ConsumerState<_AuthJsonImportDialog> {
               ],
             ),
             if (_error != null) ...[
-              const SizedBox(height: 12),
-              Text(
-                _error!,
-                style: TextStyle(color: Theme.of(context).colorScheme.error),
-              ),
+              SizedBox(height: context.aiSpacing.controlGap),
+              AiUsageStatusText(text: _error!, tone: AiUsageStatusTone.error),
             ],
           ],
         ),
@@ -3302,8 +3311,11 @@ class _AuthJsonImportDialogState extends ConsumerState<_AuthJsonImportDialog> {
           onPressed: _saving || _bytes == null ? null : _save,
           child: _saving
               ? const SizedBox.square(
-                  dimension: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2),
+                  dimension: AiUsageComponentSizeTokens.compactIndicatorExtent,
+                  child: CircularProgressIndicator(
+                    strokeWidth:
+                        AiUsageComponentSizeTokens.compactIndicatorStroke,
+                  ),
                 )
               : Text(l10n.save),
         ),
@@ -3491,7 +3503,7 @@ class _ProviderAvatar extends StatelessWidget {
   const _ProviderAvatar({
     required this.provider,
     this.account,
-    this.radius = 20,
+    this.radius = AiUsageComponentSizeTokens.regularAvatar / 2,
     this.backgroundColor,
     this.foregroundColor,
   });
@@ -3504,24 +3516,26 @@ class _ProviderAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
+    final colors = context.aiColors;
     final background =
         backgroundColor ??
         switch (provider) {
-          ProviderKind.codex || ProviderKind.deepSeek => Colors.white,
-          ProviderKind.mimo => const Color(0xFFFF6900),
+          ProviderKind.codex ||
+          ProviderKind.deepSeek => AiUsageBrandTokens.openAiSurface,
+          ProviderKind.mimo => AiUsageBrandTokens.mimoOrange,
         };
     final foreground =
         foregroundColor ??
         switch (provider) {
           ProviderKind.codex => colors.onPrimaryContainer,
-          ProviderKind.deepSeek || ProviderKind.mimo => Colors.white,
+          ProviderKind.deepSeek ||
+          ProviderKind.mimo => AiUsageBrandTokens.openAiSurface,
         };
     final avatarUrl = provider == ProviderKind.codex
         ? account?.avatarUrl
         : null;
     final fallback = Padding(
-      padding: EdgeInsets.all(radius * 0.32),
+      padding: AiUsageBrandTokens.logoPadding(radius),
       child: Image.asset(_providerAsset(provider), fit: BoxFit.contain),
     );
     return CircleAvatar(
